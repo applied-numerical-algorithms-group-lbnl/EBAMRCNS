@@ -2,7 +2,7 @@
 ebase = navierDriver
 
 # the location of Chombo lib dir
-CHOMBO_HOME = $(HOME)/_svnchombo/lib
+CHOMBO_HOME = ../chombo_lib
 
 # names of Chombo libraries needed by this program, in order of search.
 LibNames = EBAMRTimeDependent EBAMRElliptic EBAMRTools Workshop EBTools AMRElliptic AMRTimeDependent AMRTools BoxTools
