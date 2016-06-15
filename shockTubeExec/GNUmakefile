@@ -2,7 +2,7 @@ USE_EB = TRUE
 
 ebase = navierDriver
 
-CHOMBO_HOME = $(CHOMBO_TRUNK_LIB)
+CHOMBO_HOME = ../chombo_lib
 
 LibNames = EBAMRTimeDependent EBAMRElliptic EBAMRTools Workshop EBTools AMRElliptic AMRTimeDependent AMRTools BoxTools
 base_dir = .
