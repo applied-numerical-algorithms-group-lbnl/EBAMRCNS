@@ -54,11 +54,13 @@ There are other implemented in the src directory.
 
 
 =-=-=-=-=-=-=-=-
-inflow/outflow
+###inflow/outflow initial/boundary condition
 =-=-=-=-=-=-=-=-
-For this  one you specify a preshock state and the mach number for your calculation.
+This is an inflow/outflow problem.
+For this  one you specify a preshock state and the mach number for your calculation
+as well as where the shock starrts
 
-input params you should be ok with changing:
+##input params you should be ok with changing:
 
 1. restart file        --- starting from checkpoint thing
 2. logflag             --- whether to take logs of pressure and density for output
@@ -89,9 +91,9 @@ input params you should be ok with changing:
 
 ##The interface is hard to use but the results are cool.
 
-[Chombo documentation:](http://chombo.lbl.gov)
+##[Chombo documentation:](http://chombo.lbl.gov)
 
-Here is the paper that describes the algorithm:
+##Here is the paper that describes the algorithm:
 @ARTICLE{compress_ns,
 author ={Daniel T. Graves and  Phillip Colella and David Modiano and Jeffrey Johnson  and  Bjorn Sjogreen and Xinfeng Gao},
 title = {A Cartesian Grid Embedded Boundary Method for the Compressible {N}avier {S}tokes Equations},
