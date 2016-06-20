@@ -98,10 +98,32 @@ getFaceFlux(BaseFab<Real>&        a_faceFlux,
             const bool&           a_useHomogeneous)
 {
 
-  NeumannViscousTensorDomainBC neumannBC;
-  neumannBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
-  neumannBC.setValue(0.0);
-  neumannBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+  bool atInflow, atOutflow;
+  whereAMI(atInflow, atOutflow, a_idir, a_side);
+  if(atInflow)
+    {
+      DirichletViscousTensorDomainBC diriBC;
+      Real value = 0;
+      FORT_GETPOSTSHOCKVEL(CHF_REAL(value));
+      RefCountedPtr<BaseBCFuncEval> funk(new DVTInflowFunc (value, m_shockNorm));
+      diriBC.setFunction(funk);
+
+      diriBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+      diriBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+
+     // NeumannViscousTensorDomainBC neumBC;
+     // neumBC.setValue(0.);
+     //
+     // neumBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+     // neumBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
+  else
+    {
+      NeumannViscousTensorDomainBC neumannBC;
+      neumannBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+      neumannBC.setValue(0.0);
+      neumannBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
 }
 
 
@@ -123,11 +145,32 @@ getFaceFlux(Real&                 a_faceFlux,
   bool atInflow, atOutflow;
   whereAMI(atInflow, atOutflow, a_idir, a_side);
 
-  NeumannViscousTensorDomainBC neumannBC;
-  neumannBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
-  neumannBC.setValue(0.0);
-  neumannBC.getFaceFlux(a_faceFlux, a_vof, a_comp,a_phi, a_probLo,
-                        a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+  if(atInflow)
+    {
+      DirichletViscousTensorDomainBC diriBC;
+      Real inflowvel;
+      FORT_GETPOSTSHOCKVEL(CHF_REAL(inflowvel));
+
+      RefCountedPtr<BaseBCFuncEval> funk(new DVTInflowFunc (inflowvel, m_shockNorm));
+      diriBC.setFunction(funk);
+
+      diriBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+      diriBC.getFaceFlux(a_faceFlux, a_vof, a_comp, a_phi, a_probLo,
+                         a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+//      NeumannViscousTensorDomainBC neumBC;
+//      neumBC.setValue(0.);
+//      neumBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+//      neumBC.getFaceFlux(a_faceFlux, a_vof, a_comp, a_phi, a_probLo,
+//                         a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
+  else
+    {
+      NeumannViscousTensorDomainBC neumannBC;
+      neumannBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+      neumannBC.setValue(0.0);
+      neumannBC.getFaceFlux(a_faceFlux, a_vof, a_comp,a_phi, a_probLo,
+                            a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
 }
 
 #include "NamespaceFooter.H"
