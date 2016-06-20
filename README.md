@@ -1,3 +1,4 @@
+#EBAMRCNS
 
 This is a code that solves the compressible Navier Stokes equations
 in the context of complex geometry.    The boundary conditions and 
@@ -12,6 +13,33 @@ There are other implemented in the src directory.
 
 inflow/outflow
 For this  one you specify a preshock state and the mach number for your calculation.
+
+input params you should be ok with changing:
+
+restart file        --- starting from checkpoint thing
+logflag             --- whether to take logs of pressure and density for output
+cfl                 --- cfl number (needs to be less than 1, preferably 0.1-0.5
+max_step            --- maximum number of time steps
+tag_buffer_size     --- number of cells added around each tagged cell (should be at least 1)
+regrid_interval     --- how often to regrid
+gamma               --- ratio of specfic heats
+domain_length       --- length of the domain (only the x value used, I think)
+max_level           --- highest amr level number
+n_cell              --- number of cells on level 0
+ref_ratio           --- refinement ratios
+max_grid_size       --- maximum size of any box in domain
+checkpoint_interval --- how often to checkpoint
+plot_interval       --- how often to write plot files
+which_geom          --- which geometric configurtion you are using (1 ramp, 2 slab, 4 cylinder, 5 sphere... see GodunovGeom.cpp for more)
+ramp_normal         --- normal vector of the ramp (for which_geom == 1)
+ramp_alpha          --- y intercept of the ramp
+do_diffusion        --- whether to turn on or off diffusion terms ( false == inviscid Euler)
+mu_viscosity        --- viscosity 
+lambda_viscosity    --- set this = -2/3 mu_viscosity
+preshockdense       --- pre shock density
+preshockpress       --- pre shock pressure
+shock_mach          --- mach number of the shcok
+shock_center        --- where in the domain the shock lives 
 
 See src/GodunovGeom.cpp for the available geometries.
 
