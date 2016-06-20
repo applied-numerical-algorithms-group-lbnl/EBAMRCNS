@@ -5,7 +5,7 @@
 This is a code that solves the compressible Navier Stokes equations
 in the context of complex geometry.    The boundary conditions and 
 initial conditions live in the IBC classes.   This is all written in the
-Chombo infrastructure from LBNL.  See [the Chombo web page:](http://chombo.lbl.gov) Chombo documentation. 
+Chombo infrastructure from LBNL.  See [the Chombo web page:](http://chombo.lbl.gov) for  Chombo documentation. 
 
 ## usage :
 
@@ -71,27 +71,27 @@ as well as where the shock starrts
 7. gamma               --- ratio of specfic heats
 8. domain_length       --- length of the domain (only the x value used, I think)
 9. max_level           --- highest amr level number
-10.n_cell              --- number of cells on level 0
-11.ref_ratio           --- refinement ratios
-12.max_grid_size       --- maximum size of any box in domain
-13.checkpoint_interval --- how often to checkpoint
-14.plot_interval       --- how often to write plot files
-15.which_geom          --- which geometric configurtion you are using (1 ramp, 2 slab, 4 cylinder, 5 sphere... see GodunovGeom.cpp for more)
-16.ramp_normal         --- normal vector of the ramp (for which_geom == 1)
-17.ramp_alpha          --- y intercept of the ramp
-18.do_diffusion        --- whether to turn on or off diffusion terms ( false == inviscid Euler)
-19.mu_viscosity        --- viscosity 
-20.lambda_viscosity    --- set this = -2/3 mu_viscosity
-21.preshockdense       --- pre shock density
-22.preshockpress       --- pre shock pressure
-23.shock_mach          --- mach number of the shcok
-24.shock_center        --- where in the domain the shock lives 
+10. n_cell              --- number of cells on level 0
+11. ref_ratio           --- refinement ratios
+12. max_grid_size       --- maximum size of any box in domain
+13. checkpoint_interval --- how often to checkpoint
+14. plot_interval       --- how often to write plot files
+15. which_geom          --- which geometric configurtion you are using (1 ramp, 2 slab, 4 cylinder, 5 sphere... see GodunovGeom.cpp for more)
+16. ramp_normal         --- normal vector of the ramp (for which_geom == 1)
+17. ramp_alpha          --- y intercept of the ramp
+18. do_diffusion        --- whether to turn on or off diffusion terms ( false == inviscid Euler)
+19. mu_viscosity        --- viscosity 
+20. lambda_viscosity    --- set this = -2/3 mu_viscosity
+21. preshockdense       --- pre shock density
+22. preshockpress       --- pre shock pressure
+23. shock_mach          --- mach number of the shcok
+24. shock_center        --- where in the domain the shock lives 
 
 ##See src/GodunovGeom.cpp for the available geometries.
 
 ##The interface is hard to use but the results are cool.
 
-##[Chombo documentation:](http://chombo.lbl.gov)
+##[Chombo documentation](http://chombo.lbl.gov)
 
 ##Here is the paper that describes the algorithm:
 @ARTICLE{compress_ns,
