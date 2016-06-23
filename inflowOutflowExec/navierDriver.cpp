@@ -75,7 +75,7 @@ void amrGodunov(const Box&      a_domain,
   fillAMRParams(params, iprob);
   
   ParmParse ppgodunov;
-  bool tagAllIrregular;
+  bool tagAllIrregular = true;
   if(ppgodunov.contains("tag_all_irregular"))
     {
       ppgodunov.get("tag_all_irregular", tagAllIrregular);
