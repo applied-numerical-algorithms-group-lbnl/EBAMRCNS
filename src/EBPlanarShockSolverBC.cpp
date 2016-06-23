@@ -18,12 +18,15 @@
 #include "Stencils.H"
 #include "DirichletViscousTensorEBBC.H"
 #include "NeumannViscousTensorEBBC.H"
+#include "MixedViscousTensorDomainBC.H"
 #include "VoFIterator.H"
 #include "ParmParse.H"
 #include "EBPlanarShockF_F.H"
 #include "SlipWallViscousTensorDomainBC.H"
 
 #include "NamespaceHeader.H"
+
+bool EBPlanarShockSolverBC::s_printed_stuff = false;
 
 class DVTInflowFunc: public  BaseBCFuncEval
 {
@@ -64,22 +67,22 @@ void
 EBPlanarShockSolverBC::
 whereAMI(bool& a_atInflow, 
          bool& a_atOutflow,
+         bool& a_atMixed,
          const int&            a_idir, 
          const Side::LoHiSide& a_side)
 {
 
   if(a_idir == m_shockNorm)
     {
-      a_atOutflow =  ((  m_shockBackward && a_side == Side::Lo) ||
-                      ( !m_shockBackward && a_side == Side::Hi));
+      a_atOutflow =  (a_side == Side::Hi);
       
-      a_atInflow =  (( !m_shockBackward && a_side == Side::Lo) ||
-                     (  m_shockBackward && a_side == Side::Hi));
+      a_atInflow  =  (a_side == Side::Lo); 
     }
   else
     {
       a_atInflow = false;
       a_atOutflow= false;
+      a_atMixed = (a_side == Side::Lo);
     }
 
 }
@@ -98,8 +101,8 @@ getFaceFlux(BaseFab<Real>&        a_faceFlux,
             const bool&           a_useHomogeneous)
 {
 
-  bool atInflow, atOutflow;
-  whereAMI(atInflow, atOutflow, a_idir, a_side);
+  bool atInflow, atOutflow, atMixed;
+  whereAMI(atInflow, atOutflow, atMixed, a_idir, a_side);
   if(atInflow)
     {
       DirichletViscousTensorDomainBC diriBC;
@@ -116,6 +119,25 @@ getFaceFlux(BaseFab<Real>&        a_faceFlux,
      //
      // neumBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
      // neumBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
+  else if(atMixed)
+    {
+      MixedViscousTensorDomainBC mixedBC;
+      ParmParse pp;
+      if(pp.contains("start_dirichlet"))
+        {
+          Real startDiri;
+          pp.get("start_dirichlet", startDiri);
+          mixedBC.setStartDirichlet(startDiri);
+
+          if(!s_printed_stuff)
+            {
+              pout() << "STARTING NO SLIP CONDITION AT X VALUE = "  << startDiri << endl;
+              s_printed_stuff = true;
+            }
+        }
+      mixedBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+      mixedBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
     }
   else
     {
@@ -142,8 +164,8 @@ getFaceFlux(Real&                 a_faceFlux,
             const bool&           a_useHomogeneous)
 {
 
-  bool atInflow, atOutflow;
-  whereAMI(atInflow, atOutflow, a_idir, a_side);
+  bool atInflow, atOutflow, atMixed;
+  whereAMI(atInflow, atOutflow, atMixed, a_idir, a_side);
 
   if(atInflow)
     {
@@ -162,6 +184,26 @@ getFaceFlux(Real&                 a_faceFlux,
 //      neumBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
 //      neumBC.getFaceFlux(a_faceFlux, a_vof, a_comp, a_phi, a_probLo,
 //                         a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
+  else if(atMixed)
+    {
+      MixedViscousTensorDomainBC mixedBC;
+      ParmParse pp;
+      if(pp.contains("start_dirichlet"))
+        {
+          Real startDiri;
+          pp.get("start_dirichlet", startDiri);
+          mixedBC.setStartDirichlet(startDiri);
+
+          if(!s_printed_stuff)
+            {
+              pout() << "STARTING NO SLIP CONDITION AT X VALUE = "  << startDiri << endl;
+              s_printed_stuff = true;
+            }
+        }
+      mixedBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+      mixedBC.getFaceFlux(a_faceFlux, a_vof, a_comp,a_phi, a_probLo,
+                          a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
     }
   else
     {
