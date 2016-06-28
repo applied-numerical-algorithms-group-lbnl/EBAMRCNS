@@ -94,10 +94,25 @@ getFaceFlux(BaseFab<Real>&        a_faceFlux,
             const Real&           a_time,
             const bool&           a_useHomogeneous)
 {
-  NeumannConductivityDomainBC neumannBC;
-  neumannBC.setCoef(m_eblg, m_beta, m_bcoef);
-  neumannBC.setValue(0.0);
-  neumannBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+  bool atInflow, atOutflow;
+  whereAMI(atInflow, atOutflow, a_idir, a_side);
+  if(0)
+    {
+      DirichletConductivityDomainBC diriBC;
+      Real value = 0;
+      FORT_GETPOSTSHOCKTEMP(CHF_REAL(value));
+      diriBC.setValue(value);
+
+      diriBC.setCoef(m_eblg, m_beta, m_bcoef);
+      diriBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
+  else
+    {
+      NeumannConductivityDomainBC neumannBC;
+      neumannBC.setCoef(m_eblg, m_beta, m_bcoef);
+      neumannBC.setValue(0.0);
+      neumannBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
 }
 
 
@@ -115,11 +130,30 @@ getFaceFlux(Real&                 a_faceFlux,
             const Real&           a_time,
             const bool&           a_useHomogeneous)
 {
-  NeumannConductivityDomainBC neumannBC;
-  neumannBC.setCoef(m_eblg, m_beta, m_bcoef);
-  neumannBC.setValue(0.0);
-  neumannBC.getFaceFlux(a_faceFlux, a_vof, a_comp,a_phi, a_probLo,
-                        a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+  //velocity is neumann only at inflow or at slipwalls
+  bool atInflow, atOutflow;
+  whereAMI(atInflow, atOutflow, a_idir, a_side);
+
+  //  if(atInflow)
+  if(0)
+    {
+      DirichletConductivityDomainBC diriBC;
+      Real value;
+      FORT_GETPOSTSHOCKTEMP(CHF_REAL(value));
+      diriBC.setValue(value);
+
+      diriBC.setCoef(m_eblg, m_beta, m_bcoef);
+      diriBC.getFaceFlux(a_faceFlux, a_vof, a_comp, a_phi, a_probLo,
+                         a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
+  else
+    {
+      NeumannConductivityDomainBC neumannBC;
+      neumannBC.setCoef(m_eblg, m_beta, m_bcoef);
+      neumannBC.setValue(0.0);
+      neumannBC.getFaceFlux(a_faceFlux, a_vof, a_comp,a_phi, a_probLo,
+                            a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
+    }
 }
 
 #include "NamespaceFooter.H"

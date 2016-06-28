@@ -77,7 +77,7 @@ void amrGodunov(const Box&      a_domain,
   pout() << "explosion initial conditions" << endl;
   pout() << "solid wall boundary conditions" << endl;
   ParmParse ppgodunov;
-  bool tagAllIrregular;
+  bool tagAllIrregular = true;
   if(ppgodunov.contains("tag_all_irregular"))
     {
       ppgodunov.get("tag_all_irregular", tagAllIrregular);

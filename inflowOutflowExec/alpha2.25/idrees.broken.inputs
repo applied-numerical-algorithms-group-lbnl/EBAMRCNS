@@ -10,7 +10,7 @@ initial_cfl = 0.01
 verbosity = 2
 #max_step = 2
 #max_step = 20
-max_step = 1500
+max_step = 10000
 #max_step = 0
 #max_step = 77
 #max_step = 200
@@ -22,17 +22,26 @@ max_dt_growth = 1.1
 dt_tolerance_factor = 1.1
 fixed_dt   = -1
 gamma = 1.666666667
-domain_length = 4.0e-3 4.0e-3 4.0e-3
+domain_length = 8.0e-3 4.0e-3 4.0e-3
 explicit_hyperbolic_source = true
 backward_euler = true
 outflow_bc = true
 ###explosion problem defns
+shock_mach = 2.78
+#shock_mach = 7.1
+shock_center = 6.0e-4
+shock_normal = 0
 
 use_subcycling = true
 # Grid stuff
 max_level = 2
 #coarsest grid size
-n_cell =  128 128 128
+#n_cell =  16 8 8
+#n_cell =  32 16 16
+n_cell =  256 128 128
+#n_cell =  128 256 256
+#n_cell =  256 512 512
+
 
 
 ref_ratio = 2 2 2 2 2 2 2
@@ -40,10 +49,9 @@ ref_ratio = 2 2 2 2 2 2 2
 block_factor =  16
 max_grid_size = 32
 fill_ratio = 0.75
-
 ###file output stuff
-checkpoint_interval = 500
-plot_interval = 150
+checkpoint_interval = 250
+plot_interval = 250
 #plot_interval = 40
 plot_prefix  = plt
 chk_prefix = chk
@@ -60,9 +68,7 @@ redist_radius = 1
 
 ###geometry flag
 ## 1 is a ramp
-## 0 is no geometry
 which_geom = 1
-#which_geom = 0
 shock_backward = 0
 ##proper nesting radius
 grid_buffer_size = 1
@@ -72,8 +78,8 @@ grid_buffer_size = 1
 #start at 1/8
 #ramp_alpha = -0.015625
 #30 deg ramp
-ramp_normal = -0.5 0.866025404 0.0
-ramp_alpha = -6.0e-4
+ramp_normal = -0.406737 0.913545 0.0
+ramp_alpha = -2.25e-3
 #ramp_alpha = -1.5e3
 #49 degree ramp
 #ramp_normal = -0.7547095 0.656059 0.0
@@ -105,13 +111,7 @@ preshockdense = 1.0
 preshockpress = 1.66666667
 ##this stuff is to restrict tagging
 ## trail buffer is about percentage of the domain
-track_shock = false
+track_shock = true
 trail_buffer = 0.1234
 turn_off_implicit_reflux = true
-
-shock_mach = 2.78
-#shock_mach = 7.1
-shock_center = 6.0e-4
-shock_normal = 0
-start_dirichlet = 7.0e-4
 

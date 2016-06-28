@@ -2253,12 +2253,15 @@ tagCells(IntVectSet& a_tags)
   pp.query("tag_hi_and_lo", tagHiLo);
   if(tagHiLo)
     {
-      Box loBox = adjCellLo(m_problem_domain.domainBox(), 1, 1);
-      Box hiBox = adjCellHi(m_problem_domain.domainBox(), 1, 1);
-      loBox.shift(1,  1);
-      hiBox.shift(1, -1);
-      localTags |= loBox;
-      localTags |= hiBox;
+      for(int idir = 0; idir < SpaceDim; idir++)
+	{
+	  Box loBox = adjCellLo(m_problem_domain.domainBox(), idir, 1);
+	  Box hiBox = adjCellHi(m_problem_domain.domainBox(), idir, 1);
+	  loBox.shift(1,  1);
+	  hiBox.shift(1, -1);
+	  localTags |= loBox;
+	  localTags |= hiBox;
+	}
     }
 
   // Need to do this in two steps unless a IntVectSet::operator &=
