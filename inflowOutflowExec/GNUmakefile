@@ -1,4 +1,4 @@
-
+USE_EB = TRUE
 ebase = navierDriver
 
 # the location of Chombo lib dir
