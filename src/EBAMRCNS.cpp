@@ -2083,8 +2083,8 @@ tagCells(IntVectSet& a_tags)
     }
   consTemp.exchange(intervDensity);
 
-  bool tagAllIrregular = false;
-  bool tagInflow = false;
+  bool tagAllIrregular = true;
+  bool tagInflow = true;
   if(pp.contains("tag_all_irregular"))
     {
       pp.get("tag_all_irregular", tagAllIrregular);
