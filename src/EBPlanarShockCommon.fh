@@ -9,10 +9,11 @@
 #endif
 
       real_t postshockvel, preshockpress, postshockpress, postshocktemp
+      real_t backpressure
       real_t preshockdense, postshockdense, shockms, shockcenter, cvps
       integer shocknorm
       logical shockbackward
       common /planarshockcm/
      &     preshockdense, postshockdense, shockms, shockcenter,
      &     postshockvel, preshockpress, postshockpress, shocknorm,
-     &     shockbackward, postshocktemp, cvps
+     &     shockbackward, postshocktemp, cvps, backpressure

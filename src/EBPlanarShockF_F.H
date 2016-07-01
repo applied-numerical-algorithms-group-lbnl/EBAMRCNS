@@ -79,6 +79,7 @@ void FORTRAN_NAME( SETPLANARSHOCK ,setplanarshock )(
       ,CHFp_CONST_REAL(aucenter)
       ,CHFp_CONST_REAL(aupreshockpress)
       ,CHFp_CONST_REAL(aupreshockdense)
+      ,CHFp_CONST_REAL(aubackpressure)
       ,CHFp_CONST_INT(aushocknorm)
       ,CHFp_CONST_INT(aushockback) );
 
@@ -92,6 +93,7 @@ inline void FORTRAN_NAME(inlineSETPLANARSHOCK, inlineSETPLANARSHOCK)(
       ,CHFp_CONST_REAL(aucenter)
       ,CHFp_CONST_REAL(aupreshockpress)
       ,CHFp_CONST_REAL(aupreshockdense)
+      ,CHFp_CONST_REAL(aubackpressure)
       ,CHFp_CONST_INT(aushocknorm)
       ,CHFp_CONST_INT(aushockback) )
 {
@@ -103,6 +105,7 @@ inline void FORTRAN_NAME(inlineSETPLANARSHOCK, inlineSETPLANARSHOCK)(
       ,CHFt_CONST_REAL(aucenter)
       ,CHFt_CONST_REAL(aupreshockpress)
       ,CHFt_CONST_REAL(aupreshockdense)
+      ,CHFt_CONST_REAL(aubackpressure)
       ,CHFt_CONST_INT(aushocknorm)
       ,CHFt_CONST_INT(aushockback) );
 }
