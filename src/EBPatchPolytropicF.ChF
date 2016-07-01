@@ -1261,8 +1261,8 @@ c     these two do not affect the calculation
          primr(ivec) = prim(ivec)
       enddo
 
-c set  outside pressure to preshock state      
-      pout = preshockpress
+c set  outside pressure to value of back pressure
+      pout = backpressure
       if(lohisign .eq. 1) then
          u   = priml(QVELX + facedir)
          c   = priml(QC)

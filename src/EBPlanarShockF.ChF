@@ -53,6 +53,7 @@ cccccccccccccccccccccccccccccc
      &    chf_const_real[aucenter],
      &    chf_const_real[aupreshockpress],
      &    chf_const_real[aupreshockdense],
+     &    chf_const_real[aubackpressure],
      &    chf_const_int[aushocknorm],
      &    chf_const_int[aushockback])
 
@@ -60,9 +61,10 @@ cccccccccccccccccccccccccccccc
 #include "EBEOSCommon.fh"
 
         real_t  preshockc, preshocktemp,tdenom, tnumer, postshockmac
-        real_t p0,r0,p,r,umag,ke,ms
+        real_t p0,r0,p,r,umag,ke,ms, internal, cvtemp, specificheat
 
         cvps = aucv
+        specificheat = cvps
         gamma = augamma
         shockms = aums
         shockcenter = aucenter
@@ -71,7 +73,7 @@ cccccccccccccccccccccccccccccc
 
         preshockpress  = aupreshockpress
         preshockdense  = aupreshockdense
-
+        backpressure = aubackpressure
         preshockc = sqrt(gamma*preshockpress/preshockdense)
         preshocktemp = gamma*preshockpress/preshockdense
 
@@ -99,6 +101,13 @@ cccccccccccccccccccccccccccccc
            postshockvel = -postshockvel
         endif
 
+        internal = preshockpress/((gamma-one)*preshockdense)
+        cvtemp = internal
+        preshocktemp = internal/specificheat
+
+        internal = postshockpress/((gamma-one)*postshockdense)
+        cvtemp = internal
+        postshocktemp = internal/specificheat
 
 c     set levels of smallnitude
         small = 1.0e-8

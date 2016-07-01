@@ -45,6 +45,12 @@ EBPlanarShockIBC(const Real&     a_gamma,
     {
       pp.get("preshockdense", preshockdense);
     }
+
+  Real backpress = preshockpress;
+  if(pp.contains("backpressure"))
+    {
+      pp.get("backpressure", backpress);
+    }
   Real cv;
   pp.get("specific_heat", cv);
 
@@ -55,6 +61,7 @@ EBPlanarShockIBC(const Real&     a_gamma,
                       CHF_CONST_REAL(a_center),
                       CHF_CONST_REAL(preshockpress),
                       CHF_CONST_REAL(preshockdense),
+                      CHF_CONST_REAL(backpress),
                       CHF_CONST_INT(a_shocknorm),
                       CHF_CONST_INT(ishockback));
   /**/
