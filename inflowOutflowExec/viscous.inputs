@@ -103,6 +103,7 @@ inflow_vel = 8.25
 #makes the nominal temp = 1 preshock
 preshockdense = 1.0
 preshockpress = 1.66666667
+backpressure  = 1.66666667
 ##this stuff is to restrict tagging
 ## trail buffer is about percentage of the domain
 track_shock = false
