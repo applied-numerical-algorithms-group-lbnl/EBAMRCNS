@@ -1569,6 +1569,8 @@ void EBAMRDataOps::getMaxMin(Real&                                 a_maxVal,
       a_maxVal = Max(maxThis,a_maxVal);
       a_minVal = Min(minThis,a_minVal);
     }
+  a_minVal = EBLevelDataOps::parallelMin(a_minVal);
+  a_maxVal = EBLevelDataOps::parallelMax(a_maxVal);
 }
 Real EBAMRDataOps::subtractOffMean(Vector<LevelData<EBCellFAB>* >&  a_data,
                                    const Vector<DisjointBoxLayout>& a_grids,
