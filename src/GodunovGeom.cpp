@@ -1398,6 +1398,70 @@ godunovGeometry(Box& a_coarsestDomain,
           //this generates the new EBIS
           ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
         }
+      else if (whichgeom == 6854)
+        {
+          pout() << "flattened ramp geometry with end (wing) " << endl;
+          RealVect rampNormal;
+          vector<Real>  rampNormalVect(SpaceDim);
+          pp.getarr("ramp_normal",rampNormalVect, 0, SpaceDim);
+          for(int idir = 0; idir < SpaceDim; idir++)
+            {
+              rampNormal[idir] = rampNormalVect[idir];
+            }
+
+          Real rampAlpha, flatAlpha, rampEnd;
+          pp.get("ramp_alpha",rampAlpha);
+          pp.get("flat_alpha",flatAlpha);
+          pp.get("ramp_end", rampEnd);
+
+          RealVect rampPoint = RealVect::Zero;
+          RealVect flatPoint = RealVect::Zero;
+          RealVect flatNormal = BASISV(1);
+          RealVect endNormal  = BASISV(0);
+          RealVect endPoint   = RealVect::Zero;
+          endPoint[0] = rampEnd;
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              if (rampNormal[idir] != 0.0)
+                {
+                  rampPoint[idir] = rampAlpha / rampNormal[idir];
+                }
+              if (flatNormal[idir] != 0.0)
+                {
+                  flatPoint[idir] = flatAlpha / flatNormal[idir];
+                }
+              
+            }
+
+          Vector<BaseIF*> planes(3);
+
+          RealVect normal0, normal1, normal2, point0, point1, point2;
+          normal0 = RealVect::Zero;
+          normal1 = RealVect::Zero;
+          
+          normal0[1] = 1;
+          normal1 = rampNormal;
+          normal2 = endNormal;
+          
+          point0[1] = flatAlpha;
+          point1[1] = rampAlpha;
+          point2 = endPoint;
+          
+          
+
+          planes[0]   = new PlaneIF(normal0,point0,true);
+          planes[1]   = new PlaneIF(normal1,point1,true);
+          planes[2]   = new PlaneIF(normal2,point2,true);
+
+          UnionIF collection(planes);
+          //IntersectionIF collection(planes);
+
+          //GeometryShop workshop(*planes[1], verbosity,fineDx);
+          GeometryShop workshop(collection, verbosity,fineDx);
+
+          //this generates the new EBIS
+          ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+        }
       else if (whichgeom == 22)
         {
           pout() << "capped multicylinder geometry" << endl;
