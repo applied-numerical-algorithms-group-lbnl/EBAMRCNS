@@ -1,5 +1,5 @@
 #EBAMRCNS
-
+![alt txt][science_as_art]
 ## Summary
 
 This is a code that solves the compressible Navier Stokes equations
