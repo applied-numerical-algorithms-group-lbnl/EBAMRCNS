@@ -22,13 +22,11 @@ using std::ws;
 
 #include "NamespaceHeader.H"
 
-//shamelessly grabbed from RealVect
+const size_t  IntVect::IntVectSize = SpaceDim*sizeof(int);
+
 IntVect tm_iv;
 #define CHOFFSETIV(object, member) (int)((char*)&(object.member) - (char*)&object)
 size_t IntVect::io_offset = CHOFFSETIV(tm_iv, vect);
-
-const size_t  IntVect::IntVectSize = SpaceDim*sizeof(int);
-
 
 //
 // Returns IntVect which is the componentwise integer projection
@@ -149,10 +147,6 @@ static int s_dummyForIntVectCpp( IntVect::InitStatics() );
 // things stand now, nothing bad would happen, because the IntVect::IntVect()
 // constructor doesn't assign anything to any of the data members.  But we don't
 // want to count on that always being the case.
-#include "NamespaceFooter.H"
-
-#include "UsingNamespace.H"
-#include "BaseNamespaceHeader.H"
 
 ///functions for linearization shamelessly grabbed from RealVect
 int linearSize(const IntVect& a_iv)
@@ -176,4 +170,4 @@ void linearIn(IntVect& a_iv, const void* a_inBuf)
 }
 
 
-#include "BaseNamespaceFooter.H"
+#include "NamespaceFooter.H"

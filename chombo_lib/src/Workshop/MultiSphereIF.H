@@ -70,6 +70,8 @@ public:
 
   virtual GeometryService::InOut InsideOutside(const RealVect& a_low, const RealVect& a_high) const;
 
+  Real value(const IndexTM<int,GLOBALDIM> & a_partialDerivative,
+             const IndexTM<Real,GLOBALDIM>& a_point) const;
 protected:
   int              m_numSpheres;  // number of spheres
   Vector<Real>     m_radii;       // radi

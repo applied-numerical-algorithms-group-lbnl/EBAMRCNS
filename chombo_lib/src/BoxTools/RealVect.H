@@ -91,22 +91,6 @@ public:
 
   ///
   /**
-     handy multiply function.  nice for test programs
-   */
-  RealVect operator*(const IntVect& a_iv) const
-  {
-    RealVect rtn;
-    D_TERM6(rtn.vect[0]=vect[0]*a_iv[0];,
-	    rtn.vect[1]=vect[1]*a_iv[1];,
-	    rtn.vect[2]=vect[2]*a_iv[2];,
-	    rtn.vect[3]=vect[3]*a_iv[3];,
-	    rtn.vect[4]=vect[4]*a_iv[4];,
-	    rtn.vect[5]=vect[5]*a_iv[5]);
-    return rtn;
-  }
-    
-  ///
-  /**
      The assignment operator.
   */
   RealVect& operator= (const RealVect& rhs);
@@ -188,10 +172,6 @@ public:
 
   bool operator>= (const RealVect& p) const;
 
- ///
- /** returns true is every value in the RealVect is the same
- */
-  bool isotropic() const;
   /*@}*/
 
   /**
@@ -370,6 +350,12 @@ public:
 
   ///
   /**
+     sum squares--no square root
+  */
+  Real radSquared() const;
+
+  ///
+  /**
      Product of all components of this RealVect.
   */
   Real product () const;
@@ -471,8 +457,8 @@ public:
                              const RealVect& p);
   ///
   /**
-     Returns a RealVect that is a RealVect promotion of <i>s</i> with each component
-     divided by the RealVect <i>p</i>.
+     Returns a RealVect that is a RealVect <i>p</i> with each component
+     divided by a scalar <i>s</i>.
   */
   friend RealVect operator/ (Real            s,
                              const RealVect& p);
@@ -628,12 +614,21 @@ inline
 Real
 RealVect::vectorLength () const
 {
+  Real len = this->radSquared();
+  len = sqrt(len);
+
+  return len;
+}
+
+inline
+Real
+RealVect::radSquared() const
+{
   Real len = 0;
   for (int idir = 0; idir < SpaceDim; idir++)
     {
       len = len + vect[idir]*vect[idir];
     }
-  len = sqrt(len);
 
   return len;
 }

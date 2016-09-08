@@ -34,13 +34,7 @@ Real     EBArith::s_valMax = 0.0;
 VolIndex EBArith::s_vofMax = VolIndex(IntVect::Zero, 0);
 Real     EBArith::s_minVolFrac = 0.0;
 
-/******/
-int
-EBArith::
-orderScript(int icomp, int inorm, int ncomp)
-{
-  return icomp + inorm*ncomp;
-}
+      
 void
 EBArith::
 getLeastSquaresGradStenAllVoFsRad(VoFStencil&          a_stencil,
@@ -129,337 +123,112 @@ getLeastSquaresGradStenAllVoFsRad(VoFStencil&          a_stencil,
     }
 }
 /******/
-// void
-// EBArith::
-// compareError(Vector<Real>&                            a_orders,
-//              const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
-//              const Vector< LevelData<EBCellFAB>* >&   a_errorCoar,
-//              const Vector< DisjointBoxLayout >&       a_gridsFine,
-//              const Vector< DisjointBoxLayout >&       a_gridsCoar,
-//              const Vector< EBISLayout >&              a_ebislFine,
-//              const Vector< EBISLayout >&              a_ebislCoar,
-//              const Vector<int>&                       a_refRat,
-//              const Box&                               a_coarseDom,
-//              int                                      a_testverbosity,
-//              fstream*                                 a_fout,
-//              Vector<string> a_names)
-// {
-//   CH_TIME("EBArith::compareError");
+void 
+EBArith::
+convertToITM(IndexTM<Real, SpaceDim>& a_diffrv,  const RealVect& a_rv)
+{
+  for(int idir = 0; idir < SpaceDim; idir++)
+    {
+      a_diffrv[idir] = a_rv[idir];
+    }
+}
+void 
+EBArith::
+convertToITM(IndexTM<int, SpaceDim>& a_diffrv,  const IntVect& a_rv)
+{
+  for(int idir = 0; idir < SpaceDim; idir++)
+    {
+      a_diffrv[idir] = a_rv[idir];
+    }
+}
+/******/
+void 
+EBArith::
+convertToITM(IndexTM<Real, SpaceDim-1>& a_diffrv,  const RealVect& a_rv, const int& a_ignoreIndex)
+{
+  CH_assert(a_ignoreIndex >= 0);
+  CH_assert(a_ignoreIndex < SpaceDim);
 
-//   const Vector<int>& refRat = a_refRat;
-//   const int ncomp = a_errorFine[0]->nComp();
-//   const int nnorm = 3;
-//   Real* normsCoar = new Real[ncomp*nnorm];
-//   Real* normsFine = new Real[ncomp*nnorm];
-//   a_orders.resize(ncomp*nnorm, 0.0);
-//   Real* orders    = &(a_orders[0]);
-//   for (int icomp = 0; icomp < ncomp; icomp++)
-//     {
-//       orders[icomp] = 0.0;
-//       for (int inorm = 0; inorm < nnorm; inorm++)
-//         {
-//           normsCoar[EBArith::orderScript(icomp, inorm, ncomp)] = 0;
-//           normsFine[EBArith::orderScript(icomp, inorm, ncomp)] = 0;
-//         }
-//     }
-//   int testverbosity = a_testverbosity;
-//   if (testverbosity > 1)
-//   {
-//     if (a_fout == NULL)
-//     {
-//       pout() << "==============================================" << endl;
-//     }
-//     else
-//     {
-//       *a_fout << "==============================================" << endl;
-//     }
-//   }
-//   for (int comp = 0; comp < ncomp; comp++)
-//     {
-//       if (testverbosity > 1)
-//       {
-//         if (a_fout == NULL)
-//         {
-//           if (a_names.size() > comp)
-//             pout() << "Comparing error in variable  " << a_names[comp] << endl;
-//           else
-//             pout() << "Comparing error in variable  " << comp << endl;
-//         }
-//         else
-//         {
-//           if (a_names.size() > comp)
-//             (*a_fout) << "Comparing error in variable  " << a_names[comp] << endl;
-//           else
-//             (*a_fout) << "Comparing error in variable  " << comp << endl;
-//         }
-//       }
-//       if (testverbosity > 1)
-//       {
-//         if (a_fout == NULL)
-//         {
-//           pout() << "==============================================" << endl;
-//         }
-//         else
-//         {
-//           (*a_fout) << "==============================================" << endl;
-//         }
-//       }
-//       for (int itype = 0; itype < 3; itype++)
-//         {
-//           EBNormType::NormMode normtype;
-//           if (itype == 0)
-//             {
-//               normtype = EBNormType::OverBoth;
-//               if (testverbosity > 1)
-//               {
-//                 if (a_fout == NULL)
-//                 {
-//                   pout() << endl << "Using all uncovered cells." << endl  ;
-//                 }
-//                 else
-//                 {
-//                   (*a_fout) << endl << "Using all uncovered cells." << endl  ;
-//                 }
-//               }
-//             }
-//           else if (itype == 1)
-//             {
-//               normtype = EBNormType::OverOnlyRegular;
-//               if (testverbosity > 1)
-//               {
-//                 if (a_fout == NULL)
-//                 {
-//                   pout() << endl << "Using only regular cells." << endl ;
-//                 }
-//                 else
-//                 {
-//                   (*a_fout) << endl << "Using only regular cells." << endl ;
-//                 }
-//               }
-//             }
-//           else
-//             {
-//               normtype = EBNormType::OverOnlyIrregular;
-//               if (testverbosity > 1)
-//               {
-//                 if (a_fout == NULL)
-//                 {
-//                   pout() << endl << "Using only irregular cells." << endl;
-//                 }
-//                 else
-//                 {
-//                   (*a_fout) << endl << "Using only irregular cells." << endl;
-//                 }
-//               }
-//             }
+  int index = 0;
+  for(int idir = 0; idir < SpaceDim; idir++)
+    {
+      if(idir != a_ignoreIndex)
+        {
+          a_diffrv[index] = a_rv[idir];
+          index++;
+        }
+    }
+}
+/******/
+void 
+EBArith::
+convertToITM(IndexTM<int, SpaceDim-1>& a_diffrv,  const IntVect& a_rv, const int& a_ignoreIndex)
+{
+  CH_assert(a_ignoreIndex >= 0);
+  CH_assert(a_ignoreIndex < SpaceDim);
 
-//           for (int inorm = 0; inorm <= 2; inorm++)
-//             {
+  int index = 0;
+  for(int idir = 0; idir < SpaceDim; idir++)
+    {
+      if(idir != a_ignoreIndex)
+        {
+          a_diffrv[index] = a_rv[idir];
+          index++;
+        }
+    }
+}
+/******/
+int
+EBArith::
+orderScript(int icomp, int inorm, int ncomp)
+{
+  return icomp + inorm*ncomp;
+}
+/******/
+void
+EBArith::
+compareError(Vector<Real>&                            a_orders,
+             const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
+             const Vector< LevelData<EBCellFAB>* >&   a_errorCoar,
+             const Vector< EBLevelGrid >&             a_eblgFine,
+             const Vector< EBLevelGrid >&             a_eblgCoar,
+             const Vector<int>&                       a_refRat,
+             const Box&                               a_coarseDom,
+             int                                      a_testverbosity,
+             fstream*                                 a_fout,
+             Vector<string> a_names,
+             string a_prefix)
+{
+  Vector<Real>                   errorNormFine;
+  Vector<Real>                   errorNormCoar;
+  
+  int nlev = a_eblgFine.size();
+  Vector<DisjointBoxLayout> dblFine(nlev), dblCoar(nlev);
+  Vector<EBISLayout> ebislFine(nlev), ebislCoar(nlev);
+  for(int ilev = 0; ilev < nlev; ilev++)
+    {
+      dblFine  [ilev] =       a_eblgFine[ilev].getDBL();
+      dblCoar  [ilev] =       a_eblgCoar[ilev].getDBL();
+      ebislFine[ilev] =       a_eblgFine[ilev].getEBISL();
+      ebislCoar[ilev] =       a_eblgCoar[ilev].getEBISL();
+    }
+  compareError(a_orders, errorNormFine,errorNormCoar, 
+               a_errorFine,
+               a_errorCoar,
+               dblFine,
+               dblCoar,
+               ebislFine,
+               ebislCoar,
+               a_refRat,
+               a_coarseDom,
+               a_testverbosity,
+               a_fout,
+               a_names,
+               a_prefix);
 
-//               if (inorm == 0)
-//                 {
-//                   if (testverbosity > 1)
-//                   {
-//                     if (a_fout == NULL)
-//                     {
-//                       pout() << endl << "Using max norm." << endl;
-//                     }
-//                     else
-//                     {
-//                       (*a_fout) << endl << "Using max norm." << endl;
-//                     }
-//                   }
-//                 }
-//               else
-//                 {
-//                   if (testverbosity > 1)
-//                   {
-//                     if (a_fout == NULL)
-//                     {
-//                       pout() << endl << "Using L-" << inorm << "norm." << endl;
-//                     }
-//                     else
-//                     {
-//                       (*a_fout) << endl << "Using L-" << inorm << "norm." << endl;
-//                     }
-//                   }
-//                 }
-//               Real coarnorm = EBArith::norm(a_errorCoar,
-//                                             a_gridsCoar, a_ebislCoar,
-//                                             refRat,
-//                                             comp, inorm, normtype);
-//               Real finenorm = EBArith::norm(a_errorFine,
-//                                             a_gridsFine, a_ebislFine,
-//                                             refRat,
-//                                             comp, inorm, normtype);
-//               if (testverbosity > 1)
-//               {
-//                 if (a_fout == NULL)
-//                 {
-//                   pout() << "Coarse Error Norm = " << coarnorm << endl;
-//                 }
-//                 else
-//                 {
-//                   (*a_fout) << "Coarse Error Norm = " << coarnorm << endl;
-//                 }
-//               }
-//               if (testverbosity > 1)
-//               {
-//                 if (a_fout == NULL)
-//                 {
-//                   pout() << "Fine   Error Norm = " << finenorm << endl;
-//                 }
-//                 else
-//                 {
-//                   (*a_fout) << "Fine   Error Norm = " << finenorm << endl;
-//                 }
-//               }
-//               if (itype == 0)
-//                 {
-//                   normsCoar[EBArith::orderScript(comp,inorm,ncomp)] = coarnorm;
-//                   normsFine[EBArith::orderScript(comp,inorm,ncomp)] = finenorm;
-//                 }
-//               if ((Abs(finenorm) > 1.0e-10) && (Abs(coarnorm) > 1.0e-10))
-//                 {
-//                   Real order = log(Abs(coarnorm/finenorm))/log(2.0);
-//                   //if (a_fout == NULL)
-//                   //{
-//                   //  pout() << "Order of scheme = " << order << endl;
-//                   //}
-//                   //else
-//                   //{
-//                   //  (*a_fout) << "Order of scheme = " << order << endl;
-//                   //}
-//                   if (itype == 0)
-//                     {
-//                       orders[EBArith::orderScript(comp,inorm,ncomp)] = order;
-//                     }
-//                 }
-//             }
-//         }
-//       if (testverbosity > 1)
-//       {
-//         if (a_fout == NULL)
-//         {
-//           pout() << "==============================================" << endl ;;
-//         }
-//         else
-//         {
-//           (*a_fout) << "==============================================" << endl ;;
-//         }
-//       }
-//     }
-
-//   //output in latex format to be safe
-//   int nfine = a_coarseDom.size(0);
-//   nfine *= 2;
-//   if (testverbosity > 0)
-//     {
-//       if (a_fout == NULL)
-//       {
-//         pout()    << setw(12)
-//                   << setprecision(6)
-//                   << setiosflags(ios::showpoint)
-//                   << setiosflags(ios::scientific);
-//       }
-//       else
-//       {
-//         (*a_fout) << setw(12)
-//                   << setprecision(6)
-//                   << setiosflags(ios::showpoint)
-//                   << setiosflags(ios::scientific);
-//       }
-//       for (int inorm = 0; inorm <= 2; inorm++)
-//         {
-//           if (a_fout == NULL)
-//           {
-//             pout() << "\\begin{table}[p]" << endl;
-//             pout() << "\\begin{center}" << endl;
-//             pout() << "\\begin{tabular}{|c|c|c|c|} \\hline" << endl;
-//             pout() << "Variable & Coarse Error & Fine Error & Order\\\\" << endl;;
-//             pout() << "\\hline \\hline " << endl;
-//           }
-//           else
-//           {
-//             (*a_fout) << "\\begin{table}[p]" << endl;
-//             (*a_fout) << "\\begin{center}" << endl;
-//             (*a_fout) << "\\begin{tabular}{|c|c|c|c|} \\hline" << endl;
-//             (*a_fout) << "Variable & Coarse Error & Fine Error & Order\\\\" << endl;;
-//             (*a_fout) << "\\hline \\hline " << endl;
-//           }
-//           for (int icomp = 0; icomp < ncomp; icomp++)
-//             {
-//               int iindex = EBArith::orderScript(icomp,inorm,ncomp);
-//               if (a_fout == NULL)
-//               {
-//                 if (a_names.size() > icomp)
-//                   pout() << a_names[icomp] << " &    \t ";
-//                 else
-//                   pout() << "var" << icomp << " &    \t ";
-
-//                 pout()  << setw(12)
-//                        << setprecision(6)
-//                        << setiosflags(ios::showpoint)
-//                        << setiosflags(ios::scientific)
-//                        << normsCoar[iindex]  << " & "
-//                        << setw(12)
-//                        << setprecision(6)
-//                        << setiosflags(ios::showpoint)
-//                        << setiosflags(ios::scientific)
-//                        << normsFine[iindex] << " & "
-//                        << setw(12)
-//                        << setprecision(6)
-//                        << setiosflags(ios::showpoint)
-//                        << setiosflags(ios::scientific)
-//                        << orders[iindex];
-//                 pout() << " \\\\ " << endl <<   "\\hline"  <<  endl;
-//               }
-//               else
-//               {
-//                 (*a_fout) << "var" << icomp << " &    \t "
-//                           << setw(12)
-//                           << setprecision(6)
-//                           << setiosflags(ios::showpoint)
-//                           << setiosflags(ios::scientific)
-//                           << normsCoar[iindex]  << " & "
-//                           << setw(12)
-//                           << setprecision(6)
-//                           << setiosflags(ios::showpoint)
-//                           << setiosflags(ios::scientific)
-//                           << normsFine[iindex] << " & "
-//                           << setw(12)
-//                           << setprecision(6)
-//                           << setiosflags(ios::showpoint)
-//                           << setiosflags(ios::scientific)
-//                           << orders[iindex];
-//                 (*a_fout) << " \\\\ " << endl <<   "\\hline"  <<  endl;
-//               }
-//             }
-//           if (a_fout == NULL)
-//           {
-//             pout() << "\\end{tabular}" << endl;
-//             pout() << "\\end{center}" << endl;
-//             pout() << "\\caption{Solution error convergence rates using L-" << inorm << " norm. " << endl;
-//             pout() << "$h_f = \\frac{1}{" << nfine << "}$ and $h_c = 2 h_f$, $D = " << SpaceDim << "$ }"  << endl;
-//             pout() << "\\end{table}" << endl;
-//             pout() << endl << endl;
-//           }
-//           else
-//           {
-//             (*a_fout) << "\\end{tabular}" << endl;
-//             (*a_fout) << "\\end{center}" << endl;
-//             (*a_fout) << "\\caption{Solution error convergence rates using L-" << inorm << " norm. " << endl;
-//             (*a_fout) << "$h_f = \\frac{1}{" << nfine << "}$ and $h_c = 2 h_f$, $D = " << SpaceDim << "$ }"  << endl;
-//             (*a_fout) << "\\end{table}" << endl;
-//             (*a_fout) << endl << endl;
-//           }
-//         }
-//     }
-//   //latex output
-
-//   delete normsFine;
-//   delete normsCoar;
-// }
+}
+/******/
+/******/
 void
 EBArith::
 compareError(Vector<Real>&                            a_orders,
@@ -473,12 +242,280 @@ compareError(Vector<Real>&                            a_orders,
              const Box&                               a_coarseDom,
              int                                      a_testverbosity,
              fstream*                                 a_fout,
-             Vector<string> a_names)
+             Vector<string> a_names,
+             string a_prefix)
+{
+  Vector<Real>                   errorNormFine;
+  Vector<Real>                   errorNormCoar;
+
+  compareError(a_orders, errorNormFine,errorNormCoar, 
+               a_errorFine,
+               a_errorCoar,
+               a_gridsFine,
+               a_gridsCoar,
+               a_ebislFine,
+               a_ebislCoar,
+               a_refRat,
+               a_coarseDom,
+               a_testverbosity,
+               a_fout,
+               a_names,
+               a_prefix);
+
+}
+/******/
+void
+EBArith::
+compareError(Vector<Real>&                            a_orders,
+             Vector<Real>&                   a_errorNormFine,
+             Vector<Real>&                   a_errorNormCoar,
+             const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
+             const Vector< LevelData<EBCellFAB>* >&   a_errorCoar,
+             const Vector< DisjointBoxLayout >&       a_gridsFine,
+             const Vector< DisjointBoxLayout >&       a_gridsCoar,
+             const Vector< EBISLayout >&              a_ebislFine,
+             const Vector< EBISLayout >&              a_ebislCoar,
+             const Vector<int>&                       a_refRat,
+             const Box&                               a_coarseDom,
+             int                                      a_testverbosity,
+             fstream*                                 a_fout,
+             Vector<string> a_names,
+             string a_prefix)
+{
+  Vector<string> names(a_errorFine[0]->nComp());
+  if(a_names.size()  < a_errorFine[0]->nComp())
+    {
+      for(int ivar = 0; ivar < a_errorFine[0]->nComp(); ivar++)
+        {
+          char cstr[100];
+          sprintf(cstr,"var%d",ivar);
+          names[ivar] = string(cstr);
+        }
+    }
+  else
+    {
+      names = a_names;
+    }
+  CH_TIME("EBArith::compareError");
+  
+  const Vector<int>& refRat = a_refRat;
+  const int ncomp = a_errorFine[0]->nComp();
+  const int nnorm = 3;
+  a_errorNormCoar.resize(ncomp*nnorm, 0.0);
+  a_errorNormFine.resize(ncomp*nnorm, 0.0);
+  a_orders.resize(ncomp*nnorm, 0.0);
+  Real* normsCoar = &(a_errorNormCoar[0]);
+  Real* normsFine = &(a_errorNormFine[0]);
+  Real* orders    = &(a_orders[0]);
+  // have to set the vector entries to 0 explicitly because resize does not
+  // reset entries that already exist
+  for (int icomp = 0; icomp < ncomp; icomp++)
+    {
+      orders[icomp] = 0.0;
+      for (int inorm = 0; inorm < nnorm; inorm++)
+        {
+          normsCoar[EBArith::orderScript(icomp, inorm, ncomp)] = 0;
+          normsFine[EBArith::orderScript(icomp, inorm, ncomp)] = 0;
+        }
+    }
+  for (int comp = 0; comp < ncomp; comp++)
+    {
+      for (int inorm = 0; inorm < nnorm; inorm++)
+        {
+          int itype = 0;
+          Real coarnorm = EBArith::norm(a_errorCoar,
+                                        a_gridsCoar, a_ebislCoar,
+                                        refRat,
+                                        comp, inorm, EBNormType::OverBoth);
+          Real finenorm = EBArith::norm(a_errorFine,
+                                        a_gridsFine, a_ebislFine,
+                                        refRat,
+                                        comp, inorm, EBNormType::OverBoth);
+          normsCoar[EBArith::orderScript(comp,inorm,ncomp)] = coarnorm;
+          normsFine[EBArith::orderScript(comp,inorm,ncomp)] = finenorm;
+
+          if ((Abs(coarnorm) > 1.0e-20))
+            {
+              Real order = log(Abs(coarnorm/finenorm))/log(2.0);
+              if (itype == 0)
+                {
+                  orders[EBArith::orderScript(comp,inorm,ncomp)] = order;
+                }
+            }
+        }
+    }
+
+  //output in latex format to be safe
+  int ncoar = a_coarseDom.size(0);
+  int nmedi = 2*ncoar;
+
+  pout() << setw(12)
+         << setprecision(9)
+         << setiosflags(ios::showpoint)
+         << setiosflags(ios::scientific);
+  pout() << "\\begin{table}" << endl;
+  pout() << "\\begin{center}" << endl;
+  pout() << "\\begin{tabular}{|ccccc|} \\hline" << endl;
+  pout() << "Variable &  Norm & $\\epsilon^{2h}$ & $\\varpi$ & $\\epsilon^{h}$\\\\" << endl;
+  pout() << "\\hline " << endl;
+
+  for (int inorm = 0; inorm <= 2; inorm++)
+    {
+      string normString;
+      if(inorm == 0)
+        {
+          normString = string("$L_\\infty$");
+        }
+      else
+        {
+          char cstr[100];
+          sprintf(cstr, "$L_%d$", inorm);
+          normString = string(cstr);
+        }
+
+      for (int icomp = 0; icomp < ncomp; icomp++)
+        {
+          int iindex = EBArith::orderScript(icomp,inorm,ncomp);
+          pout() 
+            << names[icomp] << " &\t "
+            << normString   << " &\t "
+            << setw(8)
+            << setprecision(3)
+            << setiosflags(ios::showpoint)
+            << setiosflags(ios::scientific)
+            << normsCoar[iindex]  << " & "
+            << setw(8)
+            << setprecision(2)
+            << setiosflags(ios::showpoint)
+            << orders[iindex] << " & "
+            << setw(8)
+            << setprecision(3)
+            << setiosflags(ios::showpoint)
+            << setiosflags(ios::scientific)
+            << normsFine[iindex];
+
+          pout() << " \\\\ " << endl;
+        }
+    }
+  pout() << "\\hline " << endl;
+  pout() << "\\end{tabular}" << endl;
+  pout() << "\\end{center}" << endl;
+  pout() << "\\caption{" << a_prefix << " convergence rates for $h = 1/" << nmedi<< "$.}" << endl;
+  pout() << "\\end{table}" << endl;
+  pout() << endl << endl;
+
+  //latex output
+
+}
+/*******/
+Real
+EBArith::
+irregNorm(const LevelData<BaseIVFAB<Real> >    & a_dataOne,
+          const DisjointBoxLayout              & a_layout,
+          const EBISLayout                     & a_ebisl,
+          const int                            & a_comp,
+          const int                            & a_p)
+{ 
+  Real locNorm  = 0;
+  Real locArea = 0;
+  for(DataIterator dit = a_layout.dataIterator(); dit.ok(); ++dit)
+    {
+      IntVectSet set = a_dataOne[dit()].getIVS();
+      //only want valid cells
+      set &=  a_layout[dit()];
+      const BaseIVFAB<Real>& dataOne = a_dataOne[dit()];
+      for(VoFIterator vofit(set, a_ebisl[dit()].getEBGraph()); vofit.ok(); ++vofit)
+        {
+          Real dataVal = dataOne(vofit(), a_comp);
+          Real bndarea = a_ebisl[dit()].bndryArea(vofit());
+          locArea += bndarea;
+          if(a_p == 0)
+            {
+              //max norm
+              locNorm = Max(Abs(dataVal), locNorm);
+            }
+          else if(a_p == 1)
+            {
+              locNorm += bndarea*Abs(dataVal);
+            }
+          else if(a_p == 2)
+            {
+              locNorm += bndarea*dataVal*dataVal;
+            }
+          else
+            {
+              MayDay::Error("bogus norm type in irregnorm");
+            }
+        }
+    }
+  Vector<Real> vecNorm, vecArea;
+  gather(vecNorm, locNorm , 0);
+  gather(vecArea, locArea , 0);
+  Real globNorm = 0;
+  Real globArea = 0;
+  if(procID() == 0)
+    {
+      for(int iproc = 0; iproc < numProc(); iproc++)
+        {
+          globArea += vecArea[iproc];
+          if(a_p == 0)
+            {            
+              //abs not necessary, I know, but it makes it clearer
+              globNorm = Max(globNorm, Abs(vecNorm[iproc]));
+            }
+          else
+            {
+              //abs not necessary, I know, but it makes it clearer
+              globNorm += Abs(vecNorm[iproc]);
+            }
+        }
+      if((a_p != 0) && (globArea >= 1.0e-10))
+        {
+          globNorm /= globArea;
+        }
+      if(a_p == 2)
+        {
+          globNorm = sqrt(globNorm);
+        }
+    }
+  //area broadcast not necessary but sooner or later someone is going 
+  //to want to return this too.
+  broadcast(globArea, 0);
+  broadcast(globNorm, 0);
+              
+  return globNorm;
+}
+/******/
+void
+EBArith::
+compareIrregError(Vector<Real>&                          a_orders,
+                  const  LevelData<BaseIVFAB<Real> >&    a_errorFine,
+                  const  LevelData<BaseIVFAB<Real> >&    a_errorCoar,
+                  const  DisjointBoxLayout&              a_gridsFine,
+                  const  DisjointBoxLayout&              a_gridsCoar,
+                  const  EBISLayout&                     a_ebislFine,
+                  const  EBISLayout&                     a_ebislCoar,
+                  const Box&                             a_coarseDom,
+                  const string &                         a_prefix,
+                  Vector<string>                         a_names)          
 {
   CH_TIME("EBArith::compareError");
 
-  const Vector<int>& refRat = a_refRat;
-  const int ncomp = a_errorFine[0]->nComp();
+  const int ncomp = a_errorFine.nComp();
+  Vector<string> names(ncomp);
+  if(a_names.size()  < ncomp)
+    {
+      for(int ivar = 0; ivar < ncomp; ivar++)
+        {
+          char cstr[100];
+          sprintf(cstr,"var%d",ivar);
+          names[ivar] = string(cstr);
+        }
+    }
+  else
+    {
+      names = a_names;
+    }
   const int nnorm = 3;
   Real* normsCoar = new Real[ncomp*nnorm];
   Real* normsFine = new Real[ncomp*nnorm];
@@ -493,302 +530,303 @@ compareError(Vector<Real>&                            a_orders,
           normsFine[EBArith::orderScript(icomp, inorm, ncomp)] = 0;
         }
     }
-  int testverbosity = a_testverbosity;
-  if (testverbosity > 1)
-  {
-    if (a_fout == NULL)
-    {
-      pout() << "==============================================" << endl;
-    }
-    else
-    {
-      *a_fout << "==============================================" << endl;
-    }
-  }
+
   for (int comp = 0; comp < ncomp; comp++)
     {
-      if (testverbosity > 1)
-      {
-        if (a_fout == NULL)
-        {
-          if (a_names.size() > comp)
-            pout() << "Comparing error in variable  " << a_names[comp] << endl;
-          else
-            pout() << "Comparing error in variable  " << comp << endl;
-        }
-        else
-        {
-          if (a_names.size() > comp)
-            (*a_fout) << "Comparing error in variable  " << a_names[comp] << endl;
-          else
-            (*a_fout) << "Comparing error in variable  " << comp << endl;
-        }
-      }
-      if (testverbosity > 1)
-      {
-        if (a_fout == NULL)
-        {
-          pout() << "==============================================" << endl;
-        }
-        else
-        {
-          (*a_fout) << "==============================================" << endl;
-        }
-      }
-      for (int itype = 0; itype < 3; itype++)
-        {
-          EBNormType::NormMode normtype;
-          if (itype == 0)
-            {
-              normtype = EBNormType::OverBoth;
-              if (testverbosity > 1)
-              {
-                if (a_fout == NULL)
-                {
-                  pout() << endl << "Using all uncovered cells." << endl  ;
-                }
-                else
-                {
-                  (*a_fout) << endl << "Using all uncovered cells." << endl  ;
-                }
-              }
-            }
-          else if (itype == 1)
-            {
-              normtype = EBNormType::OverOnlyRegular;
-              if (testverbosity > 1)
-              {
-                if (a_fout == NULL)
-                {
-                  pout() << endl << "Using only regular cells." << endl ;
-                }
-                else
-                {
-                  (*a_fout) << endl << "Using only regular cells." << endl ;
-                }
-              }
-            }
-          else
-            {
-              normtype = EBNormType::OverOnlyIrregular;
-              if (testverbosity > 1)
-              {
-                if (a_fout == NULL)
-                {
-                  pout() << endl << "Using only irregular cells." << endl;
-                }
-                else
-                {
-                  (*a_fout) << endl << "Using only irregular cells." << endl;
-                }
-              }
-            }
 
-          for (int inorm = 0; inorm <= 2; inorm++)
-            {
-
-              if (inorm == 0)
-                {
-                  if (testverbosity > 1)
-                  {
-                    if (a_fout == NULL)
-                    {
-                      pout() << endl << "Using max norm." << endl;
-                    }
-                    else
-                    {
-                      (*a_fout) << endl << "Using max norm." << endl;
-                    }
-                  }
-                }
-              else
-                {
-                  if (testverbosity > 1)
-                  {
-                    if (a_fout == NULL)
-                    {
-                      pout() << endl << "Using L-" << inorm << "norm." << endl;
-                    }
-                    else
-                    {
-                      (*a_fout) << endl << "Using L-" << inorm << "norm." << endl;
-                    }
-                  }
-                }
-              Real coarnorm = EBArith::norm(a_errorCoar,
-                                            a_gridsCoar, a_ebislCoar,
-                                            refRat,
-                                            comp, inorm, normtype);
-              Real finenorm = EBArith::norm(a_errorFine,
-                                            a_gridsFine, a_ebislFine,
-                                            refRat,
-                                            comp, inorm, normtype);
-              if (testverbosity > 1)
-              {
-                if (a_fout == NULL)
-                {
-                  pout() << "Coarse Error Norm = " << coarnorm << endl;
-                }
-                else
-                {
-                  (*a_fout) << "Coarse Error Norm = " << coarnorm << endl;
-                }
-              }
-              if (testverbosity > 1)
-              {
-                if (a_fout == NULL)
-                {
-                  pout() << "Fine   Error Norm = " << finenorm << endl;
-                }
-                else
-                {
-                  (*a_fout) << "Fine   Error Norm = " << finenorm << endl;
-                }
-              }
-              if (itype == 0)
-                {
-                  normsCoar[EBArith::orderScript(comp,inorm,ncomp)] = coarnorm;
-                  normsFine[EBArith::orderScript(comp,inorm,ncomp)] = finenorm;
-                }
-              if ((Abs(finenorm) > 1.0e-10) && (Abs(coarnorm) > 1.0e-10))
-                {
-                  Real order = log(Abs(coarnorm/finenorm))/log(2.0);
-                  //if (a_fout == NULL)
-                  //{
-                  //  pout() << "Order of scheme = " << order << endl;
-                  //}
-                  //else
-                  //{
-                  //  (*a_fout) << "Order of scheme = " << order << endl;
-                  //}
-                  if (itype == 0)
-                    {
-                      orders[EBArith::orderScript(comp,inorm,ncomp)] = order;
-                    }
-                }
-            }
-        }
-      if (testverbosity > 1)
-      {
-        if (a_fout == NULL)
-        {
-          pout() << "==============================================" << endl ;;
-        }
-        else
-        {
-          (*a_fout) << "==============================================" << endl ;;
-        }
-      }
-    }
-
-  //output in latex format to be safe
-  int ncoar = a_coarseDom.size(0);
-  int nmedi = 2*ncoar;
-  int nfine = 2*nmedi;
-  if (testverbosity > 0)
-    {
-      if (a_fout == NULL)
-      {
-        pout()    << setw(12)
-                  << setprecision(6)
-                  << setiosflags(ios::showpoint)
-                  << setiosflags(ios::scientific);
-      }
-      else
-      {
-        (*a_fout) << setw(12)
-                  << setprecision(6)
-                  << setiosflags(ios::showpoint)
-                  << setiosflags(ios::scientific);
-      }
       for (int inorm = 0; inorm <= 2; inorm++)
         {
-          if (a_fout == NULL)
-          {
-            pout() << "\\begin{table}[p]" << endl;
-            pout() << "\\begin{center}" << endl;
-            pout() << "\\begin{tabular}{|cccc|} \\hline" << endl;
-            pout() << "Variable & $e_{4h \\rightarrow 2h}$ & Order & $e_{2h \\rightarrow h}$\\\\" << endl;;
-            pout() << "\\hline " << endl;
-          }
-          else
-          {
-            (*a_fout) << "\\begin{table}[p]" << endl;
-            (*a_fout) << "\\begin{center}" << endl;
-            (*a_fout) << "\\begin{tabular}{|cccc|} \\hline" << endl;
-           pout() << "Variable & $e_{\\frac{1}{" << ncoar << "}\\rightarrow\\frac{1}{" << nmedi << "}}$ & Order & $e_{\\frac{1}{" << nmedi << "}\\rightarrow\\frac{1}{" << nfine << "}}$\\\\" << endl;;
-            (*a_fout) << "\\hline " << endl;
-          }
-          for (int icomp = 0; icomp < ncomp; icomp++)
-            {
-              int iindex = EBArith::orderScript(icomp,inorm,ncomp);
-              if (a_fout == NULL)
-              {
-                if (a_names.size() > icomp)
-                  pout() << setw(14) << a_names[icomp] << " &    \t ";
-                else
-                  pout() << "var" << icomp << " &    \t ";
 
-                pout() << setw(12)
-                       << setprecision(6)
-                       << setiosflags(ios::showpoint)
-                       << setiosflags(ios::scientific)
-                       << normsCoar[iindex]  << " & "
-                       << setw(12)
-                       << setprecision(3)
-                       << setiosflags(ios::showpoint)
-                       << setiosflags(ios::scientific)
-                       << orders[iindex] << " & "
-                       << setw(12)
-                       << setprecision(6)
-                       << setiosflags(ios::showpoint)
-                       << setiosflags(ios::scientific)
-                       << normsFine[iindex];
-                pout() << " \\\\ " << endl;
-              }
-              else
-              {
-                (*a_fout) << "var" << icomp << " &    \t "
-                          << setw(12)
-                          << setprecision(6)
-                          << setiosflags(ios::showpoint)
-                          << setiosflags(ios::scientific)
-                          << normsCoar[iindex]  << " & "
-                          << setw(12)
-                          << setprecision(3)
-                          << setiosflags(ios::showpoint)
-                          << orders[iindex] << " & "
-                          << setw(12)
-                          << setprecision(6)
-                          << setiosflags(ios::showpoint)
-                          << setiosflags(ios::scientific)
-                          << normsFine[iindex];
-                (*a_fout) << " \\\\ " << endl;
-              }
+          Real coarnorm = EBArith::irregNorm(a_errorCoar,
+                                             a_gridsCoar, a_ebislCoar,
+                                             comp, inorm);
+          Real finenorm = EBArith::irregNorm(a_errorFine,
+                                             a_gridsFine, a_ebislFine,
+                                             comp, inorm);
+          
+          normsCoar[EBArith::orderScript(comp,inorm,ncomp)] = coarnorm;
+          normsFine[EBArith::orderScript(comp,inorm,ncomp)] = finenorm;
+
+          if ((Abs(coarnorm) > 1.0e-20))
+            {
+              Real order = log(Abs(coarnorm/finenorm))/log(2.0);
+              orders[EBArith::orderScript(comp,inorm,ncomp)] = order;
             }
-          if (a_fout == NULL)
-          {
-            pout() << "\\hline " << endl;
-            pout() << "\\end{tabular}" << endl;
-            pout() << "\\end{center}" << endl;
-            pout() << "\\caption{Solution error convergence rates using $L_" << inorm << "$-norm for $h=\\frac{1}{" << nfine << "}$.} " << endl;
-            pout() << "\\end{table}" << endl;
-            pout() << endl << endl;
-          }
-          else
-          {
-            (*a_fout) << "\\end{tabular}" << endl;
-            (*a_fout) << "\\end{center}" << endl;
-            (*a_fout) << "\\caption{Solution error convergence rates using $L_" << inorm << "$-norm for $h=\\frac{1}{" << nfine << "}$.} " << endl;
-            (*a_fout) << "\\end{table}" << endl;
-            (*a_fout) << endl << endl;
-          }
         }
     }
+
+  int ncoar = a_coarseDom.size(0);
+  int nmedi = 2*ncoar;
+
+  pout() << setw(12)
+         << setprecision(6)
+         << setiosflags(ios::showpoint)
+         << setiosflags(ios::scientific);
+  pout() << "\\begin{table}" << endl;
+  pout() << "\\begin{center}" << endl;
+  pout() << "\\begin{tabular}{|ccccc|} \\hline" << endl;
+  pout() << "Variable &  Norm &  $\\epsilon^{2h}$ & $\\varpi$ & $\\epsilon^{h}$\\\\" << endl;
+  pout() << "\\hline " << endl;
+
+  for (int inorm = 0; inorm <= 2; inorm++)
+    {
+      string normString;
+      if(inorm == 0)
+        {
+          normString = string("$L_\\infty$");
+        }
+      else
+        {
+          char cstr[100];
+          sprintf(cstr, "$L_%d$", inorm);
+          normString = string(cstr);
+        }
+
+      for (int icomp = 0; icomp < ncomp; icomp++)
+        {
+          int iindex = EBArith::orderScript(icomp,inorm,ncomp);
+          pout() 
+            << names[icomp] << " &\t "
+            << normString   << " &\t "
+            << setw(12)
+            << setprecision(3)
+            << setiosflags(ios::showpoint)
+            << setiosflags(ios::scientific)
+            << normsCoar[iindex]  << " & "
+            << setw(8)
+            << setprecision(2)
+            << setiosflags(ios::showpoint)
+            << orders[iindex] << " & "
+            << setw(12)
+            << setprecision(3)
+            << setiosflags(ios::showpoint)
+            << setiosflags(ios::scientific)
+            << normsFine[iindex];
+
+          pout() << " \\\\ " << endl;
+        }
+    }
+  pout() << "\\hline " << endl;
+  pout() << "\\end{tabular}" << endl;
+  pout() << "\\end{center}" << endl;
+  pout() << "\\caption{" << a_prefix << " convergence rates for $h = 1/" << nmedi<< "$.}" << endl;
+  pout() << "\\end{table}" << endl;
+  pout() << endl << endl;
+
+
   //latex output
 
   delete normsFine;
   delete normsCoar;
+}
+
+void
+EBArith::compareError(Vector<Real>&            a_orders,
+                      const  LevelData<EBCellFAB>&    a_errorFine,
+                      const  LevelData<EBCellFAB>&    a_errorCoar,
+                      const  DisjointBoxLayout&       a_gridsFine,
+                      const  DisjointBoxLayout&       a_gridsCoar,
+                      const  EBISLayout&              a_ebislFine,
+                      const  EBISLayout&              a_ebislCoar,
+                      const Box&                      a_coarseDom,
+                      int                             a_testverbosity,
+                      fstream*                        a_fout,
+                      Vector<string>                  a_names,
+                      string  a_prefix)          
+{
+  LevelData<EBCellFAB>* castFine = (LevelData<EBCellFAB>*)(&a_errorFine);
+  LevelData<EBCellFAB>* castCoar = (LevelData<EBCellFAB>*)(&a_errorCoar);
+  Vector<LevelData<EBCellFAB>* > vecErrorFine(1,castFine);
+  Vector<LevelData<EBCellFAB>* > vecErrorCoar(1,castCoar);
+  Vector<DisjointBoxLayout> vecGridsFine(1,a_gridsFine);
+  Vector<DisjointBoxLayout> vecGridsCoar(1,a_gridsCoar);
+  Vector<EBISLayout> vecEbislFine(1,a_ebislFine);
+  Vector<EBISLayout> vecEbislCoar(1,a_ebislCoar);
+  Vector<int> refRat(1,2);
+  EBArith::compareError(a_orders,       
+                        vecErrorFine,    
+                        vecErrorCoar,    
+                        vecGridsFine,    
+                        vecGridsCoar,    
+                        vecEbislFine,    
+                        vecEbislCoar,
+                        refRat,
+                        a_coarseDom,    
+                        a_testverbosity,
+                        a_fout,         
+                        a_names,
+                        a_prefix);        
+}
+
+void
+EBArith::compareError(Vector<Real>&            a_orders,
+                      Vector<Real>&                   a_errorNormFine,
+                      Vector<Real>&                   a_errorNormCoar,
+                      const  LevelData<EBCellFAB>&    a_errorFine,
+                      const  LevelData<EBCellFAB>&    a_errorCoar,
+                      const  DisjointBoxLayout&       a_gridsFine,
+                      const  DisjointBoxLayout&       a_gridsCoar,
+                      const  EBISLayout&              a_ebislFine,
+                      const  EBISLayout&              a_ebislCoar,
+                      const Box&                      a_coarseDom,
+                      int                             a_testverbosity,
+                      fstream*                        a_fout,
+                      Vector<string>                  a_names,
+                      string  a_prefix)          
+{
+  LevelData<EBCellFAB>* castFine = (LevelData<EBCellFAB>*)(&a_errorFine);
+  LevelData<EBCellFAB>* castCoar = (LevelData<EBCellFAB>*)(&a_errorCoar);
+  Vector<LevelData<EBCellFAB>* > vecErrorFine(1,castFine);
+  Vector<LevelData<EBCellFAB>* > vecErrorCoar(1,castCoar);
+  Vector<DisjointBoxLayout> vecGridsFine(1,a_gridsFine);
+  Vector<DisjointBoxLayout> vecGridsCoar(1,a_gridsCoar);
+  Vector<EBISLayout> vecEbislFine(1,a_ebislFine);
+  Vector<EBISLayout> vecEbislCoar(1,a_ebislCoar);
+  Vector<int> refRat(1,2);
+  EBArith::compareError(a_orders, 
+                        a_errorNormFine,
+                        a_errorNormCoar,
+                        vecErrorFine,    
+                        vecErrorCoar,    
+                        vecGridsFine,    
+                        vecGridsCoar,    
+                        vecEbislFine,    
+                        vecEbislCoar,
+                        refRat,
+                        a_coarseDom,    
+                        a_testverbosity,
+                        a_fout,         
+                        a_names,
+                        a_prefix);        
+}
+
+/******/
+Real
+EBArith::
+MaxNorm(const Vector< LevelData<EBFluxFAB>* >&   a_data,
+        const int                            &   a_icomp)
+{
+  Real localval = 0;
+  for(int ilev = 0; ilev < a_data.size(); ilev++)
+    {
+      const LevelData<EBFluxFAB>& datlev = *a_data[ilev];
+      for(DataIterator dit = datlev.dataIterator(); dit.ok(); ++dit)
+        {
+          for(int idir = 0; idir < SpaceDim; idir++)
+            {
+              const EBFaceFAB& fab = datlev[dit()][idir];
+              Real maxval = Abs(fab.max(a_icomp));
+              Real minval = Abs(fab.min(a_icomp));
+              Real l0fab = Max(maxval, minval);
+              if(l0fab > localval)
+                {
+                  localval = l0fab;
+                }
+            }
+        }
+    }
+  int baseProc = 0;
+  Vector<Real> allvals;
+  gather(allvals, localval, baseProc);
+  Real retval = 0;
+  for(int ival = 0; ival < allvals.size(); ival++)
+    {
+      if(allvals[ival] > retval)
+        {
+          retval = allvals[ival];
+        }
+    }
+  return retval;
+}
+
+/******/
+Real
+EBArith::
+MaxNorm(const Vector< LevelData<EBCellFAB>* >&   a_data,
+        const int                            &   a_icomp)
+{
+  Real localval = 0;
+  for(int ilev = 0; ilev < a_data.size(); ilev++)
+    {
+      const LevelData<EBCellFAB>& datlev = *a_data[ilev];
+      for(DataIterator dit = datlev.dataIterator(); dit.ok(); ++dit)
+        {
+          const EBCellFAB& fab = datlev[dit()];
+          Real maxval = Abs(fab.max(a_icomp));
+          Real minval = Abs(fab.min(a_icomp));
+          Real l0fab = Max(maxval, minval);
+          if(l0fab > localval)
+            {
+              localval = l0fab;
+            }
+        }
+    }
+  int baseProc = 0;
+  Vector<Real> allvals;
+  gather(allvals, localval, baseProc);
+  Real retval = 0;
+  for(int ival = 0; ival < allvals.size(); ival++)
+    {
+      if(allvals[ival] > retval)
+        {
+          retval = allvals[ival];
+        }
+    }
+  return retval;
+}
+
+/****/
+void
+EBArith::
+compareError(const Vector< LevelData<EBFluxFAB>* >&   a_errorFine,
+             const Vector< LevelData<EBFluxFAB>* >&   a_errorCoar)
+{
+  CH_TIME("EBArith::compareErrorFlux");
+  int ncomp = a_errorFine[0]->nComp();
+  for (int comp = 0; comp < ncomp; comp++)
+    {
+      pout() << "==============================================" << endl ;
+      
+      pout() << endl << "Comparing (using max norm) error for component" << comp << endl;
+      Real coarnorm = EBArith::MaxNorm(a_errorCoar, comp);
+      Real finenorm = EBArith::MaxNorm(a_errorFine, comp);
+      pout() << "Coarse Error Norm = " << coarnorm << endl;
+      pout() << "Fine   Error Norm = " << finenorm << endl;
+      if ((Abs(coarnorm) > 1.0e-20))
+        {
+          Real order = log(Abs(coarnorm/finenorm))/log(2.0);
+          pout() << "Order of scheme = " << order << endl;
+        }
+
+      pout() << "==============================================" << endl ;
+    }
+}
+
+/****/
+void
+EBArith::
+compareError(const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
+             const Vector< LevelData<EBCellFAB>* >&   a_errorCoar)
+{
+  CH_TIME("EBArith::compareErrorCell");
+  int ncomp = a_errorFine[0]->nComp();
+  for (int comp = 0; comp < ncomp; comp++)
+    {
+      pout() << "==============================================" << endl ;
+      
+      pout() << endl << "Comparing (using max norm) error for component" << comp << endl;
+      Real coarnorm = EBArith::MaxNorm(a_errorCoar, comp);
+      Real finenorm = EBArith::MaxNorm(a_errorFine, comp);
+      pout() << "Coarse Error Norm = " << coarnorm << endl;
+      pout() << "Fine   Error Norm = " << finenorm << endl;
+      if ((Abs(coarnorm) > 1.0e-20))
+        {
+          Real order = log(Abs(coarnorm/finenorm))/log(2.0);
+          pout() << "Order of scheme = " << order << endl;
+        }
+
+      pout() << "==============================================" << endl ;
+    }
 }
 
 void
@@ -1007,7 +1045,6 @@ getExtrapolationStencil(VoFStencil&     a_stencil,
                         IntVectSet*    a_cfivsPtr,
                         int ivar)
 {
-  CH_TIME("EBArith::getExtrapolationStencil");
   int order = 2;
   a_stencil.clear();
 
@@ -1083,7 +1120,6 @@ getFirstOrderExtrapolationStencil(VoFStencil&     a_stencil,
                                   IntVectSet*    a_cfivsPtr,
                                   int ivar)
 {
-  CH_TIME("EBArith::getFirstOrderExtrapolationStencil");
   int order = 2;
   a_stencil.clear();
 
@@ -1099,8 +1135,8 @@ getFirstOrderExtrapolationStencil(VoFStencil&     a_stencil,
         {
           VoFStencil firstDSten;
           derivorder = EBArith::getFirstDerivStencilWidthOne(firstDSten,
-                                                     a_startVoF, a_ebisBox,
-                                                     idir, a_dx[idir], a_cfivsPtr, ivar);
+                                                             a_startVoF, a_ebisBox,
+                                                             idir, a_dx[idir], a_cfivsPtr, ivar);
           order = Min(order, derivorder);
 
           firstDSten *= a_dist[idir];
@@ -1345,7 +1381,7 @@ getCoarserLayouts(DisjointBoxLayout&       a_dblCoar,
           numPtsLeft -= ptsGrid;
         }
       if (numPtsLeft == 0)
-         {
+        {
           //if we are covering domain with more than one box, make one big split-up box
           Vector<Box> boxes;
           domainSplit(a_domainCoar, boxes, a_maxBoxSize);
@@ -1571,7 +1607,6 @@ getSecondDerivStencil(VoFStencil&      a_sten,
                       IntVectSet*    a_cfivsPtr,
                       int ivar)
 {
-  CH_TIME("EBArith::getSecondDerivStencil");
   CH_assert(a_dx > 0.0);
   CH_assert(a_idir >= 0);
   CH_assert(a_idir <  SpaceDim);
@@ -1655,7 +1690,6 @@ getMixedDerivStencil(VoFStencil&      a_sten,
                      IntVectSet*    a_cfivsPtr,
                      int ivar)
 {
-  CH_TIME("EBArith::getMixedDerivStencil");
   CH_assert(a_dx1 > 0.0);
   CH_assert(a_dx2 > 0.0);
   CH_assert(a_dir1 >= 0);
@@ -1702,8 +1736,8 @@ getMixedDerivStencil(VoFStencil&      a_sten,
                   if (isCorHere && checkCFIVS)
                     {
                       if ( (*a_cfivsPtr).contains(vofCor.gridIndex()) ||
-                          (*a_cfivsPtr).contains(vofOne.gridIndex()) ||
-                          (*a_cfivsPtr).contains(vofTwo.gridIndex()))
+                           (*a_cfivsPtr).contains(vofOne.gridIndex()) ||
+                           (*a_cfivsPtr).contains(vofTwo.gridIndex()))
                         {
                           isCorHere = false;
                         }
@@ -1814,61 +1848,6 @@ EBArith::extrapFaceGradToOutflow(const FaceIndex&      a_bndryFace,
   //   }
   // else if (hasNearFace)
   if (hasNearFace)
-    {
-      extrapValue = nearVal;//all that's needed to preserve constant gradient
-    }
-  else
-    {
-      extrapValue = 0.0; //for want of a better option.
-    }
-  return extrapValue;
-}
-Real
-EBArith::extrapFaceValueToDomain(const FaceIndex&      a_bndryFace,
-                                 const Side::LoHiSide& a_side,
-                                 const int&            a_idir,
-                                 const EBGraph&        a_ebGraph,
-                                 const EBFaceFAB&      a_faceData,
-                                 const int&            a_comp)
-{
-  Real extrapValue = -1.e99;
-  Side::LoHiSide flipSide = flip(a_side);
-  const VolIndex & closeVoF = a_bndryFace.getVoF(flipSide);
-  Vector<FaceIndex> nearFaces = a_ebGraph.getFaces(closeVoF, a_idir, flipSide);
-  bool hasNearFace = ((nearFaces.size() == 1)  && !nearFaces[0].isBoundary());
-  bool hasFarFace  = false;
-  bool hasFarFarFace  = false;
-  Real nearVal = 0.0;
-  Real farVal  = 0.0;
-  Real farFarVal  = 0.0;
-  if (hasNearFace)
-    {
-      nearVal = a_faceData(nearFaces[0], 0);
-      const VolIndex & nextVoF = nearFaces[0].getVoF(flipSide);
-      Vector<FaceIndex> farFaces = a_ebGraph.getFaces(nextVoF, a_idir, flipSide);
-      hasFarFace = ((farFaces.size() == 1) && !farFaces[0].isBoundary());
-      if (hasFarFace)
-        {
-          farVal = a_faceData(farFaces[0], 0);
-          const VolIndex & nextNextVoF = farFaces[0].getVoF(flipSide);
-          Vector<FaceIndex> farFarFaces = a_ebGraph.getFaces(nextNextVoF, a_idir, flipSide);
-          hasFarFarFace = ((farFarFaces.size() == 1) && !farFarFaces[0].isBoundary());
-          if (hasFarFarFace)
-            {
-              farFarVal = a_faceData(farFarFaces[0], 0);
-            }
-        }
-    }
-
-  if (hasNearFace && hasFarFace && hasFarFarFace)
-    {
-      extrapValue = 3.*nearVal - 3.*farVal + farFarVal;
-    }
-  else if (hasNearFace && hasFarFace)
-    {
-      extrapValue = 2.*nearVal - farVal;
-    }
-  else if (hasNearFace)
     {
       extrapValue = nearVal;//all that's needed to preserve constant gradient
     }
@@ -2082,15 +2061,15 @@ getLeastSquaresGradSten(VoFStencil&     a_stencil,
           //   }
           // else
           //   {
-              if (normal[idir] < 0)
-                {
-                  quadrant[idir]=-1;
-                }
-              else
-                {
-                  quadrant[idir]=1;
-                }
-            // }
+          if (normal[idir] < 0)
+            {
+              quadrant[idir]=-1;
+            }
+          else
+            {
+              quadrant[idir]=1;
+            }
+          // }
         }
 
       getLeastSquaresGradSten(a_stencil, a_weight, a_normal, a_centroid,
@@ -2100,18 +2079,18 @@ getLeastSquaresGradSten(VoFStencil&     a_stencil,
       if (a_stencil.size()==0)
         {
           getLeastSquaresGradStenAllQuad(a_stencil, a_weight, a_normal,
-                                          a_centroid, a_vof, a_ebisBox,
-                                          a_dx,a_domain, a_ivar);
-           if (a_stencil.size()==0)
-             {
-               getLeastSquaresGradStenAllVoFs(a_stencil, a_weight, a_normal,
-                                              a_centroid, a_vof, a_ebisBox,
-                                              a_dx,a_domain, a_ivar);
-             }
-           else
-             {
-               //               pout()<<"leastSquares stencil dropping order "<<a_vof<<endl;
-             }
+                                         a_centroid, a_vof, a_ebisBox,
+                                         a_dx,a_domain, a_ivar);
+          if (a_stencil.size()==0)
+            {
+              getLeastSquaresGradStenAllVoFs(a_stencil, a_weight, a_normal,
+                                             a_centroid, a_vof, a_ebisBox,
+                                             a_dx,a_domain, a_ivar);
+            }
+          else
+            {
+              pout()<<"leastSquares stencil dropping order "<<a_vof<<endl;
+            }
         }
     }
 }
@@ -2219,20 +2198,20 @@ getLeastSquaresGradSten(VoFStencil&     a_stencil,
       a_stencil.clear();
       a_weight = 0.0;
 
-      //if (!detZero)
-        {
-          for (int isten = 0; isten < stenSize; isten++)
-            {
-              Real dphidnWeight = 0.0;
-              for (int idir = 0; idir < SpaceDim; idir++)
-                {
-                  dphidnWeight -= invATransAdeltaX[isten][idir] * a_normal[idir];
-                }
+      //if(!detZero)
+      {
+        for (int isten = 0; isten < stenSize; isten++)
+          {
+            Real dphidnWeight = 0.0;
+            for (int idir = 0; idir < SpaceDim; idir++)
+              {
+                dphidnWeight -= invATransAdeltaX[isten][idir] * a_normal[idir];
+              }
               
-              a_stencil.add(volSten[isten],dphidnWeight, a_ivar);
-              a_weight -= dphidnWeight;
-            }
-        }
+            a_stencil.add(volSten[isten],dphidnWeight, a_ivar);
+            a_weight -= dphidnWeight;
+          }
+      }
     }
   else
     {
@@ -2281,29 +2260,29 @@ getLeastSquaresGradSten(VoFStencil&     a_stencil,
 
 #if   CH_SPACEDIM == 2
           int diagDir[2][1] =
-          {
             {
-              2
-            },
-            {
-              2
-            }
-          };
+              {
+                2
+              },
+              {
+                2
+              }
+            };
           mainDir   = IntVect(0,1);
           minDiag= 2; //minDiag = 2 this will always require the face neighbor
 #elif CH_SPACEDIM == 3
           mainDir   = IntVect(0,1,3);
           int diagDir[3][3] =
-          {
             {
-              2,4,6
-            },
-            {
-              2,5,6
-            },
-            {4,5,6
-            }
-          };
+              {
+                2,4,6
+              },
+              {
+                2,5,6
+              },
+              {4,5,6
+              }
+            };
           minDiag= 2;
 #else
           THIS_IS_AN_ERROR_MESSAGE__THIS_WILL_ONLY_COMPILE_WHEN_CH_SPACEDIM_IS_2_OR_3;
@@ -2464,20 +2443,20 @@ getLeastSquaresGradStenAllVoFs(VoFStencil&          a_stencil,
       a_stencil.clear();
       a_weight = 0.0;
 
-      //if (!detZero)
+      //if(!detZero)
       // {
-          for (int isten = 0; isten < stenSize; isten++)
+      for (int isten = 0; isten < stenSize; isten++)
+        {
+          Real dphidnWeight = 0.0;
+          for (int idir = 0; idir < SpaceDim; idir++)
             {
-              Real dphidnWeight = 0.0;
-              for (int idir = 0; idir < SpaceDim; idir++)
-                {
-                  dphidnWeight -= invATransAdeltaX[isten][idir] * a_normal[idir];
-                }
-              
-              a_stencil.add(volSten[isten],dphidnWeight, a_ivar);
-              a_weight -= dphidnWeight;
+              dphidnWeight -= invATransAdeltaX[isten][idir] * a_normal[idir];
             }
-          // }
+              
+          a_stencil.add(volSten[isten],dphidnWeight, a_ivar);
+          a_weight -= dphidnWeight;
+        }
+      // }
     }
   else
     {
@@ -2645,7 +2624,7 @@ EBArith::calculateWeightingMatrix(RealVect           x0,
           for (int isten = 0; isten < stenSize; isten++)
             {
               aTransA[idir][jdir] = aTransA[idir][jdir]
-                                  + deltaX[isten][idir]*deltaX[isten][jdir];
+                + deltaX[isten][idir]*deltaX[isten][jdir];
             }
         }
     }
@@ -2653,7 +2632,7 @@ EBArith::calculateWeightingMatrix(RealVect           x0,
   Real det;
 #if   CH_SPACEDIM == 2
   det = aTransA[0][0] * aTransA[1][1] - aTransA[0][1] * aTransA[1][0];
-  if (det < 1.e-15 && det > -1.e-15)
+  if(det < 1.e-15 && det > -1.e-15)
     {
       detZero = true;
     }
@@ -2666,13 +2645,13 @@ EBArith::calculateWeightingMatrix(RealVect           x0,
     }
 #elif CH_SPACEDIM == 3
   det = aTransA[0][0] * ( aTransA[1][1] * aTransA[2][2]
-                        - aTransA[1][2] * aTransA[2][1])
-      + aTransA[0][1] * ( aTransA[1][2] * aTransA[2][0]
+                          - aTransA[1][2] * aTransA[2][1])
+    + aTransA[0][1] * ( aTransA[1][2] * aTransA[2][0]
                         - aTransA[1][0] * aTransA[2][2])
-      + aTransA[0][2] * ( aTransA[1][0] * aTransA[2][1]
+    + aTransA[0][2] * ( aTransA[1][0] * aTransA[2][1]
                         - aTransA[1][1] * aTransA[2][0]);
 
-  if (det < 1.e-15 && det > -1.e-15)
+  if(det < 1.e-15 && det > -1.e-15)
     {
       detZero = true;
     }
@@ -2701,20 +2680,20 @@ EBArith::calculateWeightingMatrix(RealVect           x0,
   THIS_IS_AN_ERROR_MESSAGE__THIS_WILL_ONLY_COMPILE_WHEN_CH_SPACEDIM_IS_2_OR_3;
 #endif
 
-  //if (!detZero)
-    {
-      weightMatrix.resize(stenSize,RealVect::Zero);
-      for (int idir = 0; idir < SpaceDim; idir++)
-        {
-          for (int isten = 0; isten < stenSize; isten++)
-            {
-              for (int jdir = 0; jdir < SpaceDim; jdir++)
-                {
-                  weightMatrix[isten][idir] += invATransA[idir][jdir] * deltaX[isten][jdir];
-                }
-            }
-        }
-    }
+  //if(!detZero)
+  {
+    weightMatrix.resize(stenSize,RealVect::Zero);
+    for (int idir = 0; idir < SpaceDim; idir++)
+      {
+        for (int isten = 0; isten < stenSize; isten++)
+          {
+            for (int jdir = 0; jdir < SpaceDim; jdir++)
+              {
+                weightMatrix[isten][idir] += invATransA[idir][jdir] * deltaX[isten][jdir];
+              }
+          }
+      }
+  }
 }
 
 
@@ -2767,7 +2746,7 @@ EBArith::calculateWeightingMatrixRed(RealVect           x00,
           for (int isten = 0; isten < stenSize; isten++)
             {
               aTransA[idir][jdir] = aTransA[idir][jdir]
-                                  + deltaX[isten][idir]*deltaX[isten][jdir];
+                + deltaX[isten][idir]*deltaX[isten][jdir];
             }
         }
     }
@@ -2855,17 +2834,38 @@ EBArith::calculateWeightingMatrixRed(RealVect           x00,
 
 
 void
-EBArith::dataRayCast(bool&               a_dropOrder,
-                     Vector<VoFStencil>& a_pointStencils,
-                     Vector<Real>&       a_distanceAlongLine,
-                     const RealVect&     a_normal,
-                     const RealVect&     a_bndryCentroid,
-                     const VolIndex&     a_vof,
-                     const EBISBox&      a_ebisBox,
-                     const RealVect&     a_dx,
-                     const IntVectSet&   a_cfivs,
-                     int a_ivar,
-                     int a_numPoints)
+EBArith::johanStencil(bool&               a_dropOrder,
+                      Vector<VoFStencil>& a_pointStencils,
+                      Vector<Real>&       a_distanceAlongLine,
+                      const VolIndex&     a_vof,
+                      const EBISBox&      a_ebisBox,
+                      const RealVect&     a_dx,
+                      const IntVectSet&   a_cfivs,
+                      int a_ivar)
+{
+  //CH_TIME("EBArith::johanStencil");
+  IntVect iv = a_vof.gridIndex();
+
+  // Do Johansen-Colella cast-a-ray algorithm
+  RealVect bndryCentroid = a_ebisBox.bndryCentroid(a_vof);
+  RealVect normal     = a_ebisBox.normal(a_vof);
+  //splitting up stuff this way to facillitate multifluid
+  //which can have multiple normals and boundary centroids per cell.
+  johanStencil(a_dropOrder, a_pointStencils, a_distanceAlongLine,
+               normal, bndryCentroid,
+               a_vof, a_ebisBox, a_dx, a_cfivs, a_ivar);
+}
+void
+EBArith::johanStencil(bool&               a_dropOrder,
+                      Vector<VoFStencil>& a_pointStencils,
+                      Vector<Real>&       a_distanceAlongLine,
+                      const RealVect&     a_normal,
+                      const RealVect&     a_bndryCentroid,
+                      const VolIndex&     a_vof,
+                      const EBISBox&      a_ebisBox,
+                      const RealVect&     a_dx,
+                      const IntVectSet&   a_cfivs,
+                      int a_ivar)
 {
   a_dropOrder = false;
 
@@ -2906,19 +2906,19 @@ EBArith::dataRayCast(bool&               a_dropOrder,
 
   // Find Intersection of planes and ray
   //and the cells in which they live
-  Vector<RealVect> intersectLoc(a_numPoints);
-  Vector<IntVect>   intersectIV(a_numPoints);
+  RealVect intersectLoc[2];
+  IntVect  intersectIV[2];
   //equation of line
   //y = y_b + (ny/nx)*(x-xb)
   //we know x because that is the location of the
   //next cell center over in the nMaxDir direction
   //hiLo in the stencil depends on where the intersection point is in
   //relation to the cell center of the intersecting cell
-  a_distanceAlongLine.resize(a_numPoints);
-  a_pointStencils.resize(a_numPoints);
+  a_distanceAlongLine.resize(2);
+  a_pointStencils.resize(2);
   const Box region = a_ebisBox.getRegion();
 
-  for (int iinter = 0; iinter < a_numPoints; iinter++)
+  for (int iinter = 0; iinter < 2; iinter++)
     {
       intersectIV[iinter] = iv + (iinter+1)*hiLo*BASISV(nMaxDir);
       // check whether intersectIV occurs outside of iv[idir!=nMaxDir]
@@ -2999,44 +2999,6 @@ EBArith::dataRayCast(bool&               a_dropOrder,
 
   return;
 }
-void
-EBArith::johanStencil(bool&               a_dropOrder,
-                      Vector<VoFStencil>& a_pointStencils,
-                      Vector<Real>&       a_distanceAlongLine,
-                      const VolIndex&     a_vof,
-                      const EBISBox&      a_ebisBox,
-                      const RealVect&     a_dx,
-                      const IntVectSet&   a_cfivs,
-                      int a_ivar)
-{
-  //CH_TIME("EBArith::johanStencil");
-  IntVect iv = a_vof.gridIndex();
-
-  // Do Johansen-Colella cast-a-ray algorithm
-  RealVect bndryCentroid = a_ebisBox.bndryCentroid(a_vof);
-  RealVect normal     = a_ebisBox.normal(a_vof);
-  //splitting up stuff this way to facillitate multifluid
-  //which can have multiple normals and boundary centroids per cell.
-  johanStencil(a_dropOrder, a_pointStencils, a_distanceAlongLine,
-               normal, bndryCentroid,
-               a_vof, a_ebisBox, a_dx, a_cfivs, a_ivar);
-}
-void
-EBArith::johanStencil(bool&               a_dropOrder,
-                      Vector<VoFStencil>& a_pointStencils,
-                      Vector<Real>&       a_distanceAlongLine,
-                      const RealVect&     a_normal,
-                      const RealVect&     a_bndryCentroid,
-                      const VolIndex&     a_vof,
-                      const EBISBox&      a_ebisBox,
-                      const RealVect&     a_dx,
-                      const IntVectSet&   a_cfivs,
-                      int a_ivar)
-{
-  int numExtrapPoints = 2;
-  EBArith::dataRayCast(a_dropOrder, a_pointStencils, a_distanceAlongLine, a_normal, a_bndryCentroid,
-              a_vof, a_ebisBox, a_dx, a_cfivs, a_ivar, numExtrapPoints);
-}
 /******/
 RealVect
 EBArith::
@@ -3097,7 +3059,7 @@ getDomainNormal(int a_idir, Side::LoHiSide a_side)
 void
 EBArith::
 defineFluxInterpolant(LevelData<BaseIFFAB<Real> >& a_fluxInterpolant,
-                     LayoutData<IntVectSet>     & a_irregSetsGrown,
+                      LayoutData<IntVectSet>     & a_irregSetsGrown,
                       const DisjointBoxLayout    & a_dbl,
                       const EBISLayout           & a_ebisl,
                       const ProblemDomain        & a_domain,
@@ -3196,7 +3158,7 @@ interpolateFluxToCentroids(EBFaceFAB&                  a_centroidFlux,
   IntVectSet irregIVS = a_ebisBox.getIrregIVS(a_box);
 
   for (FaceIterator faceit(irregIVS, a_ebisBox.getEBGraph(), a_idir, stopCrit);
-      faceit.ok(); ++faceit)
+       faceit.ok(); ++faceit)
     {
       const FaceIndex& face = faceit();
       FaceStencil sten = getInterpStencil(face, cfivs, a_ebisBox, a_domain);
@@ -3786,12 +3748,12 @@ EBArith::computeInterpStencil(FaceStencil& a_thisStencil,
                   const IntVect& perpIV = ivPerp[d];
                   IntVect othrIV = perpIV - BASISV(a_dir);
                   if (!a_ebisBox.getRegion().contains(perpIV) ||
-                     !a_ebisBox.getRegion().contains(othrIV))
+                      !a_ebisBox.getRegion().contains(othrIV))
                     {
                       facesOk = false;
                     }
                   else if (a_ebisBox.isCovered(perpIV) ||
-                          a_ebisBox.isCovered(othrIV))
+                           a_ebisBox.isCovered(othrIV))
                     {
                       facesOk = false;
                     }
@@ -3941,12 +3903,12 @@ EBArith::computeGradFluxStencil(VoFStencil& a_thisStencil,
                   const IntVect& perpIV = ivPerp[d];
                   IntVect othrIV = perpIV - BASISV(a_dir);
                   if (!a_ebisBox.getRegion().contains(perpIV) ||
-                     !a_ebisBox.getRegion().contains(othrIV))
+                      !a_ebisBox.getRegion().contains(othrIV))
                     {
                       facesOk = false;
                     }
                   else if (a_ebisBox.isCovered(perpIV) ||
-                          a_ebisBox.isCovered(othrIV))
+                           a_ebisBox.isCovered(othrIV))
                     {
                       facesOk = false;
                     }
@@ -4066,7 +4028,7 @@ EBArith::volWeightedSum(Real&                a_norm,
       const VolIndex& vof = vofit();
       const IntVect& iv = vof.gridIndex();
       if (((idoirr == 1) && a_ebisBox.isIrregular(iv)) ||
-         ((idoreg == 1) && a_ebisBox.isRegular(iv)))
+          ((idoreg == 1) && a_ebisBox.isRegular(iv)))
         {
           Real val     = Abs(a_src(vof,a_comp));
           if (Abs(val) >s_valMax)
@@ -4089,13 +4051,13 @@ EBArith::volWeightedSum(Real&                a_norm,
               a_norm += Abs(cellVol*volfrac*val);
             }
           else if (a_pval == -1) //just doing integral of a_src  where a_src
-                                //is already multiplied by volume fraction
+            //is already multiplied by volume fraction
             {
               Real noAbsVal = a_src(vof,a_comp);
               a_norm += cellVol*noAbsVal;
             }
           else if (a_pval == -2) //just doing integral of a_src  where a_src
-                                //is NOT already multiplied by volume fraction
+            //is NOT already multiplied by volume fraction
             {
               Real noAbsVal = a_src(vof,a_comp);
               a_norm += volfrac*cellVol*noAbsVal;
@@ -4160,7 +4122,7 @@ EBArith::computeSum(Real&                a_norm,
       const VolIndex& vof = vofit();
       const IntVect& iv = vof.gridIndex();
       if (((idoirr == 1) && a_ebisBox.isIrregular(iv)) ||
-         ((idoreg == 1) && a_ebisBox.isRegular(iv)))
+          ((idoreg == 1) && a_ebisBox.isRegular(iv)))
         {
           Real val     = a_src(vof,a_comp);
 
@@ -4224,7 +4186,7 @@ EBArith::computeUnweightedSum(Real&                a_norm,
       const VolIndex& vof = vofit();
       const IntVect& iv = vof.gridIndex();
       if (((idoirr == 1) && a_ebisBox.isIrregular(iv)) ||
-         ((idoreg == 1) && a_ebisBox.isRegular(iv)))
+          ((idoreg == 1) && a_ebisBox.isRegular(iv)))
         {
           Real val     = a_src(vof,a_comp);
 
@@ -4350,7 +4312,7 @@ getInterpStencil2D(FaceStencil&         a_sten,
       for (SideIterator sit; sit.ok(); ++sit)
         {
           if (a_coarseFineIVS.contains(   a_face.gridIndex(sit())) ||
-             a_coarseFineIVS.contains(otherFace.gridIndex(sit())))
+              a_coarseFineIVS.contains(otherFace.gridIndex(sit())))
             {
               dropOrder = true;
             }
@@ -4425,7 +4387,7 @@ getInterpStencil3D(FaceStencil&         a_sten,
           for (SideIterator sit; sit.ok(); ++sit)
             {
               if (a_coarseFineIVS.contains(   a_face.gridIndex(sit())) ||
-                 a_coarseFineIVS.contains(otherFace.gridIndex(sit())))
+                  a_coarseFineIVS.contains(otherFace.gridIndex(sit())))
                 {
                   dropOrder = true;
                 }
@@ -4527,9 +4489,9 @@ getInterpStencil3D(FaceStencil&         a_sten,
               for (SideIterator sit; sit.ok(); ++sit)
                 {
                   if ((a_coarseFineIVS.contains(a_face.gridIndex(sit()))) ||
-                     (a_coarseFineIVS.contains(face01.gridIndex(sit()))) ||
-                     (a_coarseFineIVS.contains(face10.gridIndex(sit()))) ||
-                     (a_coarseFineIVS.contains(face11.gridIndex(sit()))))
+                      (a_coarseFineIVS.contains(face01.gridIndex(sit()))) ||
+                      (a_coarseFineIVS.contains(face10.gridIndex(sit()))) ||
+                      (a_coarseFineIVS.contains(face11.gridIndex(sit()))))
                     {
                       dropOrder = true;
                     }
@@ -4766,33 +4728,6 @@ EBArith::volWeightedSum(Real&                            a_norm,
   a_volume = volTot;
 }
 /***************/
-void
-EBArith::sumBndryArea(Real&               a_area,
-                      const BoxLayout&    a_region,
-                      const EBISLayout&   a_ebisl)
-{
-  a_area = 0.0;
-  DataIterator dit = a_region.dataIterator();
-  for (dit.reset(); dit.ok(); ++dit)
-    {
-      const EBISBox& ebisbox = a_ebisl[dit()];
-      const Box&  gridRegion =  a_region.get(dit());
-      IntVectSet    ivsBndry = ebisbox.boundaryIVS(gridRegion);
-      EBGraph        ebGraph = ebisbox.getEBGraph();
-      VoFIterator vofIt(ivsBndry, ebGraph);
-
-      for (vofIt.reset(); vofIt.ok(); ++vofIt)
-        {
-          VolIndex vof = vofIt();
-          int nFace = ebisbox.numFacePhase(vof);
-          for (int iface=0; iface<nFace; iface++)
-            {
-              a_area += ebisbox.bndryArea(vof, iface);
-            }
-        }
-    }
-}
-/***************/
 Real
 EBArith::norm(const Vector< LevelData<EBCellFAB>* >& a_src,
               const Vector< DisjointBoxLayout >&     a_grids,
@@ -4831,7 +4766,14 @@ EBArith::norm(const Vector< LevelData<EBCellFAB>* >& a_src,
                      a_ebisl[ilev], dxLev, ivsExclude,
                      a_comp, a_pval, a_mode);
 
-      sum += sumLev;
+      if (a_pval == 0)
+        {
+          sum = Max(sum,sumLev); 
+        }
+      else
+        {
+          sum += sumLev;
+        }
       volume += volLev;
       dxLev /= a_refRatio[ilev];
     }
@@ -5025,9 +4967,9 @@ EBArith::monotonePathVoFToCellMultiVoFs(Vector<VolIndex>& a_vofs,
       for (int isten = 0; isten < a_vofsInPath.size(); isten++)
         {
           if (a_vofsInPath[isten].gridIndex() == a_cell2 &&
-             vofsInCell[ivof].cellIndex() == a_vofsInPath[isten].cellIndex())
-//              a_ebisBox.volFrac(vofsInCell[ivof]) == a_ebisBox.volFrac(a_vofsInPath[isten]) &&
-//              a_ebisBox.normal(vofsInCell[ivof])  == a_ebisBox.normal(a_vofsInPath[isten]))
+              vofsInCell[ivof].cellIndex() == a_vofsInPath[isten].cellIndex())
+            //              a_ebisBox.volFrac(vofsInCell[ivof]) == a_ebisBox.volFrac(a_vofsInPath[isten]) &&
+            //              a_ebisBox.normal(vofsInCell[ivof])  == a_ebisBox.normal(a_vofsInPath[isten]))
             {
               a_vofs.push_back(vofsInCell[ivof]);
             }
@@ -5122,6 +5064,7 @@ getAllVoFsInMonotonePath(Vector<VolIndex>& a_vofList,
                   newSign[idir] = -1;
                   Vector<FaceIndex> facesLo =
                     a_ebisBox.getFaces(a_vof, idir, Side::Lo);
+
                   for (int iface = 0; iface < facesLo.size(); iface++)
                     {
                       VolIndex newVoF = facesLo[iface].getVoF(Side::Lo);
@@ -5148,10 +5091,13 @@ getAllVoFsInMonotonePath(Vector<VolIndex>& a_vofList,
         }//end loop over directions
     }
 }
+
+
 /*******/
 void
 EBArith::
 getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
+                       Vector<IntVect>    & a_dist,
                        const VolIndex&   a_vof,
                        const EBISBox&    a_ebisBox,
                        const int&        a_redistRad)
@@ -5163,11 +5109,38 @@ getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
   IntVectSet vis(grownBox);
   VoFIterator vofit(vis, a_ebisBox.getEBGraph());
   a_vofList = vofit.getVector();
+  a_dist.resize(a_vofList.size());
+  for(int ilist = 0; ilist < a_vofList.size(); ilist++)
+    {
+      for(int idir = 0; idir < SpaceDim;idir++)
+        {
+          a_dist[ilist][idir] = Abs(a_vofList[ilist].gridIndex()[idir]- a_vof.gridIndex()[idir]);
+        }
+    }
+  //  Vector<VolIndex> vofsStencil;
+  //  IntVect timesMoved = IntVect::Zero;
+//  EBArith::getAllVoFsWithinRadius(vofsStencil, a_dist, timesMoved,
+//                                  a_vof, a_ebisBox, a_redistRad);
+//  a_vofList = vofsStencil;
+}
+/*******/
+Real
+EBArith::
+getDistanceFromTimesMoved(const IntVect& a_timesMoved)
+{
+  Real dist = 0.0;
+  for(int idir = 0; idir < SpaceDim; idir++)
+    {
+      dist += Abs(a_timesMoved[idir]);
+    }
+
+  return dist;
 }
 /*******/
 void
 EBArith::
 getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
+                       Vector<IntVect>    & a_dist,
                        const IntVect&    a_timesMoved,
                        const VolIndex&   a_vof,
                        const EBISBox&    a_ebisBox,
@@ -5192,6 +5165,18 @@ getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
       if (!found)
         {
           a_vofList.push_back(a_vof);
+          a_dist.push_back(a_timesMoved);
+        }
+      else
+        {
+          // get number of steps we have taken so far
+          Real dist = getDistanceFromTimesMoved(a_timesMoved);
+          Real distOld = getDistanceFromTimesMoved(a_dist[whichVof]);
+          // if the number of steps is smaller than the original path, replace distance vector
+          if(dist < distOld)
+            {
+              a_dist[whichVof] = a_timesMoved;
+            }
         }
 
       for (int idir = 0; idir < SpaceDim; idir++)
@@ -5208,7 +5193,7 @@ getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
                   for (int iface = 0; iface < faces.size(); iface++)
                     {
                       VolIndex newVoF = faces[iface].getVoF(sit());
-                      getAllVoFsWithinRadius(a_vofList, newTimesMoved, 
+                      getAllVoFsWithinRadius(a_vofList, a_dist, newTimesMoved, 
                                              newVoF, a_ebisBox, a_redistRad);
                     }
                 }

@@ -83,12 +83,6 @@ Real RealVect::dotProduct(const RealVect& a_rhs) const
                  vect[5]*a_rhs.vect[5]);
 }
 
-bool RealVect::isotropic() const
-{
-  return D_TERM6(true, && vect[0]==vect[1], && vect[0]==vect[2], &&
-              vect[0]==vect[3], && vect[0]==vect[4], && vect[0]==vect[5]);
-}
-
 bool
 RealVect::operator== (const RealVect& p) const
 {

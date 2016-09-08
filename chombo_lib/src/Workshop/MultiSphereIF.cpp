@@ -11,9 +11,73 @@
 #include "SphereIF.H"
 #include "IntersectionIF.H"
 #include "MultiSphereIF.H"
+#include "PolyGeom.H"
 
 #include "NamespaceHeader.H"
 
+Real MultiSphereIF::value(const IndexTM<int,GLOBALDIM> & a_partialDerivative,
+                          const IndexTM<Real,GLOBALDIM>& a_point) const
+{
+  int whichSphere = -1;
+  bool found = false;
+  Real minDist = 1.0e30;
+  for(int isphere = 0; isphere < m_numSpheres; isphere++)
+    {
+      RealVect vectDist = a_point - m_centers[isphere];
+      Real dist;
+      PolyGeom::unifyVector(vectDist, dist);
+      if(dist < minDist)
+        {
+          found = true;
+          minDist = dist;
+          whichSphere = isphere;
+        }
+    }
+  if(!found)
+    {
+      MayDay::Error("logic error in multi sphere");
+    }
+  RealVect center = m_centers[whichSphere];
+
+  Real retval= LARGEREALVAL;
+  int maxDir = a_partialDerivative.maxDir(false);
+  int derivativeOrder = a_partialDerivative.sum();
+
+  if (derivativeOrder == 0)
+    {
+      retval = value(a_point);
+    }
+  else if (derivativeOrder == 1)
+    {
+      retval = 2.0*(a_point[maxDir] - center[maxDir]);
+    }
+  else if (derivativeOrder == 2)
+    {
+      if (a_partialDerivative[maxDir] == 2)
+        {
+          // unmixed second partial = 2.0
+          retval = 2.0;
+        }
+      else
+        {
+          // mixed partials = 0.0
+          retval = 0.0;
+        }
+    }
+  else
+    {
+      // higher partials = 0.0
+      retval = 0.0;
+    }
+
+  // Change the sign to change inside to outside
+  if (!m_inside && derivativeOrder > 0)
+  {
+    retval = -retval;
+  }
+
+  return retval;
+}
 MultiSphereIF::MultiSphereIF(const Vector<Real>&     a_radii,
                              const Vector<RealVect>& a_centers,
                              const bool&             a_inside)

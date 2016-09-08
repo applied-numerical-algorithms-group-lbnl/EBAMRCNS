@@ -24,6 +24,8 @@
 #include "Tuple.H"
 #include "EBFluxFAB.H"
 #include "EBCellFAB.H"
+#include "EBLevelGrid.H"
+#include "EB_TYPEDEFS.H"
 #include "NamespaceHeader.H"
 ///
 /**
@@ -33,7 +35,7 @@
    cells.  sometimes one only wants to take a norm
    over the regular cells, and sometimes one wants
    both.
- */
+*/
 class EBNormType
 {
 public:
@@ -46,20 +48,20 @@ public:
      irregular cells. \\
      OverBoth means use all uncovered cells. \\
      All norms exclude covered cells.
-   */
+  */
   enum  NormMode
-  {
-    OverOnlyRegular=0,
-    OverOnlyIrregular,
-    OverBoth
-  };
+    {
+      OverOnlyRegular=0,
+      OverOnlyIrregular,
+      OverBoth
+    };
 };
 
 ///
 /**
    class to encapsulate the common arithmatic operations
    for ebfabs
- */
+*/
 class EBArith
 {
 public:
@@ -94,6 +96,7 @@ public:
                                     int                  a_ivar,
                                     int                  a_rad);
 
+  ///
   static int
   getFirstOrderExtrapolationStencil(VoFStencil&     a_stencil,
                                     const RealVect& a_dist,
@@ -123,11 +126,111 @@ public:
                const Box&                               a_coarseDom,
                int                                      a_testverbosity,
                fstream*                                 a_fout = NULL,
-               Vector<string> names = Vector<string>());
+               Vector<string> names = Vector<string>(),
+               string a_prefix = string("Solution Error"));
+
+  ///
+  /**
+   */
+  static void
+  compareError(Vector<Real>&                            a_orders,
+               const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
+               const Vector< LevelData<EBCellFAB>* >&   a_errorCoar,
+               const Vector< EBLevelGrid >&             a_gridsFine,
+               const Vector< EBLevelGrid >&             a_gridsCoar,
+               const Vector<int>&                       a_refRat,
+               const Box&                               a_coarseDom,
+               int                                      a_testverbosity,
+               fstream*                                 a_fout = NULL,
+               Vector<string> names = Vector<string>(),
+               string a_prefix = string("Solution Error"));
+
+  ///
+  /**
+   */
+  static void
+  compareError(Vector<Real>&                            a_orders,
+               Vector<Real>&                   a_errorNormFine,
+               Vector<Real>&                   a_errorNormCoar,
+               const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
+               const Vector< LevelData<EBCellFAB>* >&   a_errorCoar,
+               const Vector< DisjointBoxLayout >&       a_gridsFine,
+               const Vector< DisjointBoxLayout >&       a_gridsCoar,
+               const Vector< EBISLayout >&              a_ebislFine,
+               const Vector< EBISLayout >&              a_ebislCoar,
+               const Vector<int>&                       a_refRat,
+               const Box&                               a_coarseDom,
+               int                                      a_testverbosity,
+               fstream*                                 a_fout = NULL,
+               Vector<string> names = Vector<string>(),
+               string a_prefix = string("Solution Error"));
+
+  ///
+  static void
+  compareIrregError(Vector<Real>&                          a_orders,
+                    const  LevelData<BaseIVFAB<Real> >&    a_errorFine,
+                    const  LevelData<BaseIVFAB<Real> >&    a_errorCoar,
+                    const  DisjointBoxLayout&              a_gridsFine,
+                    const  DisjointBoxLayout&              a_gridsCoar,
+                    const  EBISLayout&                     a_ebislFine,
+                    const  EBISLayout&                     a_ebislCoar,
+                    const Box&                             a_coarseDom,
+                    const string &                         a_prefix,
+                    Vector<string>                         a_names)          ;
+
+
+  ///
+  static void
+  compareError(Vector<Real>&                   a_orders,
+               const  LevelData<EBCellFAB>&    a_errorFine,
+               const  LevelData<EBCellFAB>&    a_errorCoar,
+               const  DisjointBoxLayout&       a_gridsFine,
+               const  DisjointBoxLayout&       a_gridsCoar,
+               const  EBISLayout&              a_ebislFine,
+               const  EBISLayout&              a_ebislCoar,
+               const Box&                      a_coarseDom,
+               int                             a_testverbosity,
+               fstream*                        a_fout = NULL,
+               Vector<string> names = Vector<string>(),
+               string a_prefix = string("Solution Error"));
+
+  ///
+  static void
+  compareError(Vector<Real>&                   a_orders,
+               Vector<Real>&                   a_errorNormFine,
+               Vector<Real>&                   a_errorNormCoar,
+               const  LevelData<EBCellFAB>&    a_errorFine,
+               const  LevelData<EBCellFAB>&    a_errorCoar,
+               const  DisjointBoxLayout&       a_gridsFine,
+               const  DisjointBoxLayout&       a_gridsCoar,
+               const  EBISLayout&              a_ebislFine,
+               const  EBISLayout&              a_ebislCoar,
+               const Box&                      a_coarseDom,
+               int                             a_testverbosity,
+               fstream*                        a_fout = NULL,
+               Vector<string> names = Vector<string>(),
+               string a_prefix = string("Solution Error"));
+
+  ///
+  /**
+     only max norm
+  */
+  static void
+  compareError(const Vector< LevelData<EBFluxFAB>* >&   a_errorFine,
+               const Vector< LevelData<EBFluxFAB>* >&   a_errorCoar);
+
+  ///
+  /**
+     only max norm
+  */
+  static void
+  compareError(const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
+               const Vector< LevelData<EBCellFAB>* >&   a_errorCoar);
 
   ///
   static void shrinkIVS(IntVectSet& a_ivs, const int& a_numShrink);
 
+  ///
   static void
   timeInterpolate(LevelData<EBCellFAB>&       a_U,
                   const LevelData<EBCellFAB>& a_UOld,
@@ -161,7 +264,7 @@ public:
      the reason for the last argument is that you might not want the stencil
      to leak over in the noExtrap direction even though you have set a_dist to zero.
      This happens in CF interpolation where you have to really worry about stencil width.
-   **/
+  **/
   static int
   getExtrapolationStencil(VoFStencil&     a_stencil,
                           const RealVect& a_dist,
@@ -178,7 +281,7 @@ public:
      the reason for the last argument is that you might not want the stencil
      to leak over in the noExtrap direction even though you have set a_dist to zero.
      This happens in CF interpolation where you have to really worry about stencil width.
-   **/
+  **/
   static int
   get1stOrderExtrapolationStencil(VoFStencil&     a_stencil,
                                   const RealVect& a_dist,
@@ -198,7 +301,7 @@ public:
   ///
   /**
      send null ivs if you do not want lohicenter to care about cfivs
-   **/
+  **/
   static void
   loHiCenter(Box&                 a_loBox,
              int&                 a_hasLo,
@@ -226,7 +329,7 @@ public:
   /**
      testRef is the size of the coarsest domain allowed in multigrid. If testRef=2,
      then the coarsest domain in multigrid will be 2x2(x2)
-   **/
+  **/
   static bool getCoarserLayouts(DisjointBoxLayout&       a_dblCoar,
                                 ProblemDomain&           a_domainCoar,
                                 const DisjointBoxLayout& a_dblFine,
@@ -307,7 +410,7 @@ public:
   /**
      define an intvectset of ghost cells which live on
      the coarse fine interface.  includes corner cells.
-   */
+  */
   static void
   defineCFIVS(LayoutData<IntVectSet>&   a_cfivs,
               const DisjointBoxLayout&  a_grids,
@@ -316,15 +419,6 @@ public:
   ///
   static Real
   extrapFaceGradToOutflow(const FaceIndex&      a_bndryFace,
-                          const Side::LoHiSide& a_side,
-                          const int&            a_idir,
-                          const EBGraph&        a_ebGraph,
-                          const EBFaceFAB&      a_faceData,
-                          const int&            a_comp);
-
-  ///
-  static Real
-  extrapFaceValueToDomain(const FaceIndex&      a_bndryFace,
                           const Side::LoHiSide& a_side,
                           const int&            a_idir,
                           const EBGraph&        a_ebGraph,
@@ -367,7 +461,7 @@ public:
      evaluates integral(a_divu dV)/integral(dV) over a hierarchy.
      pval = -1--->assumes volfrac already multiplied in
      pval = -2--->multiply by volume fraction
-   */
+  */
   static void
   meanOverHierarchy(Real&                                   a_mean,
                     const Vector<LevelData<EBCellFAB> *>&   a_divu,
@@ -395,7 +489,7 @@ public:
   /**
      splitting up stuff this way to facillitate multifluid
      which can have multiple normals and boundary centroids per cell.
-   */
+  */
   static void
   johanStencil(bool&               a_dropOrder,
                Vector<VoFStencil>& a_pointStencils,
@@ -413,7 +507,7 @@ public:
      Gets the stencils to get the data points along the Johansen ray.   If a_dropOrder
      returns true then the stencil does not exist.  Also returns the distances along the ray
      to each point.
-   */
+  */
   static void
   johanStencil(bool&               a_dropOrder,
                Vector<VoFStencil>& a_pointStencils,
@@ -427,7 +521,7 @@ public:
   ///standard interface
   /**
      gets the normal and calls the other version
-   */
+  */
   static void
   getLeastSquaresGradSten(VoFStencil&     a_stencil,
                           Real&           a_weight,
@@ -441,7 +535,7 @@ public:
   /**
      splitting up stuff this way to facillitate multifluid
      which can have multiple normals and boundary centroids per cell.
-   */
+  */
   static void
   getLeastSquaresGradSten(VoFStencil&     a_stencil,
                           Real&           a_weight,
@@ -458,7 +552,7 @@ public:
   /**
      splitting up stuff this way to facillitate multifluid
      which can have multiple normals and boundary centroids per cell.
-   */
+  */
   static void
   getLeastSquaresGradSten(VoFStencil&     a_stencil,
                           Real&           a_weight,
@@ -476,7 +570,7 @@ public:
   /**
      splitting up stuff this way to facillitate multifluid
      which can have multiple normals and boundary centroids per cell.
-   */
+  */
   static void
   getLeastSquaresGradStenAllVoFs(VoFStencil&          a_stencil,
                                  Real&                a_weight,
@@ -493,7 +587,7 @@ public:
   /**
      splitting up stuff this way to facillitate multifluid
      which can have multiple normals and boundary centroids per cell.
-   */
+  */
   static void
   getLeastSquaresGradStenAllQuad(VoFStencil&          a_stencil,
                                  Real&                a_weight,
@@ -510,13 +604,14 @@ public:
      split matrix computations for least squares into separate
      routine that is independent of stencil size, so that the
      code can be reused
-   */
+  */
   static void
   calculateWeightingMatrix(RealVect           x0,
                            Vector<RealVect>&  xp,
                            Vector<RealVect>&  weightMatrix,
                            bool&              detZero);
 
+  ///
   static void
   calculateWeightingMatrixRed(RealVect           x0,
                               Vector<RealVect>&  xp,
@@ -532,23 +627,48 @@ public:
                                    const RealVect&  a_dx,
                                    const RealVect&  a_probLo);
 
-  ///get stencils for points along a line (generalized johansen stencil)
-  static void dataRayCast(bool&               a_dropOrder,
-                          Vector<VoFStencil>& a_pointStencils,
-                          Vector<Real>&       a_distanceAlongLine,
-                          const RealVect&     a_normal,
-                          const RealVect&     a_bndryCentroid,
-                          const VolIndex&     a_vof,
-                          const EBISBox&      a_ebisBox,
-                          const RealVect&     a_dx,
-                          const IntVectSet&   a_cfivs,
-                          int a_ivar,
-                          int a_numPoints);
+  ///gets the location in real space of a face center
+  static RealVect  getFaceLocation(const FaceIndex& a_face,
+                                   const Real&  a_dx,
+                                   const RealVect&  a_probLo)
+  {
+    RealVect rvdx  = a_dx*RealVect::Unit;
+    return getFaceLocation(a_face, rvdx, a_probLo);
+
+  }
 
   ///gets the location in real space of a cell center
   static RealVect  getVofLocation(const VolIndex&  a_vof,
                                   const RealVect&  a_dx,
                                   const RealVect&  a_probLo);
+
+  ///I have misspelled this one time too many
+  static RealVect  getVoFLocation(const VolIndex&  a_vof,
+                                  const RealVect&  a_dx,
+                                  const RealVect&  a_probLo)
+  {
+    return getVofLocation(a_vof, a_dx, a_probLo);
+  }
+
+  ///I have misspelled this one time too many
+  static RealVect  getVoFLocation(const VolIndex&  a_vof,
+                                  const Real&  a_dx,
+                                  const RealVect&  a_probLo)
+  {
+    RealVect rvdx = a_dx*RealVect::Unit;
+    return getVofLocation(a_vof, rvdx, a_probLo);
+  }
+
+
+  ///I have misspelled this one time too many
+  static RealVect  getVofLocation(const VolIndex&  a_vof,
+                                  const Real&  a_dx,
+                                  const RealVect&  a_probLo)
+  {
+    RealVect rvdx = a_dx*RealVect::Unit;
+    return getVofLocation(a_vof, rvdx, a_probLo);
+  }
+
 
   ///gets the location in real space of a cell center
   static RealVect  getIVLocation(const IntVect&   a_iv,
@@ -558,7 +678,7 @@ public:
   ///
   /**
      A very easy to screw up piece of code that was in four places.
-   */
+  */
   static void
   defineFluxInterpolant(LevelData<BaseIFFAB<Real> >& a_fluxInterpolant,
                         LayoutData<IntVectSet>     & a_irregSetsGrown,
@@ -630,6 +750,35 @@ public:
             const Vector<VolIndex>& a_vofsStencil,
             const IntVect& a_cell );
 
+  /*******/
+  static void
+  getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
+                         Vector<IntVect>    & a_dist,
+                         const VolIndex&   a_vof,
+                         const EBISBox&    a_ebisBox,
+                         const int&        a_redistRad);
+  /*******/
+  static void
+  getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
+                         const VolIndex&   a_vof,
+                         const EBISBox&    a_ebisBox,
+                         const int&        a_redistRad)
+  {
+    Vector<IntVect> dist;
+    getAllVoFsWithinRadius(a_vofList, dist, a_vof, a_ebisBox, a_redistRad);
+  }
+  /*******/
+  static Real
+  getDistanceFromTimesMoved(const IntVect& a_timesMoved);
+
+  /*******/
+  static void
+  getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
+                         Vector<IntVect>    & a_dist,
+                         const IntVect&    a_timesMoved,
+                         const VolIndex&   a_vof,
+                         const EBISBox&    a_ebisBox,
+                         const int&        a_redistRad);
   ///
   /** Returns all vofs that can be reached from a_vof via a
       monotone path of length <= than radius
@@ -659,7 +808,7 @@ public:
   /**
      Return true if there is a unique adjacent face in the
      given direction.  False if either covered or multivalued.
-   */
+  */
   static
   bool
   getAdjacentFace(FaceIndex& a_adjacentFace,
@@ -673,7 +822,7 @@ public:
   /**
      compute a stencil for one of our fancy interpolated
      gradients.
-   */
+  */
   static
   void computeGradFluxStencil(VoFStencil& a_thisStencil,
                               const FaceIndex& a_thisFace,
@@ -685,7 +834,7 @@ public:
   /**
      compute a stencil for one of our fancy interpolated
      fluxes.
-   */
+  */
   static
   void computeInterpStencil(FaceStencil& a_thisStencil,
                             const FaceIndex& a_thisFace,
@@ -705,7 +854,7 @@ public:
      weighted by local volume fraction and
      also returns volume of uncovered regions.
      Only uncovered regions count here.
-   */
+  */
   static
   void
   volWeightedSum(Real&              a_norm,
@@ -719,7 +868,7 @@ public:
                  const int&         a_p,
                  EBNormType::NormMode = EBNormType::OverBoth);
 
-
+  ///
   static void
   getCompVolRZ(Real&           a_compVol,
                const EBISBox&  a_ebisBox,
@@ -736,7 +885,7 @@ public:
      weighted by local volume fraction and
      also returns volume of uncovered regions.
      Only uncovered regions count here.
-   */
+  */
   static
   void
   computeSum(Real&              a_norm,
@@ -760,7 +909,7 @@ public:
      weighted by local volume fraction and
      also returns volume of uncovered regions.
      Only uncovered regions count here.
-   */
+  */
   static
   void
   computeUnweightedSum(Real&             a_norm,
@@ -789,7 +938,7 @@ public:
       int pmode = -2;  //norm = (1/v)(sum(phi dv)) ---no absolute values and multiply kappa as you go
       int pmode = -1;  //norm = (1/v)(sum(phi dv)) ---no absolute values and assume kappa already multiplied in
 
-   */
+  */
   static
   Real
   norm(const BoxLayoutData<EBCellFAB >& a_dataOne,
@@ -798,6 +947,15 @@ public:
        const int& comp,
        const int&  p,
        EBNormType::NormMode = EBNormType::OverBoth);
+
+  ///same idea over irregular sets
+  static
+  Real
+  irregNorm(const LevelData<BaseIVFAB<Real> >    & a_dataOne,
+            const DisjointBoxLayout              & a_layout,
+            const EBISLayout                     & a_ebisl,
+            const int                            & a_comp,
+            const int                            & a_p);
 
   static
   Real
@@ -808,6 +966,18 @@ public:
        const int& comp,
        const int&  p,
        EBNormType::NormMode = EBNormType::OverBoth);
+
+  ///
+  static
+  Real
+  MaxNorm(const Vector<LevelData<EBFluxFAB>* >& a_data, 
+          const int                           & a_icomp);
+
+  ///
+  static
+  Real
+  MaxNorm(const Vector< LevelData<EBCellFAB>* >&   a_data,
+          const int                            &   a_icomp);
 
   ///
   static
@@ -842,7 +1012,7 @@ public:
       Only uncovered regions count here.
       The data must have the same layout as a_layout with
       the possible exception of ghost cells.
-   */
+  */
   static
   Real
   norm(const EBCellFAB& a_dataOne,
@@ -852,6 +1022,7 @@ public:
        const int&       a_p,
        EBNormType::NormMode = EBNormType::OverBoth);
 
+  ///
   static
   Real
   norm(Real& volume, const EBCellFAB& a_dataOne,
@@ -872,7 +1043,7 @@ public:
       Only uncovered regions count here.
       The data must have the same layout as a_layout with
       the possible exception of ghost cells.
-   */
+  */
   static
   void
   volWeightedSum(Real&                            a_sum,
@@ -886,19 +1057,11 @@ public:
                  const int&                       a_p,
                  EBNormType::NormMode = EBNormType::OverBoth);
 
-  ///
-  /** return the sum of all irregular boundary areas
-   */
-  static
-  void
-  sumBndryArea(Real&               a_area,
-               const BoxLayout&    a_region,
-               const EBISLayout&   a_ebisl);
 
   ///
   /** return the dotproduct of two leveldatas of ebfabs,
       Only uncovered regions count here.
-   */
+  */
   static
   Real
   dotProduct(const BoxLayoutData<EBCellFAB >& a_dataOne,
@@ -910,7 +1073,7 @@ public:
   ///
   /** return the dotproduct of two  ebfabs,
       Only uncovered regions count here.
-   */
+  */
   static
   Real
   dotProduct(const EBCellFAB& a_dataOne,
@@ -923,7 +1086,7 @@ public:
   /** Given a VoF, a_vof1, and a cell, a_cell2, determine if there is a vector of
       VoFs in a_cell2 that connects to a_vof1 via a monotone path.
       A vector of VolIndices is returned, even if empty.
-   */
+  */
   static
   void
   monotonePathVoFToCellMultiVoFs(Vector<VolIndex>& a_vofsInCell,
@@ -936,28 +1099,13 @@ public:
       one such VoF then TRUE is returned (and the VolIndex is returned,
       a_vof2).  If there is no such VoF or if there are more than one such
       VoF then FALSE is returned (and a_vof2 is unchanged).
-   */
+  */
   static
   bool
   monotonePathVoFToCellVoF(VolIndex& a_vof2,
                            const VolIndex& a_vof1,
                            const IntVect& a_cell2,
                            const EBISBox& a_ebisBox);
-  /*******/
-  static void
-  getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
-                         const VolIndex&   a_vof,
-                         const EBISBox&    a_ebisBox,
-                         const int&        a_redistRad);
-
-  /*******/
-  static void
-  getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
-                         const IntVect&    a_timesMoved,
-                         const VolIndex&   a_vof,
-                         const EBISBox&    a_ebisBox,
-                         const int&        a_redistRad);
-
   ///
   /** Returns all vofs that can be reached from a_vof via a
       monotone path of length <= than radius
@@ -971,46 +1119,75 @@ public:
                            const EBISBox&    a_ebisBox,
                            const int&        a_radius);
 
+  ///
   static VolIndex& getVoFMax()
   {
     return s_vofMax;
   }
+
+  ///
   static Real&     getValMax()
   {
     return s_valMax;
   }
 
+  ///
   static void setMinVolumeFraction(Real a_minVolFrac)
   {
     s_minVolFrac = a_minVolFrac;
   }
 
+  ///
+  static void convertToITM(IndexTM<Real, SpaceDim>& a_diffrv,  const RealVect& a_rv);
+
+
+  ///
+  static void convertToITM(IndexTM<int, SpaceDim>& a_diffrv,  const IntVect& a_rv);
+
+  ///
+  static void convertToITM(IndexTM<Real, SpaceDim-1>& a_diffrv,  const RealVect& a_rv, const int& a_ignoreIndex);
+
+  ///
+  static void convertToITM(IndexTM<int, SpaceDim-1>& a_diffrv,  const IntVect& a_rv, const int& a_ignoreIndex);
+
+
+
 private:
+  ///
   static VolIndex s_vofMax;
+  ///
   static Real     s_valMax;
+  ///
   static Real     s_minVolFrac;
 
 };
 
+///
 extern IntVect ebcoarsen (const IntVect& b,
                           int        refinement_ratio);
-
+///
 extern
 Box ebrefine (const Box& b,
               int        refinement_ratio);
+///
 extern
 ProblemDomain ebrefine (const ProblemDomain& b,
                         int        refinement_ratio);
 
+///
 extern Box ebcoarsen (const Box& b,
                       int        refinement_ratio);
+
+///
 extern ProblemDomain ebcoarsen (const ProblemDomain& b,
                                 int        refinement_ratio);
 
+///
 extern void ebrefine(DisjointBoxLayout& output,
                      const DisjointBoxLayout& input,
                      int refinement);
 
+///
 extern void ebcoarsen(DisjointBoxLayout& output,
                       const DisjointBoxLayout& input,
                       int refinement);
