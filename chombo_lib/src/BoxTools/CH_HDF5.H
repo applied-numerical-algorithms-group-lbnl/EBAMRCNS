@@ -444,6 +444,7 @@ public:
   */
   const std::string& getGroup() const;
 
+  HDF5Handle::mode openMode() const {return m_mode;}
   const hid_t& fileID() const;
   const hid_t& groupID() const;
   static hid_t box_id;
@@ -930,8 +931,11 @@ void getOffsets(Vector<Vector<long long> >& offsets, const BoxLayoutData<T>& a_d
 {
   CH_TIME("getOffsets");
   const BoxLayout& layout = a_data.boxLayout();
-  offsets.resize(types, Vector<long long>(layout.size()+1));
+  {
+    CH_TIMELEAF("offsets.resize");
+    offsets.resize(types, Vector<long long>(layout.size()+1));
   //  offsets.resize(layout.size() + 1, Vector<long long>(types));
+  }
   for (int t=0; t<types; t++) offsets[t][0] = 0;
   Vector<int> thisSize(types);
   if (T::preAllocatable()==0)
@@ -942,9 +946,13 @@ void getOffsets(Vector<Vector<long long> >& offsets, const BoxLayoutData<T>& a_d
         {
           Box region = layout[it()];
           region.grow(outputGhost);
-          dataSize(dummy, thisSize, region, comps);
+          {
+            CH_TIMELEAF("dataSize");
+            dataSize(dummy, thisSize, region, comps);
+          }
           for (unsigned int i=0; i<thisSize.size(); ++i)
             {
+              CH_TIMELEAF("offsets calc");
               //offsets[index][i] = offsets[index-1][i] + thisSize[i];
               offsets[i][index] = offsets[i][index-1] + thisSize[i];
             }
@@ -962,12 +970,21 @@ void getOffsets(Vector<Vector<long long> >& offsets, const BoxLayoutData<T>& a_d
           buff.index.push_back(index);
           Box region = layout[dit()];
           region.grow(outputGhost);
-          dataSize(a_data[dit()], thisSize, region, comps);
+          { 
+            CH_TIMELEAF("dataSize");
+            dataSize(a_data[dit()], thisSize, region, comps);
+          }
           buff.offsets.push_back(thisSize);
         }
       Vector<OffsetBuffer> gathering(numProc());
-      gather(gathering, buff, uniqueProc(SerialTask::compute));
-      broadcast(gathering,  uniqueProc(SerialTask::compute));
+      {
+        CH_TIMELEAF("gather");
+        gather(gathering, buff, uniqueProc(SerialTask::compute));
+      }
+      {
+        CH_TIMELEAF("broadcast");
+        broadcast(gathering,  uniqueProc(SerialTask::compute));
+      }
       //  pout() << gathering<<endl;
       for (int i=0; i<numProc(); ++i)
         {
@@ -977,6 +994,7 @@ void getOffsets(Vector<Vector<long long> >& offsets, const BoxLayoutData<T>& a_d
               int index = offbuf.index[num];
               for (unsigned int j=0; j<types; ++j)
                 {
+                  CH_TIMELEAF("offsets calc");
                   //offsets[index+1][j] = offbuf.offsets[num][j];
                   offsets[j][index+1] = offbuf.offsets[num][j];
                 }
@@ -986,6 +1004,7 @@ void getOffsets(Vector<Vector<long long> >& offsets, const BoxLayoutData<T>& a_d
         {
           for (unsigned int j=0; j<types; ++j)
             {
+              CH_TIMELEAF("offsets calc");
               //offsets[i+1][j] += offsets[i][j];
               offsets[j][i+1] += offsets[j][i];
             }
@@ -1182,14 +1201,36 @@ int write(HDF5Handle& a_handle, const BoxLayoutData<T>& a_data,
 
   Vector<int> thisSize(types.size());
 
-  // step 1, create buffer big enough to hold the biggest linearized T
-  // that I will have to output.
+  // Hooks for aggregated collective buffering (ACB).
+  // Devendran, et al. Collective I/O Optimizations for Adaptive Mesh 
+  // Refinement Data Writes on Lustre File System, CUG 2016 for more on
+  // ACB.
+  // Comment out next line if you don't want ACB.
+  // Also, comment out the line "#define TRY_MPI_COLLECTIVES_ 0" below if
+  // you don't want MPI-IO collective buffering. 
+  // In general, you should turn on collective buffering if you use
+  // ACB.
+#ifdef CH_MPI
+#define AGGREGATE_BOXES_ 1
+#endif
+#ifdef AGGREGATE_BOXES_
+  // pout() << "Turning on aggregated collective buffering (ACB)." << endl;
+  // For each type types[i], aggCount[i] is the total number of data points for all 
+  // the boxes on this processor.
+  Vector<hsize_t> aggCount(types.size(), 0);
+  // size of aggregated buffers; initialize to 0 so we can add up
+  // the box sizes to compute the size of the buffers
+  Vector<long long> aggBufferSize(types.size(), 0); 
+  Vector<void*> aggBuffers(types.size(), NULL);
+#endif
 
-  //  pout()<<"offsets ";
-  for (int i=0; i<offsets[0].size(); i++)
-  {
-    //    pout()<<" "<<offsets[0][i];
-  }
+ // step 1, create buffer big enough to hold the biggest linearized T
+ // that I will have to output.
+ //  pout()<<"offsets ";
+ // for (int i=0; i<offsets[0].size(); i++)
+ // {
+ //    pout()<<" "<<offsets[0][i];
+ // }
   // pout()<<"\n";
   {
     CH_TIME("ComputeBufferCapacity");
@@ -1206,6 +1247,9 @@ int write(HDF5Handle& a_handle, const BoxLayoutData<T>& a_data,
               {
                 bufferCapacity[i] = size;
               }
+#ifdef AGGREGATE_BOXES_
+            aggBufferSize[i] += size;
+#endif
           }
       }
   }
@@ -1222,67 +1266,263 @@ int write(HDF5Handle& a_handle, const BoxLayoutData<T>& a_data,
                << endl;
         MayDay::Error("memory error in buffer allocation write");
       }
+#ifdef AGGREGATE_BOXES_
+      aggBuffers[i] = mallocMT(aggBufferSize[i]);
+      if (aggBuffers[i] == NULL)
+      {
+        MayDay::Error("memory error in aggregate buffer allocation in write");
+      }
+#endif
     }
+
+#ifdef CH_MPI
+#define TRY_MPI_COLLECTIVES_ 1
+#endif
+#ifdef TRY_MPI_COLLECTIVES_
+  // pout() << "Turned on MPI-IO collective buffering." << endl;
+  // MPI collective buffering requires all processes call H5Dwrite collectively.
+  // In particular, the processes must issue the same number of H5Dwrite calls,
+  // or the application will hang when collective is turned on.
+  // In the case where we do a separate write for each box, gather the 
+  // maximum number of boxes assigned to any process, so we know how many 
+  // H5Dwrites to do.
+  DataIterator dit = a_data.dataIterator();
+  int maxNumBoxes = dit.size();
+  int sendBuf = maxNumBoxes;
+  int result = MPI_Allreduce(&sendBuf, &maxNumBoxes, 1, MPI_INT,MPI_MAX, Chombo_MPI::comm);
+  if (result != MPI_SUCCESS)
+    {
+      MayDay::Error("Couldn't collect maximum number of boxes!");
+    }
+  // Set dataset transfer property to collective mode. This is how we turn
+  // on MPI-IO collective in HDF5.
+  hid_t DXPL = H5Pcreate(H5P_DATASET_XFER);
+  if(!(a_handle.openMode()==HDF5Handle::CREATE_SERIAL)) // can't set MPI collective if file was created for serial IO
+    H5Pset_dxpl_mpio(DXPL, H5FD_MPIO_COLLECTIVE);
+#endif /*end TRY_MPI_COLLECTIVES_ */
 
   // Step 2.  actually a) write each of my T objects into the
   // buffer, then b) write that buffered data out to the
   // write position in the data file using hdf5 hyperslab functions.
-#ifdef TRY_MPI_COLLECTIVES_
-  hid_t DXPL = H5Pcreate(H5P_DATASET_XFER);
-  H5Pset_dxpl_mpio(DXPL, H5FD_MPIO_COLLECTIVE);
-#endif
   {
     CH_TIME("linearize_H5Dwrite");
+#ifdef AGGREGATE_BOXES_
+    // the first non-empty hyperslab needs to be handled separately from
+    // the others, so keep track of the first non-empty hyperslab
+    bool isFirstHyperslab = true;
+
+    // bufferLoc keeps track of last location written to in the aggregrated 
+    // buffer
+    Vector<void*> bufferLoc(types.size(), NULL);
+    // Set the bufferLoc to the beginning of the aggregated buffer
+    for(unsigned int i=0; i<types.size(); ++i)
+      {
+        bufferLoc[i] = aggBuffers[i];
+      }
+#endif
     for (DataIterator it = a_data.dataIterator(); it.ok(); ++it)
       {
         const T& data = a_data[it()];
         unsigned int index = a_data.boxLayout().index(it());
         Box box = a_data.box(it());
         box.grow(outputGhost);
+        // First, linearize the box, and put data into the buffer
         {       
           CH_TIMELEAF("linearize");
+#ifdef AGGREGATE_BOXES_
+          // Under aggregation, we need to be careful to write to
+          // the buffer starting at bufferLoc.
+          for(unsigned int i=0; i<types.size(); i++)
+            {
+              data.linearOut(bufferLoc[i], box, comps);
+              char* tempLoc = ((char*)bufferLoc[i]) + data.size(box,comps);
+              bufferLoc[i] = (void*)tempLoc;
+              //              bufferLoc[i] += data.size(box, comps);
+            }
+#else
           write(data, buffers, box, comps); //write T to buffer
+#endif
         }
+        // Next select HDF5 hyperslabs to specify where to write in HDF5 file
+        // BUG: The hyperslab union generation is wrong if types.size() > 1
+        // because isFirstHyperslab isn't independent for different sizes.
+        // We don't make a fix because types.size() is almost always 1 (and
+        // will probably be set to 1 in future redesigns).
         for (unsigned int i=0; i<types.size(); ++i)
           {
             offset[0] = offsets[i][index];
             count[0] = offsets[i][index+1] - offset[0];
+#ifdef AGGREGATE_BOXES_
+            // Under aggregation, we may be sending multiple boxes to HDF5.
+            // Because boxes on a process are not necessarily written to 
+            // contiguous locations in the HDF5 file, we need to specify
+            // multiple file locations to HDF5. This is done using a 
+            // union of hyperslabs.
+
+            aggCount[i] += count[0];
+            if (isFirstHyperslab)
+              {
+                // If the box is non-empty, select the first hyperslab
+                // and set isFirstHyperslab to false.  Otherwise,
+                // we haven't encountered the first non-empty 
+                // hyperslab, so keep isFirstHyperslab equal to true.
+                if(count[0] > 0)
+                  {
+                    err =  H5Sselect_hyperslab(dataspace[i], H5S_SELECT_SET,
+                                             offset, NULL,
+                                             count, NULL);
+                    CH_assert(err >= 0);
+                    isFirstHyperslab = false;
+                  }
+                else // must explicitly tell HDF5 we are doing an empty write
+                  {
+                    H5Sselect_none(dataspace[i]);
+                  }
+              }
+            else
+              {
+                if(count[0] > 0)
+                  {
+                    // H5S_SELECT_OR creates a union of the selected
+                    // hyperslab with the already selected hyperslabs
+                    // in dataspace
+                    err =  H5Sselect_hyperslab(dataspace[i], H5S_SELECT_OR,
+                                               offset, NULL,
+                                               count, NULL);
+                    CH_assert(err >= 0);
+                  }
+                // else don't do H5Sselect_none in case it overrides
+                // the already existing union of hyperslabs.
+              }
+#else
+            // Without aggregation, we create a simple hyperslab for the box.
             hid_t memdataspace=0;
             if (count[0] > 0)
               {
-              err =  H5Sselect_hyperslab(dataspace[i], H5S_SELECT_SET,
+                err =  H5Sselect_hyperslab(dataspace[i], H5S_SELECT_SET,
                                          offset, NULL,
                                          count, NULL);
-              CH_assert(err >= 0);
-              memdataspace = H5Screate_simple(1, count, NULL);
-              CH_assert(memdataspace >= 0);
-            }
-          else
+                CH_assert(err >= 0);
+                memdataspace = H5Screate_simple(1, count, NULL);
+                CH_assert(memdataspace >= 0);
+              }
+            else // must explicitly tell HDF5 we are doing an empty write
+              {
+                H5Sselect_none(dataspace[i]);
+                H5Sselect_none(memdataspace);
+              }
+
+            // Write out box if we are NOT performing aggregation.
+            // (Under aggregation, one single write call is issued at the
+            // end of the function.)
             {
-              H5Sselect_none(dataspace[i]);
-              H5Sselect_none(memdataspace);
-            }
-          {
-            CH_TIMELEAF("H5Dwrite");
+              CH_TIMELEAF("H5Dwrite");
 #ifdef TRY_MPI_COLLECTIVES_
+              err = H5Dwrite(dataset[i], types[i], memdataspace, dataspace[i],
+                             DXPL, buffers[i]);
+#else
+              err = H5Dwrite(dataset[i], types[i], memdataspace, dataspace[i],
+                             H5P_DEFAULT, buffers[i]);
+#endif
+            }
+            CH_assert(err >= 0);
+            H5Sclose(memdataspace);
+            if (err < 0)
+              {
+                ret = err;
+                pout() << "Before goto cleanup" << endl;
+                goto cleanup;
+              }
+#endif // end of ifdef AGGREGATE_BOXES_ 
+          } // end of loop over types
+      } // end of loop over data iterator
+
+    // Under aggregation, now we issue one write call to send all boxes to HDF5
+    // If aggregation is turned off, but MPI collective is turned on, we may
+    // have to do empty writes to make sure all processes call H5Dwrite 
+    // the same number of times.
+#ifdef AGGREGATE_BOXES_
+    for(unsigned int i=0; i<types.size(); ++i)
+      {
+        if(aggCount[i] > 0)
+          {
+            hid_t memdataspace = 0;
+            memdataspace = H5Screate_simple(1, &(aggCount[i]), NULL);
+            CH_assert(memdataspace >= 0);
+            {
+              CH_TIMELEAF("H5Dwrite");
+#ifdef TRY_MPI_COLLECTIVES_
+              err = H5Dwrite(dataset[i], types[i], memdataspace, dataspace[i],
+                           DXPL, aggBuffers[i]);
+#else
+              err = H5Dwrite(dataset[i], types[i], memdataspace, dataspace[i],
+                                   H5P_DEFAULT, aggBuffers[i]);
+#endif
+            }
+            H5Sclose(memdataspace);
+            if (err < 0)
+              {
+                ret = err;
+                pout() << "Error! goto cleanup" << endl;
+                goto cleanup;
+              }
+          }
+        //else aggCount[i] is 0, and this processor has no data to write.
+        // For MPI collectives, still have to do an empty write call
+#ifdef TRY_MPI_COLLECTIVES_
+        else
+          {
+            hid_t memdataspace = 0;
+            memdataspace = H5Screate_simple(1, &(aggCount[i]), NULL);
+            H5Sselect_none(memdataspace);
+            H5Sselect_none(dataspace[i]);
+            err = H5Dwrite(dataset[i], types[i], memdataspace, dataspace[i],
+                           DXPL, aggBuffers[i]);
+            if (err < 0)
+              {
+                ret = err;
+                pout() << "Before goto cleanup" << endl;
+                goto cleanup;
+              }
+          }
+#endif
+      } // end for loop over types
+#else // not using aggregated collective buffering
+#ifdef TRY_MPI_COLLECTIVES_
+    // MPI collectives expects all processes to make the same number of H5Dwrite calls,
+    // or it will hang.  So, call H5Dwrite with empty data
+    // First create memdataspace according to example in
+    // https://www.hdfgroup.org/ftp/HDF5/examples/parallel/coll_test.c
+    hid_t memdataspace = 0;
+    // Setting first argument to 1 b/c that's the value used for non-empty writes.
+    // (See H5Sselect_hyperslab code above.)
+    memdataspace = H5Screate_simple(1, count, NULL);
+    H5Sselect_none(memdataspace);
+    int nBoxes = a_data.dataIterator().size();
+    for(int iwrite = nBoxes; iwrite < maxNumBoxes; iwrite++)
+      {
+        for (unsigned int i=0; i<types.size(); ++i)
+          {
+            H5Sselect_none(dataspace[i]);
+            // for debugging: buffers has junk data in it (but none of that data should
+            // be written out here)
             err = H5Dwrite(dataset[i], types[i], memdataspace, dataspace[i],
                            DXPL, buffers[i]);
-#else
-            err = H5Dwrite(dataset[i], types[i], memdataspace, dataspace[i],
-                           H5P_DEFAULT, buffers[i]);
-#endif
+            if (err < 0)
+              {
+                ret = err;
+                pout() << "Before goto cleanup" << endl;
+                goto cleanup;
+              }
           }
-          CH_assert(err >= 0);
-          H5Sclose(memdataspace);
-          if (err < 0)
-            {
-              ret = err;
-              goto cleanup;
-            }
-          
-        }
-    }
-  }
+      }
+    H5Sclose(memdataspace);
+
+#endif // end of #ifdef TRY_MPI_COLLECTIVES_
+#endif // end of #ifdef AGGREGATE_BOXES_
+
+  } // end of region for CH_TIME("linearize_H5Dwrite")
+
 #ifdef TRY_MPI_COLLECTIVES_
   H5Pclose(DXPL);
 #endif
@@ -1295,6 +1535,9 @@ int write(HDF5Handle& a_handle, const BoxLayoutData<T>& a_data,
       {
         CH_TIME("freeMT");
         freeMT(buffers[i]);
+        #ifdef AGGREGATE_BOXES_
+        freeMT(aggBuffers[i]);
+        #endif
       }
       {
         CH_TIME("H5Sclose");
@@ -1313,15 +1556,25 @@ template <class T>
 int write(HDF5Handle& a_handle, const LevelData<T>& a_data,
           const std::string& a_name, const IntVect& outputGhost, const Interval& in_comps)
 {
+  CH_TIMERS("Write Level");
+  CH_TIMER("calc minimum in outputGhost",t1);
+  CH_TIMER("writeToFile",t2);
+  CH_TIMER("setGroup",t3);
   HDF5HeaderData info;
   info.m_intvect["ghost"] = a_data.ghostVect();
   IntVect og(outputGhost);
+  CH_START(t1); 
   og.min(a_data.ghostVect());
+  CH_STOP(t1); 
   info.m_intvect["outputGhost"] = og;
   std::string group = a_handle.getGroup();
   a_handle.setGroup(group+"/"+a_name+"_attributes");
+  CH_START(t2); 
   info.writeToFile(a_handle);
+  CH_STOP(t2); 
+  CH_START(t3); 
   a_handle.setGroup(group);
+  CH_STOP(t3); 
   return write(a_handle, (const BoxLayoutData<T>&)a_data, a_name, og, in_comps);
 }
 
