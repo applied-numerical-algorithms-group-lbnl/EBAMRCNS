@@ -1,0 +1,66 @@
+C      _______              __
+C     / ___/ /  ___  __ _  / /  ___
+C    / /__/ _ \/ _ \/  V \/ _ \/ _ \
+C    \___/_//_/\___/_/_/_/_.__/\___/
+C    Please refer to Copyright.txt, in Chombo's root directory.
+
+#include "CONSTANTS.H"
+
+
+cccccccccccccccc
+
+      subroutine incr1dlaplacian(
+     &     chf_fra1[opphidir],
+     &     chf_const_fra1[phi],
+     &     chf_const_real[dx],
+     &     chf_const_int[idir],
+     &     chf_box[lobox],
+     &     chf_const_int[haslo],
+     &     chf_box[hibox],
+     &     chf_const_int[hashi],
+     &     chf_box[centerbox])
+
+      integer chf_ddecl[i;j;k]
+      integer chf_ddecl[ioff;joff;koff]
+
+      chf_dterm[
+      ioff = chf_id(0,idir);
+      joff = chf_id(1,idir);
+      koff = chf_id(2,idir)]
+
+      chf_multido[centerbox;i;j;k]
+
+      opphidir(chf_ix[i;j;k]) =
+     &     (one/(dx*dx))*
+     $     (    phi(chf_ix[i+ioff;j+joff;k+koff])
+     &     -two*phi(chf_ix[i     ;j     ;k     ])
+     &     +    phi(chf_ix[i-ioff;j-joff;k-koff]))
+
+      chf_enddo
+
+      if (haslo .eq. 1) then
+         chf_multido[lobox;i;j;k]
+
+         opphidir(chf_ix[i;j;k]) =
+     &        (one/dx) *
+     $        (  phi(chf_ix[i+ioff;j+joff;k+koff])
+     &        -  phi(chf_ix[i     ;j     ;k     ]))
+
+         chf_enddo
+      endif
+
+      if (hashi .eq. 1) then
+         chf_multido[hibox;i;j;k]
+
+         opphidir(chf_ix[i;j;k]) =
+     &        (one/dx) *
+     $        (  phi(chf_ix[i     ;j     ;k     ])
+     &        -  phi(chf_ix[i-ioff;j-joff;k-koff]))
+
+         chf_enddo
+      endif
+
+      return
+      end
+
+ 
