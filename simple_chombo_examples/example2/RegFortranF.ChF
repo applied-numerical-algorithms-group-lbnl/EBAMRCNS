@@ -42,7 +42,7 @@ cccccccccccccccc
          chf_multido[lobox;i;j;k]
 
          opphidir(chf_ix[i;j;k]) =
-     &        (one/dx) *
+     &        (one/dx/dx) *
      $        (  phi(chf_ix[i+ioff;j+joff;k+koff])
      &        -  phi(chf_ix[i     ;j     ;k     ]))
 
@@ -53,7 +53,7 @@ cccccccccccccccc
          chf_multido[hibox;i;j;k]
 
          opphidir(chf_ix[i;j;k]) =
-     &        (one/dx) *
+     &        (one/dx/dx) *
      $        (  phi(chf_ix[i     ;j     ;k     ])
      &        -  phi(chf_ix[i-ioff;j-joff;k-koff]))
 
