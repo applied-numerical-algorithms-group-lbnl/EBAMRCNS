@@ -682,6 +682,8 @@ class EBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
   RefCountedPtr<ViscousBaseDomainBC>           m_domainBC;
   RefCountedPtr<ViscousBaseEBBC>               m_ebBC;
   Vector<IntVect>                              m_colors;
+  Copier                          m_exchangeCopier;
+  Copier                          m_exchangeCopierGrad;
 
   //scrounged from EBLevelDataOps for performance reasons
   void

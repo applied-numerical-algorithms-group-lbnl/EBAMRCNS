@@ -205,6 +205,8 @@ EBViscousTensorOp(const EBLevelGrid &                                a_eblgFine,
   }
   /**/
 
+  m_exchangeCopier.define(m_eblg.getDBL(), m_eblg.getDBL(), m_ghostCellsPhi,  true);
+  m_exchangeCopierGrad.define(m_eblg.getDBL(), m_eblg.getDBL(), IntVect::Unit,  true);
   
   defineStencils();
 }
@@ -2063,7 +2065,7 @@ incrementFRFine(EBFastFR& a_fluxReg,
 
 
   finerEBAMROp.m_interpWithCoarser->coarseFineInterp(phiFine, finerEBAMROp.m_grad, a_phi);
-  phiFine.exchange(interv);
+  phiFine.exchange(finerEBAMROp.m_exchangeCopier);
   Real dxFine = m_dx/m_refToFine;
   DataIterator ditf = a_phiFine.dataIterator();
   for (ditf.reset(); ditf.ok(); ++ditf)
@@ -2549,8 +2551,10 @@ EBViscousTensorOp::
 fillGrad(const LevelData<EBCellFAB>&       a_phi)
 {
   CH_TIME("ebvto::fillGrad");
+  CH_assert(a_phi.ghostVect()  == m_ghostCellsPhi);
+  CH_assert(m_grad.ghostVect() == IntVect::Unit);
   LevelData<EBCellFAB>& phi = (LevelData<EBCellFAB>&)a_phi;
-  phi.exchange(phi.interval());
+  phi.exchange(m_exchangeCopier);
   const DisjointBoxLayout& grids = a_phi.disjointBoxLayout();
   //compute gradient of phi for parts NOT in ghost cells
 
@@ -2563,7 +2567,7 @@ fillGrad(const LevelData<EBCellFAB>&       a_phi)
                grids.get(dit[mybox]),
                dit[mybox]);
     }
-  m_grad.exchange();
+  m_grad.exchange(m_exchangeCopierGrad);
 }
 /**/
 void
