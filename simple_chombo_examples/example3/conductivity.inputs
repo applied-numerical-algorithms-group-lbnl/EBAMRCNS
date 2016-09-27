@@ -1,0 +1,38 @@
+number_of_solves = 10
+#solver stuff
+#1 gsrb, 0 point jacobi	
+num_smooth = 4
+num_mg = 1
+max_iterations = 100
+tolerance = 1.0e-6
+hang = 1.0e-10
+
+#1 vcycle, 2 wcycle and so on
+mg_num_cycles = 1
+acoef_value  = 0.5
+bcoef_value  = 0.05
+
+
+# alpha*I + beta*laplacian
+alpha = 1.0
+beta =  -0.1
+
+#values for when bcs are value
+domain_bc_value = 0.0
+eb_bc_value     = 0.0
+
+
+###GRID STUFF
+max_level    = 1
+ref_ratio    = 2 2 2 2 2 
+n_cells      = 64 64 64
+
+
+block_factor = 8
+fill_ratio   = 0.7
+buffer_size  = 2
+max_grid_size = 16
+
+
+do_file_output = true
+num_pre_cond_iters = 4
