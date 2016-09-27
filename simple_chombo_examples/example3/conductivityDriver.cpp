@@ -407,8 +407,6 @@ void solve(const PoissonParameters&  a_params)
 
   BiCGStabSolver<LevelData<EBCellFAB> > bicgstab;
   bicgstab.m_verbosity = 0;
-  EBSimpleSolver simp;
-  simp.setNumSmooths(100);
 
   LinearSolver<LevelData<EBCellFAB> >* botSolve = &bicgstab;
 
