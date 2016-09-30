@@ -389,5 +389,9 @@ protected:
   Copier m_coarsenCopier;
 };
 
+extern bool getNearPeriodic(const Box          & a_box,
+                            const ProblemDomain& a_pdom,
+                            const int          & a_rad);
+
 #include "NamespaceFooter.H"
 #endif
