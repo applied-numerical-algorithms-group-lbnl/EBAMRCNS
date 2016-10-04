@@ -59,9 +59,6 @@
 #include   "EBPlanarShockTemperatureBC.H"
 #include "EBCNSVortexF_F.H"
 #include "EBCNSVortexIBC.H"
-#include "SchlichtingVelocityEBBC.H"
-#include "SchlichtingVeloDomainBC.H"
-#include "SchlichtingTempDomainBC.H"
 #include "GodunovGeom.H"
 
 #include "NamespaceHeader.H"
@@ -243,81 +240,6 @@ coarsenBoxes(Vector< Vector<Box>      >&    a_boxesCoar,
         }
     }
 }
-/************/
-void
-schlichtingGeometry(Box& a_coarsestDomain,
-                    RealVect& a_dx)
-{
-  ParmParse ppgodunov;
-  //parse input file
-  int max_level = 0;
-  ppgodunov.get("max_level",max_level);
-
-  int num_read_levels = Max(max_level,1);
-  std::vector<int> refRatios; // (num_read_levels,1);
-  // note this requires a refRatio to be defined for the
-  // finest level (even though it will never be used)
-
-  ppgodunov.getarr("ref_ratio",refRatios,0,num_read_levels+1);
-  ParmParse pp;
-  RealVect origin = RealVect::Zero;
-  Vector<int> n_cell(SpaceDim);
-  pp.getarr("n_cell",n_cell,0,SpaceDim);
-
-  CH_assert(n_cell.size() == SpaceDim);
-  IntVect lo = IntVect::Zero;
-  IntVect hi;
-  for(int ivec = 0; ivec < SpaceDim; ivec++)
-    {
-      if(n_cell[ivec] <= 0)
-        {
-          pout() << " bogus number of cells input = " << n_cell[ivec];
-          MayDay::Error();
-        }
-      hi[ivec] = n_cell[ivec] - 1;
-    }
-
-  a_coarsestDomain = Box(lo, hi);
-  Box finestDomain = a_coarsestDomain;
-  for(int ilev = 0; ilev < max_level; ilev++)
-    {
-      finestDomain.refine(refRatios[ilev]);
-    }
-
-  Real domain_length;//x dir
-  pp.get("domain_length",domain_length);
-  for(int idir = 0;idir<SpaceDim;idir++)
-    {
-      a_dx[idir] = domain_length/n_cell[0];
-    }
-  RealVect fineDx = a_dx;
-  int ebMaxCoarsen = -1;
-  for(int ilev = 0; ilev < max_level; ilev++)
-    {
-      fineDx /= refRatios[ilev];
-    }
-  int ebMaxSize;
-  ppgodunov.get("max_grid_size", ebMaxSize);
-  EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
-
-  pout() << "square cylinder geometry" << endl;
-
-  SchlichtingParams schlicht;
-  ParseSchlichtingParams(schlicht);
-  RealVect schlichtingAxis  = schlicht.m_axis;
-
-  RealVect schlichtNormal[CH_SPACEDIM-1];
-  PolyGeom::getTangentVectors(schlichtNormal, schlicht.m_axis);
-
-  RealVect schlichtCorner= schlicht.m_corner;
-  bool inside = true;
-  
-  PlaneIF ramp(schlichtNormal[0],schlichtCorner,inside);
-  
-  GeometryShop workshop(ramp,0,fineDx);
-
-  ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
-}
 
 void
 getBoxes(Vector<Vector<Box> >&   a_boxes,
@@ -434,11 +356,7 @@ getEBAMRCNSFactory(      RefCountedPtr<EBAMRCNSFactory>&                  a_fact
   Vector<int> domainBC;
   pp.getarr("dom_bc_type", domainBC, 0, SpaceDim);
  
-  // The convergence tests are set up to use IBCs for initial conditions, 
-  // so we stick an adaptor in here to make sure that things still work 
-  // the way they should. 
-  RefCountedPtr<EBSpaceTimeFunction> a_ICs(new EBSpaceTimeFunctionIBCAdaptor());
-  a_fact = RefCountedPtr<EBAMRCNSFactory> (new EBAMRCNSFactory(a_params, a_patch, a_ICs));
+  a_fact = RefCountedPtr<EBAMRCNSFactory> (new EBAMRCNSFactory(a_params, a_patch));
 
 }
 
@@ -1834,54 +1752,41 @@ fillSolverBCs(EBAMRCNSParams& a_params, const int& a_iprob)
       NeumannConductivityEBBCFactory* neumbctemp = new NeumannConductivityEBBCFactory();
       neumbctemp->setValue(0.);
       a_params.m_ebBCTemp = RefCountedPtr<BaseEBBCFactory>(neumbctemp);
-      if(a_iprob == 2)
-        {
-          pout() << "Schlichting problem " << endl;
-          SchlichtingParams schlicht;
-          ParseSchlichtingParams(schlicht);
+      pout() << "No slip, no flow velocity EBBC" << endl;
+      DirichletViscousTensorEBBCFactory* diribc = new DirichletViscousTensorEBBCFactory();
+      diribc->setValue(0.);
+      a_params.m_ebBCVelo = RefCountedPtr<BaseEBBCFactory>(diribc);
 
-          a_params.m_ebBCVelo = RefCountedPtr<BaseEBBCFactory>(    new SchlichtingVelocityEBBCFactory(schlicht));
-          a_params.m_doBCVelo = RefCountedPtr<BaseDomainBCFactory>(new SchlichtingVeloDomainBCFactory(schlicht));
-          a_params.m_doBCTemp = RefCountedPtr<BaseDomainBCFactory>(new SchlichtingTempDomainBCFactory(schlicht));
+      if(a_iprob == 1)
+        {
+          pout() << "planar shock domain bcs" << endl;
+          int inormal;
+
+          pp.get("shock_normal",inormal);
+
+          int ishockback;
+          pp.get("shock_backward",ishockback);
+          bool shockback = (ishockback == 1);
+          a_params.m_doBCVelo = RefCountedPtr<BaseDomainBCFactory>(new EBPlanarShockSolverBCFactory(inormal, shockback, a_params.m_slipBoundaries));
+
+          a_params.m_doBCTemp = RefCountedPtr<BaseDomainBCFactory>(new EBPlanarShockTemperatureBCFactory(inormal, shockback, a_params.m_slipBoundaries));
+        }
+      else if(a_iprob == 0)
+        {
+          pout() << "no slip no flow, thermally insulated domain bcs" << endl;
+          DirichletViscousTensorDomainBCFactory* diribc = new DirichletViscousTensorDomainBCFactory();
+          diribc->setValue(0.);
+          a_params.m_doBCVelo = RefCountedPtr<BaseDomainBCFactory>(diribc);
+
+          NeumannConductivityDomainBCFactory* neumdobc = new NeumannConductivityDomainBCFactory();
+          neumdobc->setValue(0.);
+          a_params.m_doBCTemp = RefCountedPtr<BaseDomainBCFactory>(neumdobc);
         }
       else
         {
-          pout() << "No slip, no flow velocity EBBC" << endl;
-          DirichletViscousTensorEBBCFactory* diribc = new DirichletViscousTensorEBBCFactory();
-          diribc->setValue(0.);
-          a_params.m_ebBCVelo = RefCountedPtr<BaseEBBCFactory>(diribc);
-
-          if(a_iprob == 1)
-            {
-              pout() << "planar shock domain bcs" << endl;
-              int inormal;
-
-              pp.get("shock_normal",inormal);
-
-              int ishockback;
-              pp.get("shock_backward",ishockback);
-              bool shockback = (ishockback == 1);
-              a_params.m_doBCVelo = RefCountedPtr<BaseDomainBCFactory>(new EBPlanarShockSolverBCFactory(inormal, shockback, a_params.m_slipBoundaries));
-
-              a_params.m_doBCTemp = RefCountedPtr<BaseDomainBCFactory>(new EBPlanarShockTemperatureBCFactory(inormal, shockback, a_params.m_slipBoundaries));
-            }
-          else if(a_iprob == 0)
-            {
-              pout() << "no slip no flow, thermally insulated domain bcs" << endl;
-              DirichletViscousTensorDomainBCFactory* diribc = new DirichletViscousTensorDomainBCFactory();
-              diribc->setValue(0.);
-              a_params.m_doBCVelo = RefCountedPtr<BaseDomainBCFactory>(diribc);
-
-              NeumannConductivityDomainBCFactory* neumdobc = new NeumannConductivityDomainBCFactory();
-              neumdobc->setValue(0.);
-              a_params.m_doBCTemp = RefCountedPtr<BaseDomainBCFactory>(neumdobc);
-            }
-          else
-            {
-              MayDay::Error("bogus problem identifier");
-            }
-        }    
-    }
+          MayDay::Error("bogus problem identifier");
+        }
+    }    
 }
 /***************/
 void

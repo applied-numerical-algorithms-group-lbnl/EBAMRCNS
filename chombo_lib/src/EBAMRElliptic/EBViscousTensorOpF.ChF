@@ -5,6 +5,7 @@ C    \___/_//_/\___/_/_/_/_.__/\___/
 C    Please refer to Copyright.txt, in Chombo's root directory.
 
 #include "CONSTANTS.H"
+
       subroutine cellgradebvtop(
      $     chf_fra1[grad],
      $     chf_const_fra1[vel],
@@ -112,7 +113,6 @@ C    Please refer to Copyright.txt, in Chombo's root directory.
 
       return
       end
-
 
 
 

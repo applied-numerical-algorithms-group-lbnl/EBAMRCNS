@@ -69,6 +69,51 @@ public:
   {
     m_startDirichlet = a_startDirichlet;
   }
+
+  virtual void 
+  fillVelGhost(FArrayBox&     a_phi,
+               const Box&     a_valid,
+               const Box&     a_domain,
+               Real           a_dx,
+               bool           a_homogeneous)
+  {
+    Box valid = a_valid;
+    for (int idir=0; idir<CH_SPACEDIM; ++idir)
+      {
+        for(SideIterator sit; sit.ok(); ++sit)
+          {
+            Box toRegion = adjCellBox(valid, idir, sit(), 1);
+
+            for (BoxIterator bit(toRegion); bit.ok(); ++bit)
+              {
+                const IntVect& iv = bit();
+                //fake vof just to get the location
+                VolIndex vof(iv, 0);
+                RealVect loc = EBArith::getVoFLocation(vof, a_dx, RealVect::Zero);
+                int isign = sign(sit());
+                IntVect ivneigh = iv - isign*BASISV(idir);
+                RealVect value = bcvaluefunc(loc, idir, sit());
+                if(a_homogeneous) value = RealVect::Zero;
+                for(int comp = 0; comp < SpaceDim; comp++)
+                  {
+                    if(loc[0] < m_startDirichlet)
+                      {
+                        //neum
+                        a_phi(iv, comp) = a_phi(ivneigh, comp)  + a_dx*value[comp];
+                      }
+                    else
+                      {
+                        //diri
+                        a_phi(iv, comp) = -a_phi(ivneigh, comp)  + 2.*value[comp];
+                      }
+                  }
+              }
+          } 
+        //grow valid box so we hit corners
+        valid.grow(idir, 1);
+      }//end loop over directions
+  }
+
 private:
 
   Real m_startDirichlet;

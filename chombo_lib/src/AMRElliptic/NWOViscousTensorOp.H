@@ -242,6 +242,18 @@ public:
                int              a_dir,
                int ref = 1);
 
+  static void
+  getFlux(FArrayBox&       a_flux,
+          const FArrayBox& a_data,
+          const FArrayBox& a_etaFace,
+          const FArrayBox& a_lamFace,
+          const Box&       a_faceBox,
+          const ProblemDomain& a_domain,
+          const Real         & a_dx,
+          const Real         & a_beta,
+          int              a_dir,
+          int a_ref);
+
   /// utility function which computes operator after all bc's have been set
   void computeOperatorNoBCs(LevelData<FArrayBox>& a_lhs,
                             const LevelData<FArrayBox>& a_phi);
@@ -484,11 +496,7 @@ protected:
   Copier                  m_exchangeCopier;
   FourthOrderCFInterp     m_interpWithCoarser;
 
-  LayoutData<CFIVS> m_loCFIVS[SpaceDim];
-  LayoutData<CFIVS> m_hiCFIVS[SpaceDim];
-  // will need these to do tangential gradient computations
-  LayoutData<TensorFineStencilSet> m_hiTanStencilSets[SpaceDim];
-  LayoutData<TensorFineStencilSet> m_loTanStencilSets[SpaceDim];
+
   Vector<IntVect> m_colors;
 
 private:

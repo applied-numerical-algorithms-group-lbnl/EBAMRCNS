@@ -19,7 +19,7 @@ AMRLevel*
 EBAMRCNSFactory::
 new_amrlevel() const
 {
-  EBAMRCNS* amrg_ptr = new EBAMRCNS(m_params, m_factory, m_ICs);
+  EBAMRCNS* amrg_ptr = new EBAMRCNS(m_params, m_factory);
   //  amrgptr->setConservative(false);
   return (static_cast <AMRLevel*> (amrg_ptr));
 }

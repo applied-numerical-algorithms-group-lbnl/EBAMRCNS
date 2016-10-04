@@ -836,12 +836,29 @@ void NWOViscousTensorOp::getFlux(FArrayBox&       a_flux,
                                  int              a_dir,
                                  int a_ref)
 {
-  ProblemDomain domain(m_domain);
+  getFlux(a_flux, a_data, a_etaFace, a_lamFace, a_faceBox, 
+          m_domain, m_dx, m_beta, a_dir, a_ref);
+}
+
+
+/***/
+void NWOViscousTensorOp::getFlux(FArrayBox&       a_flux,
+                                 const FArrayBox& a_data,
+                                 const FArrayBox& a_etaFace,
+                                 const FArrayBox& a_lamFace,
+                                 const Box&       a_faceBox,
+                                 const ProblemDomain& a_domain,
+                                 const Real         & a_dx,
+                                 const Real         & a_beta,
+                                 int              a_dir,
+                                 int a_ref)
+{
+  ProblemDomain domain(a_domain);
   domain.refine(a_ref);
-  Real dx(m_dx);
+  Real dx(a_dx);
 
   dx /= a_ref;
-  CH_assert(a_data.nComp() == m_ncomp);
+  CH_assert(a_data.nComp() == SpaceDim);
   a_flux.resize(a_faceBox, a_data.nComp());
 
   //for some reason lost in the mists of time, this has to be
@@ -852,7 +869,7 @@ void NWOViscousTensorOp::getFlux(FArrayBox&       a_flux,
                         CHF_CONST_FRA1(a_lamFace, 0),
                         CHF_CONST_REAL(dx),
                         CHF_CONST_INT(a_dir),
-                        CHF_CONST_REAL(m_beta),
+                        CHF_CONST_REAL(a_beta),
                         CHF_BOX(a_faceBox));
 }
 /***/
@@ -1160,47 +1177,10 @@ define(const DisjointBoxLayout&                    a_grids,
       m_interpWithCoarser.define(a_grids, a_gridsCoar, SpaceDim, domCoar, m_refToCoar, interpRad);
     }
 
-  for (int i=0; i<CH_SPACEDIM; ++i)
-    {
-      LayoutData<CFIVS>& lo =  m_loCFIVS[i];
-      LayoutData<CFIVS>& hi =  m_hiCFIVS[i];
-      lo.define(a_grids);
-      hi.define(a_grids);
-      for (DataIterator dit(a_grids); dit.ok(); ++dit)
-        {
-          lo[dit].define(a_domain, a_grids.get(dit),a_grids, i, Side::Lo);
-          hi[dit].define(a_domain, a_grids.get(dit),a_grids, i, Side::Hi);
-        }
-    }
 
   //define lambda, the relaxation coef
   m_relaxCoef.define(a_grids, SpaceDim,          IntVect::Zero);
 
-  DataIterator lit = a_grids.dataIterator();
-  for (int idir = 0; idir < SpaceDim; idir++)
-    {
-      m_loCFIVS[idir].define(a_grids);
-      m_hiCFIVS[idir].define(a_grids);
-      m_loTanStencilSets[idir].define(a_grids);
-      m_hiTanStencilSets[idir].define(a_grids);
-
-      for (lit.begin(); lit.ok(); ++lit)
-        {
-          m_loCFIVS[idir][lit()].define(m_domain, a_grids.get(lit()),
-                                        a_grids, idir,Side::Lo);
-          m_hiCFIVS[idir][lit()].define(m_domain, a_grids.get(lit()),
-                                        a_grids, idir,Side::Hi);
-
-          const IntVectSet& fineIVSlo = m_loCFIVS[idir][lit()].getFineIVS();
-          m_loTanStencilSets[idir][lit()].define(fineIVSlo,
-                                                 m_domain, idir);
-
-          const IntVectSet& fineIVShi = m_hiCFIVS[idir][lit()].getFineIVS();
-          m_hiTanStencilSets[idir][lit()].define(fineIVShi,
-                                                 m_domain, idir);
-
-        }
-    }
   defineRelCoef();
 }
 void
@@ -1228,10 +1208,6 @@ defineRelCoef()
                                   CHF_REAL(m_dx),
                                   CHF_INT(idir),
                                   CHF_INT(m_ncomp));
-#if 0
-          CH_assert(abs(m_relaxCoef[dit()].min(0)) > 1.0e-15
-                    && abs(m_relaxCoef[dit()].max(0)) > 1.0e-15);
-#endif
 
         }
 

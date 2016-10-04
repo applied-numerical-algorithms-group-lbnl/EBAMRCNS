@@ -284,6 +284,36 @@ public:
                        const DataIndex& a_dit,
                        const int&       a_idir);
 
+  //this makes applyOpRegular faster
+  virtual void 
+  fillVelGhost(FArrayBox&     a_state,
+               const Box&     a_valid,
+               const Box&     a_domain,
+               Real           a_dx,
+               bool           a_homogeneous) = 0;
+
+
+  RealVect bcvaluefunc(const RealVect      & a_point,
+                       const int           & a_dir,
+                       const Side::LoHiSide& a_side)
+  {
+    RealVect retval;
+    if(m_isFunction)
+      {
+        for(int idir = 0; idir < SpaceDim; idir++)
+          {
+            retval[idir]=  m_func->value(a_point, idir);
+          }
+      }
+    else
+      {
+        for(int idir = 0; idir < SpaceDim; idir++)
+          {
+            retval[idir] = m_value;
+          }
+      }
+    return retval;
+  }
 protected:
   bool m_isFunction;
 
@@ -291,7 +321,7 @@ protected:
   Real m_value;
   RefCountedPtr<BaseBCFuncEval> m_func;
 
-  Real                                  m_beta;
+  Real                               m_beta;
   bool                                  m_coefSet;
   EBLevelGrid                           m_eblg;
   RefCountedPtr<LevelData<EBFluxFAB> >  m_eta;

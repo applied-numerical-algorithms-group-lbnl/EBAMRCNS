@@ -39,7 +39,6 @@
 #include "MomentumTGA.H"
 #include "DisjointBoxLayout.H"
 #include "EBQuadCFInterp.H"
-#include "EBSpaceTimeFunction.H"
 
 #include "NamespaceHeader.H"
 
@@ -62,8 +61,7 @@ public:
   //! \param a_initialConditions A function of space and time that defines 
   //!                            initial conditions for the solver.
   EBAMRCNS(const EBAMRCNSParams& a_params,
-           const RefCountedPtr<EBPatchPolytropicFactory>& a_godFactory,
-           const RefCountedPtr<EBSpaceTimeFunction>& a_initialConditions);
+           const RefCountedPtr<EBPatchPolytropicFactory>& a_godFactory);
 
   //! Destructor.
   virtual ~EBAMRCNS();
@@ -79,8 +77,6 @@ public:
   //! Returns a reference to the FAB containing the updated (conserved) state.
   LevelData<EBCellFAB>& getNewState();
 
-
-  bool convergedToSteadyState();
 
   //! Returns a reference to the FAB containing the conserved state as it is at the 
   //! beginning of a time step.
@@ -395,9 +391,6 @@ protected:
   RefCountedPtr<EBPatchPolytropicFactory>                       m_ebPatchGodunovFactory;
   EBLevelCNS                                                    m_ebLevelGodunov;
   EBLevelRedist                                                 m_ebLevelRedist;
-
-  //! Initial conditions function.
-  RefCountedPtr<EBSpaceTimeFunction>                            m_ICs;
 
   //! Initial values of conserved quantities.
   Real m_originalMass;

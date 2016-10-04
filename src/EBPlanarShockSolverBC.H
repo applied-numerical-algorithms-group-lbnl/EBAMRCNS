@@ -105,6 +105,13 @@ public:
     m_slipWall        = false;
   }
 
+  virtual void 
+  fillVelGhost(FArrayBox&     a_state,
+               const Box&     a_valid,
+               const Box&     a_domain,
+               Real           a_dx,
+               bool a_homogeneous);
+
 private:
   void
   whereAMI(bool& a_atInflow, 

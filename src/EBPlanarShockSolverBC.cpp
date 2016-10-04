@@ -77,6 +77,7 @@ whereAMI(bool& a_atInflow,
       a_atOutflow =  (a_side == Side::Hi);
       
       a_atInflow  =  (a_side == Side::Lo); 
+      a_atMixed = false;
     }
   else
     {
@@ -101,7 +102,7 @@ getFaceFlux(BaseFab<Real>&        a_faceFlux,
             const bool&           a_useHomogeneous)
 {
 
-  bool atInflow, atOutflow, atMixed;
+  bool atInflow=false, atOutflow=false, atMixed=false;
   whereAMI(atInflow, atOutflow, atMixed, a_idir, a_side);
   if(atInflow)
     {
@@ -147,8 +148,80 @@ getFaceFlux(BaseFab<Real>&        a_faceFlux,
       neumannBC.getFaceFlux(a_faceFlux, a_phi, a_probLo, a_dx, a_idir, a_side, a_dit,a_time,a_useHomogeneous);
     }
 }
+///
+void 
+EBPlanarShockSolverBC::
+fillVelGhost(FArrayBox&     a_phi,
+             const Box&     a_valid,
+             const Box&     a_domain,
+             Real           a_dx,
+             bool a_homogeneous)
+{
+  Real startDiri = -10000;
+  Real inflowvel;
+  FORT_GETPOSTSHOCKVEL(CHF_REAL(inflowvel));
+  ParmParse pp;
+  if(pp.contains("start_dirichlet"))
+    {
+      pp.get("start_dirichlet", startDiri);
+    }
+  
+  Box valid = a_valid;
+  for(int idir = 0; idir < SpaceDim; idir++)
+    {
+      for(SideIterator sit; sit.ok(); ++sit)
+        {
+          Side::LoHiSide side = sit();
+          bool atInflow, atOutflow, atMixed;
+          whereAMI(atInflow, atOutflow, atMixed, idir, side);
+          bool fullNeum = !(atInflow || atMixed);
+          if(fullNeum)
+            {
+              NeumannViscousTensorDomainBC neumannBC;
+              neumannBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+              neumannBC.setValue(0.0);
+              neumannBC.fillVelGhost(a_phi, valid, a_domain, a_dx, a_homogeneous);
+            }
+          else //diri or mixed
+            {
+              for(int comp = 0; comp < SpaceDim; comp++)
+                {
+                  Real inhomogval;
+                  if( (atInflow) && (comp == m_shockNorm))
+                    {
+                      inhomogval = inflowvel;
+                    }
+                  else 
+                    {
+                      inhomogval = 0;
+                    }
+                  if(a_homogeneous) inhomogval = 0;
+                  Box toRegion = adjCellBox(valid, idir, side, 1);
 
-
+                  for (BoxIterator bit(toRegion); bit.ok(); ++bit)
+                    {
+                      const IntVect& iv = bit();
+                      Real xloc = a_dx*(iv[m_shockNorm] + 0.5);
+                      int isign = sign(sit());
+                      IntVect ivneigh = iv - isign*BASISV(idir);
+                      if(atMixed && (xloc < startDiri) )
+                        {
+                          //homogeneous neumann
+                          a_phi(iv, comp) = a_phi(ivneigh, comp);
+                        }
+                      else
+                        {
+                          //diri
+                          a_phi(iv, comp) = 2*inhomogval - a_phi(ivneigh, comp);
+                        }
+                    }//end loop over cells
+                } //end loop over components
+            } //end conditional on type of bc
+        } //end loop over sides
+      //grow valid box so we hit corners
+      valid.grow(idir, 1);
+    }//end loop over directions
+}
 void 
 EBPlanarShockSolverBC::
 getFaceFlux(Real&                 a_faceFlux,
@@ -166,12 +239,12 @@ getFaceFlux(Real&                 a_faceFlux,
 
   bool atInflow, atOutflow, atMixed;
   whereAMI(atInflow, atOutflow, atMixed, a_idir, a_side);
+  Real inflowvel;
+  FORT_GETPOSTSHOCKVEL(CHF_REAL(inflowvel));
 
   if(atInflow)
     {
       DirichletViscousTensorDomainBC diriBC;
-      Real inflowvel;
-      FORT_GETPOSTSHOCKVEL(CHF_REAL(inflowvel));
 
       RefCountedPtr<BaseBCFuncEval> funk(new DVTInflowFunc (inflowvel, m_shockNorm));
       diriBC.setFunction(funk);

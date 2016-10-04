@@ -62,7 +62,7 @@
 #include "NamespaceHeader.H"
 
 #ifdef CH_USE_HDF5
-int                                                      EBAMRCNS::s_NewPlotFile  = 0;
+int                                                      EBAMRCNS::s_NewPlotFile  = 1;
 #endif
 RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > > EBAMRCNS::s_tempFactory        =  RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >();
 RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > > EBAMRCNS::s_veloFactory        =  RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >();
@@ -80,40 +80,12 @@ bool EBAMRCNS::s_noEBCF = false;
 bool dumpStuff = false;
 
 
-bool 
-EBAMRCNS::
-convergedToSteadyState()
-{
-  EBCellFactory      cellFact(m_eblg.getEBISL());
-  LevelData<EBCellFAB>  udiff(m_eblg.getDBL(), m_stateNew.nComp(), 4*IntVect::Unit, cellFact);
-  EBLevelDataOps::setToZero(udiff);
-  EBLevelDataOps::incr(udiff, m_stateOld, -1.0);
-  EBLevelDataOps::incr(udiff, m_stateNew,  1.0);
-  Real umax, umin, eps;
-  Real dmax, dmin; 
-  int ivar;
-  ParmParse pp;
-  pp.get("convergence_metric", eps);
-  pp.get("convergence_variable", ivar);
-  EBLevelDataOps::getMaxMin(dmax, dmin, udiff, ivar);
-  EBLevelDataOps::getMaxMin(umax, umin, m_stateNew, ivar);
-  Real denom = 1;
-  if(Abs(umax - umin) > eps)
-    {
-      denom = Abs(umax-umin);
-    }
-  Real maxdiff = Abs(dmax-dmin)/denom;
-  pout() << "max difference in convergence variable = " << maxdiff << ", eps set to " << eps << endl;
-  return (maxdiff < eps);
-}
 //---------------------------------------------------------------------------------------
 EBAMRCNS::
 EBAMRCNS(const EBAMRCNSParams& a_params,
-         const RefCountedPtr<EBPatchPolytropicFactory>& a_godFactory,
-         const RefCountedPtr<EBSpaceTimeFunction>& a_initialConditions):
+         const RefCountedPtr<EBPatchPolytropicFactory>& a_godFactory):
   m_params(a_params),
   m_ebPatchGodunovFactory(a_godFactory),
-  m_ICs(a_initialConditions),
   m_originalMass(0.0),
   m_originalMomentum(RealVect::Zero),
   m_originalEnergy(0.0),
@@ -2468,25 +2440,11 @@ initialData()
       pout() << " in EBAMRCNS initialData for level " << m_level << endl;
     }
 
-  // If we've been initialized with an IBC adapter function, look to the IBC
-  // object for initial conditions.
-  if (dynamic_cast<EBSpaceTimeFunctionIBCAdaptor*>(&(*m_ICs)))
-    {
-      const EBPhysIBC* const ebphysIBCPtr =
-        m_ebPatchGodunov->getEBPhysIBC();
+  const EBPhysIBC* const ebphysIBCPtr =
+    m_ebPatchGodunov->getEBPhysIBC();
 
-      ebphysIBCPtr->initialize(m_stateNew, m_eblg.getEBISL());
-      ebphysIBCPtr->initialize(m_stateOld, m_eblg.getEBISL());
-    }
-
-  // Otherwise, just initialize both new and old states with our space-time
-  // function.
-  else
-    {
-      m_ICs->setDomain(m_problem_domain);
-      m_ICs->evaluate(m_stateNew, m_eblg.getEBISL(), m_dx);
-      m_ICs->evaluate(m_stateOld, m_eblg.getEBISL(), m_dx);
-    }
+  ebphysIBCPtr->initialize(m_stateNew, m_eblg.getEBISL());
+  ebphysIBCPtr->initialize(m_stateOld, m_eblg.getEBISL());
 }
 //-------------------------------------------------------------------------
 
