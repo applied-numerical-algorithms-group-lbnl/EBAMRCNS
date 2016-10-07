@@ -217,7 +217,7 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
   void setTime(Real a_oldTime, Real a_mu, Real a_dt);
 
   /// apply operator without any boundary or coarse-fine boundary conditions and no finer level
-#if 0
+
   virtual void applyOpNoBoundary(LevelData<EBCellFAB>&       a_opPhi,
                                  const LevelData<EBCellFAB>& a_phi)
   {
@@ -225,7 +225,7 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
     applyOp(a_opPhi, a_phi, true);
     s_turnOffBCs = false;
   }
-#endif
+
 
   //! This is called on multigrid operators when their AMR operators
   //! are altered.
@@ -570,6 +570,7 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
                   AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp);
 
   //member data, bloated though it may be
+  static bool s_turnOffBCs;
   static bool s_forceNoEBCF;
 
   static bool s_doLazyRelax;

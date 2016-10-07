@@ -75,7 +75,7 @@
 
 ################################################################
 
-makefiles+=local/Make.defs.ANAG
+makefiles+=local/Make.defs.ANAG-upgrade
 
 MPICXX=mpiCC
 
@@ -90,8 +90,8 @@ else
   USE_64 = FALSE
 endif
 
-#syslibflags = -llapack-3 -llapack_atlas
-#LAPACKLIBS = -llapack-3 -llapack_atlas 
+syslibflags =  -llapack_atlas -lblas -llapack
+LAPACKLIBS =  -llapack_atlas -lblas -llapack
 
 ifneq ($(USE_HDF),FALSE)
   # if an ANAG HDF5 module is loaded, use its variables

@@ -25,9 +25,11 @@
 #include "NWOEBQuadCFInterp.H"
 #include "NamespaceHeader.H"
 bool NWOEBViscousTensorOp::s_doLazyRelax = false;
-                                              //false
+                                         
 int NWOEBViscousTensorOp::s_whichLev = -1;
 int NWOEBViscousTensorOp::s_step = -1;
+bool NWOEBViscousTensorOp::s_turnOffBCs = false; //really needs to default to false
+
 
 bool NWOEBViscousTensorOp::s_setIntersectionsToZero = true;
 bool NWOEBViscousTensorOp::s_forceNoEBCF = true;

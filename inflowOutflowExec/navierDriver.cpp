@@ -60,7 +60,7 @@
 #include   "NeumannConductivityEBBC.H"
 #include "EBPlanarShockSolverBC.H"
 #include "CH_Attach.H"
-
+#include "memusage.H"
 #include <iostream>
 
 
@@ -162,7 +162,6 @@ main(int a_argc, char* a_argv[])
   // setChomboMPIErrorHandler();
 #endif
   {
-    EBDebugPoint::s_ivd = IntVect(D_DECL(87,5,0));
     // Check for an input file
     char* inFile = NULL;
 
@@ -183,11 +182,14 @@ main(int a_argc, char* a_argv[])
     RealVect dx;
     // run amrGodunov
     godunovGeometry(coarsestDomain, dx);
+    print_memory_line("after geometry generation");
 
     amrGodunov(coarsestDomain, dx);
+    print_memory_line("after big run");
 
     EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
     ebisPtr->clear();
+    print_memory_line("after everything");
 
     
 
