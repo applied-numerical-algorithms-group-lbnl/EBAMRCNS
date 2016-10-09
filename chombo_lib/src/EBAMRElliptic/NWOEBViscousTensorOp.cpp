@@ -22,6 +22,7 @@
 #include "ParmParse.H"
 #include "EBLevelDataOpsF_F.H"
 #include "EBAlias.H"
+#include "BCFunc.H"
 #include "NWOEBQuadCFInterp.H"
 #include "NamespaceHeader.H"
 bool NWOEBViscousTensorOp::s_doLazyRelax = false;
@@ -99,11 +100,11 @@ NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblgFi
   m_ebBC(a_ebBC),
   m_colors()
 {
-  CH_TIME("ebvto::define");
+  CH_TIME("nwoebvto::define");
   EBArith::getMultiColors(m_colors);
   if (m_hasCoar)
     {
-      CH_TIME("ebvto::coarsefine");
+      CH_TIME("nwoebvto::coarsefine");
   
       ProblemDomain domainCoar = coarsen(m_eblg.getDomain(), m_refToCoar);
       m_interpWithCoarser = RefCountedPtr<NWOEBQuadCFInterp>(new NWOEBQuadCFInterp(m_eblg.getDBL(),  m_eblgCoar.getDBL(),
@@ -193,7 +194,7 @@ averageCellToFace(EBFaceFAB           &      a_fluxData,
                   int isrc, int idst, int inco,
                   bool a_interpolateToCentroid)
 {
-  CH_TIME("EBvto::averagecelltoface::averagecelltoface");
+  CH_TIME("nwoebvto::averagecelltoface::averagecelltoface");
   int idir = a_fluxData.direction();
   EBFaceFAB cellCenteredFlux;
   Box ccFluxBox = a_grid;
@@ -251,6 +252,7 @@ averageCellToFace(LevelData<EBFluxFAB>&         a_fluxData,
       //#pragma omp parallel for  
       for (int mybox=0;mybox<nbox; mybox++)
         {
+          fillVelGhost(a_cellData[dit[mybox]], dit[mybox]);
           averageCellToFace(a_fluxData[dit[mybox]][idir],
                             a_cellData[dit[mybox]],
                             a_grids[dit[mybox]],
@@ -346,11 +348,11 @@ getKappaDivSigmaU(LevelData<EBCellFAB>& a_divSigmaU,
                   const LevelData<EBCellFAB>* a_veloCoar,
                   int a_level)
 {
-  CH_TIME("ebvto::getkappadivsigmau");
+  CH_TIME("nwoebvto::getkappadivsigmau");
   LevelData<EBCellFAB>& velcast =   (LevelData<EBCellFAB>&) a_velocity;
   if (a_level > 0)
     {
-      CH_TIME("ebvto::getkappadivsigmau::cfinterp");
+      CH_TIME("nwoebvto::getkappadivsigmau::cfinterp");
       m_interpWithCoarser->coarseFineInterp(velcast, *a_veloCoar, 0, 0, SpaceDim);
     }
   velcast.exchange();
@@ -369,7 +371,7 @@ getKappaDivSigmaU(LevelData<EBCellFAB>& a_divSigmaU,
   Interval inter(0, SpaceDim-1);
   velFluxCenter.copyTo(inter, velFluxCentroid, inter);
   {
-    CH_TIME("ebvto::getkappadivsigmau::interpolatetocentroid");
+    CH_TIME("nwoebvto::getkappadivsigmau::interpolatetocentroid");
     EBArith::interpolateFluxToCentroids(velFluxCentroid,
                                         velFluxCenter,
                                         m_eblg.getDBL(),
@@ -381,7 +383,7 @@ getKappaDivSigmaU(LevelData<EBCellFAB>& a_divSigmaU,
   //now we get the viscous flux at faces, dot it with the velocity and take the divergence.
   int ibox=0;
   {
-    CH_TIME("ebvto::getkappadivsigmau::getfluxbit");
+    CH_TIME("nwoebvto::getkappadivsigmau::getfluxbit");
 
     DataIterator dit = m_eblg.getDBL().dataIterator();
     int nbox=dit.size();
@@ -390,7 +392,7 @@ getKappaDivSigmaU(LevelData<EBCellFAB>& a_divSigmaU,
     for (int mybox=0;mybox<nbox; mybox++)
       {
         EBFluxFAB& thisFlux = sigma[dit[mybox]];
-
+        thisFlux.setVal(0.);
         getFlux(thisFlux, a_velocity, m_eblg.getDBL()[dit[mybox]], dit[mybox], 1.0);
 
         ibox++;
@@ -421,7 +423,7 @@ getCCSigma(LevelData<EBCellFAB>      & a_sigma,
            const LevelData<EBCellFAB>& a_lambdaCell
            )
 {
-  CH_TIME("ebvto::getCCSigma");
+  CH_TIME("nwoebvto::getCCSigma");
   //Now we loop through all the boxes and do the appropriate multiplication of
   //cofficients with gradients to get sigma
   DataIterator dit = m_eblg.getDBL().dataIterator();
@@ -500,7 +502,7 @@ averageToCells(LevelData<EBCellFAB>&      a_cellCoef,
                const LevelData<EBFluxFAB>& a_faceCoef,
                const LevelData<BaseIVFAB<Real> >& a_irregCoef)
 {
-  CH_TIME("ebvto::averageToCells");
+  CH_TIME("nwoebvto::averageToCells");
   DataIterator dit = m_eblg.getDBL().dataIterator();
   int nbox=dit.size();
 #pragma omp parallel 
@@ -551,7 +553,7 @@ NWOEBViscousTensorOp::
 getCellCenteredCoefficients(LevelData<EBCellFAB>&    a_etaCell,
                             LevelData<EBCellFAB>& a_lambdaCell)
 {
-  CH_TIME("ebvto::getCellCenteredCoefficients");
+  CH_TIME("nwoebvto::getCellCenteredCoefficients");
   averageToCells(a_etaCell, *m_eta, *m_etaIrreg);
   averageToCells(a_lambdaCell, *m_lambda, *m_lambdaIrreg);
 }
@@ -563,7 +565,7 @@ getShearStressDotGradU(LevelData<EBCellFAB>      & a_shearStressDotGradUU,
                       int a_level)
 {
 
-  CH_TIME("ebvto::getShearStressDotGradU");
+  CH_TIME("nwoebvto::getShearStressDotGradU");
   EBCellFactory fact(m_eblg.getEBISL());
   LevelData<EBCellFAB>   lambdaCell(m_eblg.getDBL(), SpaceDim         , IntVect::Zero, fact);
   LevelData<EBCellFAB>      etaCell(m_eblg.getDBL(), SpaceDim         , IntVect::Zero, fact);
@@ -624,7 +626,7 @@ getVelDotSigma(LevelData<EBFluxFAB>      & a_velDotSigma,
                const LevelData<EBFluxFAB>& a_vel,
                const LevelData<EBFluxFAB>& a_sigma)
 {
-  CH_TIME("ebvto::getveldotsigma");
+  CH_TIME("nwoebvto::getveldotsigma");
   FaceStop::WhichFaces stopCrit = FaceStop::SurroundingWithBoundary;
 
   DataIterator dit = m_eblg.getDBL().dataIterator();
@@ -809,7 +811,7 @@ NWOEBViscousTensorOp::
 finerOperatorChanged(const MGLevelOp<LevelData<EBCellFAB> >& a_operator,
                      int a_coarseningFactor)
 {
-  CH_TIME("ebvto::finerOperatorChanged");
+  CH_TIME("nwoebvto::finerOperatorChanged");
   const NWOEBViscousTensorOp& op =
     dynamic_cast<const NWOEBViscousTensorOp&>(a_operator);
 
@@ -873,7 +875,7 @@ void
 NWOEBViscousTensorOp::
 setTime(Real a_oldTime, Real a_mu, Real a_dt)
 {
-  CH_TIME("ebvto::setTime");
+  CH_TIME("nwoebvto::setTime");
   // This only affects a coefficients that are time-dependent.
   if (m_acoef0 != NULL)
     {
@@ -906,7 +908,7 @@ NWOEBViscousTensorOp::
 setAlphaAndBeta(const Real& a_alpha,
                 const Real& a_beta)
 {
-  CH_TIME("ebvto::setAlphaAndBeta");
+  CH_TIME("nwoebvto::setAlphaAndBeta");
   m_alpha = a_alpha;
   m_beta  = a_beta;
   calculateRelaxationCoefficient();
@@ -919,7 +921,7 @@ void
 NWOEBViscousTensorOp::
 calculateAlphaWeight()
 {
-  CH_TIME("ebvto::calculateAlphaWeight");
+  CH_TIME("nwoebvto::calculateAlphaWeight");
   DataIterator dit = m_eblg.getDBL().dataIterator();
   int nbox=dit.size();
 #pragma omp parallel for
@@ -947,7 +949,7 @@ void
 NWOEBViscousTensorOp::
 calculateRelaxationCoefficient()
 {
-  CH_TIME("ebvto::calcRelCoef");
+  CH_TIME("nwoebvto::calcRelCoef");
 
   //define regular relaxation coefficent
   //define regular relaxation coefficent
@@ -1029,7 +1031,7 @@ void
 NWOEBViscousTensorOp::
 defineStencils()
 {
-  CH_TIME("ebvto::defineStencils");
+  CH_TIME("nwoebvto::defineStencils");
 
   m_divergenceStencil.define(m_eblg.getDBL());
   DataIterator dit = m_eblg.getDBL().dataIterator();
@@ -1197,7 +1199,7 @@ getVoFStencil(VoFStencil&      a_vofStencil,
               const DataIndex& a_dit,
               int             a_ivar)
 {
-  CH_TIME("ebvto::getVoFStencil");
+  CH_TIME("nwoebvto::getVoFStencil");
   const EBISBox& ebisBox = m_eblg.getEBISL()[a_dit];
   a_vofStencil.clear();
   for (int idir = 0; idir < SpaceDim; idir++)
@@ -1312,7 +1314,7 @@ getGradientStencil(VoFStencil&  a_gradStencil,
                    const Real     & a_dx,
                    const EBLevelGrid& a_eblg)
 {
-  CH_TIME("ebvto::getGradientStencil");
+  CH_TIME("nwoebvto::getGradientStencil");
   a_gradStencil.clear();
   if ((a_face.direction() == a_diffDir) && (!a_face.isBoundary()))
     {
@@ -1385,7 +1387,7 @@ AMRResidualNC(LevelData<EBCellFAB>&       a_residual,
               bool a_homogeneousBC,
               AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp)
 {
-  CH_TIME("ebvto::amrresNC");
+  CH_TIME("nwoebvto::amrresNC");
   //dummy. there is no coarse when this is called
   CH_assert(a_residual.ghostVect() == m_ghostCellsRHS);
   CH_assert(a_rhs.ghostVect() == m_ghostCellsRHS);
@@ -1401,7 +1403,7 @@ AMROperatorNC(LevelData<EBCellFAB>&       a_LofPhi,
               bool a_homogeneousBC,
               AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp)
 {
-  CH_TIME("ebvto::amropNC");
+  CH_TIME("nwoebvto::amropNC");
   //dummy. there is no coarse when this is called
   CH_assert(a_LofPhi.ghostVect() == m_ghostCellsRHS);
   LevelData<EBCellFAB> phiC;
@@ -1418,7 +1420,7 @@ residual(LevelData<EBCellFAB>&       a_residual,
 {
   //this is a multigrid operator so only homogeneous CF BC
   //and null coar level
-  CH_TIME("ebvto::residual");
+  CH_TIME("nwoebvto::residual");
   CH_assert(a_residual.ghostVect() == m_ghostCellsRHS);
   CH_assert(a_phi.ghostVect() == m_ghostCellsPhi);
   applyOp(a_residual,a_phi, a_homogeneousBC);
@@ -1433,7 +1435,7 @@ NWOEBViscousTensorOp::
 preCond(LevelData<EBCellFAB>&       a_phi,
         const LevelData<EBCellFAB>& a_rhs)
 {
-  CH_TIME("ebvto::precond");
+  CH_TIME("nwoebvto::precond");
   relax(a_phi, a_rhs, 1);
 }
 
@@ -1445,7 +1447,7 @@ NWOEBViscousTensorOp::
 create(LevelData<EBCellFAB>&       a_lhs,
        const LevelData<EBCellFAB>& a_rhs)
 {
-  CH_TIME("ebvto::create");
+  CH_TIME("nwoebvto::create");
   int ncomp = a_rhs.nComp();
   EBCellFactory ebcellfact(m_eblg.getEBISL());
   a_lhs.define(m_eblg.getDBL(), ncomp, a_rhs.ghostVect(), ebcellfact);
@@ -1459,7 +1461,7 @@ createCoarsened(LevelData<EBCellFAB>&       a_lhs,
                 const LevelData<EBCellFAB>& a_rhs,
                 const int&                  a_refRat)
 {
-  CH_TIME("ebvto::createCoar");
+  CH_TIME("nwoebvto::createCoar");
   int ncomp = a_rhs.nComp();
   IntVect ghostVect = a_rhs.ghostVect();
 
@@ -1503,7 +1505,7 @@ NWOEBViscousTensorOp::
 assign(LevelData<EBCellFAB>&       a_lhs,
        const LevelData<EBCellFAB>& a_rhs)
 {
-  CH_TIME("ebvto::assign");
+  CH_TIME("nwoebvto::assign");
   EBLevelDataOps::assign(a_lhs,a_rhs);
 }
 
@@ -1513,7 +1515,7 @@ NWOEBViscousTensorOp::
 dotProduct(const LevelData<EBCellFAB>& a_1,
            const LevelData<EBCellFAB>& a_2)
 {
-  CH_TIME("ebvto::dotprod");
+  CH_TIME("nwoebvto::dotprod");
   ProblemDomain domain;
   Real volume;
 
@@ -1527,7 +1529,7 @@ incr(LevelData<EBCellFAB>&       a_lhs,
      const LevelData<EBCellFAB>& a_x,
      Real                        a_scale)
 {
-  CH_TIME("ebvto::incr");
+  CH_TIME("nwoebvto::incr");
   EBLevelDataOps::incr(a_lhs,a_x,a_scale);
 }
 
@@ -1540,7 +1542,7 @@ axby(LevelData<EBCellFAB>&       a_lhs,
      Real                        a_a,
      Real                        a_b)
 {
-  CH_TIME("ebvto::axby");
+  CH_TIME("nwoebvto::axby");
   EBLevelDataOps::axby(a_lhs,a_x,a_y,a_a,a_b);
 }
 
@@ -1550,7 +1552,7 @@ NWOEBViscousTensorOp::
 scale(LevelData<EBCellFAB>& a_lhs,
       const Real&           a_scale)
 {
-  CH_TIME("ebvto::scale");
+  CH_TIME("nwoebvto::scale");
   EBLevelDataOps::scale(a_lhs,a_scale);
 }
 
@@ -1596,7 +1598,7 @@ Real
 NWOEBViscousTensorOp::
 staticMaxNorm(const LevelData<EBCellFAB>& a_rhs, const EBLevelGrid& a_eblg)
 {
-  CH_TIME("ebvto::staticmaxnorm");
+  CH_TIME("nwoebvto::staticmaxnorm");
   Real maxNorm = 0.0;
 
   for (DataIterator dit = a_rhs.dataIterator(); dit.ok(); ++dit)
@@ -1649,7 +1651,7 @@ void
 NWOEBViscousTensorOp::
 setToZero(LevelData<EBCellFAB>& a_lhs)
 {
-  CH_TIME("ebvto::setToZero");
+  CH_TIME("nwoebvto::setToZero");
   EBLevelDataOps::setToZero(a_lhs);
 }
 
@@ -1658,7 +1660,7 @@ void
 NWOEBViscousTensorOp::
 setVal(LevelData<EBCellFAB>& a_lhs, const Real& a_value)
 {
-  CH_TIME("ebvto::setVal");
+  CH_TIME("nwoebvto::setVal");
   EBLevelDataOps::setVal(a_lhs, a_value);
 }
 
@@ -1668,7 +1670,7 @@ createCoarser(LevelData<EBCellFAB>&       a_coar,
               const LevelData<EBCellFAB>& a_fine,
               bool                        a_ghosted)
 {
-  CH_TIME("ebvto::createCoarser");
+  CH_TIME("nwoebvto::createCoarser");
   const DisjointBoxLayout& dbl = m_eblgCoarMG.getDBL();
   ProblemDomain coarDom = coarsen(m_eblg.getDomain(), 2);
 
@@ -1691,7 +1693,7 @@ relax(LevelData<EBCellFAB>&       a_phi,
       const LevelData<EBCellFAB>& a_rhs,
       int                         a_iterations)
 {
-  CH_TIME("ebvto::relax");
+  CH_TIME("nwoebvto::relax");
   CH_assert(a_phi.isDefined());
   CH_assert(a_rhs.isDefined());
   CH_assert(a_phi.ghostVect() >= IntVect::Unit);
@@ -1719,7 +1721,7 @@ void
 NWOEBViscousTensorOp::
 homogeneousCFInterp(LevelData<EBCellFAB>&   a_phif)
 {
-  CH_TIME("ebvto::homog_cfinterp");
+  CH_TIME("nwoebvto::homog_cfinterp");
   if (m_hasCoar)
     {
       m_interpWithCoarser->coarseFineInterpH(a_phif,  0, 0, SpaceDim);
@@ -1733,7 +1735,7 @@ gsrbColor(LevelData<EBCellFAB>&       a_phi,
           const LevelData<EBCellFAB>& a_rhs,
           const IntVect&              a_color)
 {
-  CH_TIME("ebvto::gsrbColor");
+  CH_TIME("nwoebvto::gsrbColor");
   const DisjointBoxLayout& dbl = a_phi.disjointBoxLayout();
   DataIterator dit = m_eblg.getDBL().dataIterator();
   int nbox=dit.size();
@@ -1806,7 +1808,7 @@ restrictResidual(LevelData<EBCellFAB>&       a_resCoar,
                  LevelData<EBCellFAB>&       a_phi,
                  const LevelData<EBCellFAB>& a_rhs)
 {
-  CH_TIME("ebvto::restrictRes");
+  CH_TIME("nwoebvto::restrictRes");
   LevelData<EBCellFAB> res;
   bool homogeneous = true;
   CH_assert(a_resCoar.ghostVect() == m_ghostRHS);
@@ -1834,7 +1836,7 @@ NWOEBViscousTensorOp::
 prolongIncrement(LevelData<EBCellFAB>&       a_phi,
                  const LevelData<EBCellFAB>& a_cor)
 {
-  CH_TIME("ebvto::prolongInc");
+  CH_TIME("nwoebvto::prolongInc");
   CH_assert(a_phi.ghostVect() == m_ghostPhi);
   CH_assert(a_cor.ghostVect() == m_ghostPhi);
   Interval vars(0, SpaceDim-1);
@@ -1875,7 +1877,7 @@ AMRResidual(LevelData<EBCellFAB>& a_residual,
             bool a_homogeneousBC,
             AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp)
 {
-  CH_TIME("ebvto::amrRes");
+  CH_TIME("nwoebvto::amrRes");
 
   this->cfinterp(a_phi, a_phiCoarse);
 
@@ -1899,7 +1901,7 @@ AMRResidualNF(LevelData<EBCellFAB>& a_residual,
               const LevelData<EBCellFAB>& a_rhs,
               bool a_homogeneousBC)
 {
-  CH_TIME("ebvto::amrResNF");
+  CH_TIME("nwoebvto::amrResNF");
   this->cfinterp(a_phi, a_phiCoarse);
   this->residual(a_residual, a_phi, a_rhs, a_homogeneousBC ); //apply boundary conditions
 }
@@ -1912,7 +1914,7 @@ reflux(const LevelData<EBCellFAB>&        a_phiFine,
        LevelData<EBCellFAB>&              a_residual,
        AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp)
 {
-  CH_TIME("ebvto::reflux");
+  CH_TIME("nwoebvto::reflux");
   Interval interv(0,SpaceDim-1);
 
   int ncomp = SpaceDim;
@@ -1939,7 +1941,7 @@ incrementFRCoar(EBFastFR& a_fluxReg,
                 const LevelData<EBCellFAB>& a_phiFine,
                 const LevelData<EBCellFAB>& a_phi)
 {
-  CH_TIME("ebvto::incrFRC");
+  CH_TIME("nwoebvto::incrFRC");
   int ncomp = SpaceDim;
   Interval interv(0,SpaceDim-1);
   DataIterator dit = m_eblg.getDBL().dataIterator();
@@ -1988,7 +1990,7 @@ incrementFRFine(EBFastFR& a_fluxReg,
                 const LevelData<EBCellFAB>& a_phi,
                 AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp)
 {
-  CH_TIME("ebvto::incrFRF");
+  CH_TIME("nwoebvto::incrFRF");
   int ncomp = SpaceDim;
   Interval interv(0,SpaceDim-1);
   NWOEBViscousTensorOp& finerEBAMROp = (NWOEBViscousTensorOp& )(*a_finerOp);
@@ -2049,7 +2051,7 @@ getFlux(EBFluxFAB&                    a_flux,
         const DataIndex&              a_dit,
         Real                          a_scale)
 {
-  CH_TIME("ebvto::getFlux1");
+  CH_TIME("nwoebvto::getFlux1");
   a_flux.define(m_eblg.getEBISL()[a_dit], a_grid, SpaceDim);
   a_flux.setVal(0.);
   for (int idir = 0; idir < SpaceDim; idir++)
@@ -2058,7 +2060,7 @@ getFlux(EBFluxFAB&                    a_flux,
       ghostedBox.grow(1);
       ghostedBox.grow(idir,-1);
       ghostedBox &= m_eblg.getDomain();
-
+      fillVelGhost(a_data[a_dit], a_dit);
       getFlux(a_flux[idir],
               a_data[a_dit],
               ghostedBox, a_grid,
@@ -2068,6 +2070,47 @@ getFlux(EBFluxFAB&                    a_flux,
     }
 }
 
+void
+NWOEBViscousTensorOp::
+fillVelGhost(const LevelData<EBCellFAB>& a_phi) const
+{
+  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+    {
+      fillVelGhost(a_phi[dit()], dit());
+    }
+}
+void
+NWOEBViscousTensorOp::
+fillVelGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const
+{
+  EBCellFAB& phi = (EBCellFAB&) a_phi;
+  ViscousBaseDomainBC* viscbc = dynamic_cast<ViscousBaseDomainBC*>(&(*m_domainBC));
+  Box grid = m_eblg.getDBL()[a_datInd];
+  Box domBox = m_eblg.getDomain().domainBox();
+  if(viscbc == NULL)
+    {
+      MayDay::Error("dynamic cast failed");
+    }
+  if (!s_turnOffBCs)
+    {
+      FArrayBox& fab = phi.getFArrayBox();
+      viscbc->fillVelGhost(fab, grid, domBox, m_dx, false);
+    }
+  else
+    {
+      Box valid = m_eblg.getDBL()[a_datInd];
+      for(int idir = 0; idir < SpaceDim; idir++)
+        {
+          for(SideIterator sit; sit.ok(); ++sit)
+            {
+              FArrayBox& fab = phi.getFArrayBox();
+              ExtrapolateBC(fab, valid,  m_dx, idir, sit());
+            }
+          //grow so that we hit corners
+          valid.grow(idir, 1);
+        }
+    }
+}
 void
 NWOEBViscousTensorOp::
 getFlux(EBFaceFAB&                    a_fluxCentroid,
@@ -2090,20 +2133,16 @@ getFlux(EBFaceFAB&                    a_fluxCentroid,
 
   int ncomp = a_phi.nComp();
   CH_assert(ncomp == a_fluxCentroid.nComp());
-  Box cellBox = a_ghostedBox;
-  //want only interior faces
-  cellBox.grow(a_idir, 1);
-  cellBox &= a_domain;
-  cellBox.grow(a_idir,-1);
 
-  Box faceBox = surroundingNodes(cellBox, a_idir);
+  Box faceBox = surroundingNodes(a_ghostedBox, a_idir);
   EBFaceFAB fluxCenter(a_ebisBox, a_ghostedBox, a_idir,SpaceDim);
   FArrayBox&       regFlux = (      FArrayBox &)   fluxCenter.getSingleValuedFAB();
+  fillVelGhost(a_phi, a_datInd);
   getFlux(regFlux, regPhi,  faceBox, a_idir, a_datInd);
 
   a_fluxCentroid.copy(fluxCenter);
 
-  IntVectSet ivsCell = a_ebisBox.getIrregIVS(cellBox);
+  IntVectSet ivsCell = a_ebisBox.getIrregIVS(a_ghostedBox);
   if (!ivsCell.isEmpty())
     {
       FaceStop::WhichFaces stopCrit = FaceStop::SurroundingNoBoundary;
@@ -2145,7 +2184,7 @@ AMROperator(LevelData<EBCellFAB>& a_LofPhi,
             bool a_homogeneousBC,
             AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp)
 {
-  CH_TIME("ebvto::amrOp");
+  CH_TIME("nwoebvto::amrOp");
   cfinterp(a_phi, a_phiCoarse);
 
   applyOp(a_LofPhi, a_phi, a_homogeneousBC);
@@ -2163,7 +2202,7 @@ AMROperatorNF(LevelData<EBCellFAB>& a_LofPhi,
               const LevelData<EBCellFAB>& a_phiCoarse,
               bool a_homogeneousBC)
 {
-  CH_TIME("ebvto::amrOpNF");
+  CH_TIME("nwoebvto::amrOpNF");
 
   cfinterp(a_phi, a_phiCoarse);
 
@@ -2180,7 +2219,7 @@ AMRRestrict(LevelData<EBCellFAB>&       a_resCoar,
             bool a_skip_res )
 {  
   CH_assert(!a_skip_res);
-  CH_TIME("ebvto::amrRestrict");
+  CH_TIME("nwoebvto::amrRestrict");
   LevelData<EBCellFAB> res;
 
   EBCellFactory ebcellfactTL(m_eblg.getEBISL());
@@ -2204,7 +2243,7 @@ NWOEBViscousTensorOp::
 AMRProlong(LevelData<EBCellFAB>&       a_correction,
            const LevelData<EBCellFAB>& a_coarseCorr)
 {
-  CH_TIME("ebvto::amrProlong");
+  CH_TIME("nwoebvto::amrProlong");
   Interval variables(0, SpaceDim-1);
   m_ebInterp.pwlInterp(a_correction, a_coarseCorr, variables);
 }
@@ -2229,7 +2268,7 @@ applyOp(LevelData<EBCellFAB>             & a_lhs,
         const LevelData<EBCellFAB>       & a_phi,
         bool                               a_homogeneous)
 {
-  CH_TIME("ebvto::applyOp");
+  CH_TIME("nwoebvto::applyOp");
   LevelData<EBCellFAB>&  phi = (LevelData<EBCellFAB>&) a_phi;
   phi.exchange(m_exchangeCopier);
 
@@ -2255,7 +2294,8 @@ getFlux(FArrayBox&                    a_flux,
         const int&                    a_idir,
         const DataIndex&              a_datInd)
 {
-  CH_TIME("ebvto::getFlux3");
+
+  CH_TIME("nwoebvto::getFlux3");
   CH_assert(a_flux.nComp() == SpaceDim);
   CH_assert( a_phi.nComp() == SpaceDim);
 
@@ -2272,23 +2312,40 @@ applyOpRegular(EBCellFAB&             a_lhs,
                const bool&            a_homogeneous,
                const DataIndex&       a_datInd)
 {
-#if 0
-  CH_TIME("ebvto::incrRegOpDir");
+  CH_TIME("nwoebvto::incrRegOpDir");
   const Box& grid = m_eblg.getDBL()[a_datInd];
   ViscousBaseDomainBC* viscbc = dynamic_cast<ViscousBaseDomainBC*>(&(*m_domainBC));
   if(viscbc == NULL)
     {
-      MayDay::Error("dynamic cast failed")
+      MayDay::Error("dynamic cast failed");
     }
   //fill ghost cells
+  EBCellFAB& phi = (EBCellFAB&) a_phi;
   Box domBox = m_eblg.getDomain().domainBox();
-  viscbc->fillVelGhost(a_phi, grid, domBox, m_dx, 1);
-
+  if (!s_turnOffBCs)
+    {
+      FArrayBox& fab = phi.getFArrayBox();
+      viscbc->fillVelGhost(fab, grid, domBox, m_dx, a_homogeneous);
+    }
+  else
+    {
+      Box valid = m_eblg.getDBL()[a_datInd];
+      for(int idir = 0; idir < SpaceDim; idir++)
+        {
+          for(SideIterator sit; sit.ok(); ++sit)
+            {
+              FArrayBox& fab = phi.getFArrayBox();
+              ExtrapolateBC(fab, valid,  m_dx, idir, sit());
+            }
+          //grow so that we hit corners
+          valid.grow(idir, 1);
+        }
+    }
   BaseFab<Real>      & lphfab  =  a_lhs.getSingleValuedFAB();
   const BaseFab<Real>& phifab  =  a_phi.getSingleValuedFAB();
-  const BaseFab<Real>& acofab  =(*m_acoef)[dit()].getSingleValuedFAB();
-  const EBFluxFAB& eta  =     (*m_eta)[dit()];
-  const EBFluxFAB& lam  =  (*m_lambda)[dit()];
+  const BaseFab<Real>& acofab  =(*m_acoef)[a_datInd].getSingleValuedFAB();
+  const EBFluxFAB& eta  =     (*m_eta)[a_datInd];
+  const EBFluxFAB& lam  =  (*m_lambda)[a_datInd];
 
   Vector<const BaseFab<Real>* > etaside(3, &(eta[0].getSingleValuedFAB()));
   Vector<const BaseFab<Real>* > lamside(3, &(lam[0].getSingleValuedFAB()));
@@ -2311,7 +2368,6 @@ applyOpRegular(EBCellFAB&             a_lhs,
                         CHF_CONST_REAL(m_alpha),
                         CHF_CONST_REAL(m_beta),
                         CHF_BOX(grid));
-#endif
 }
 /*****/
 void
@@ -2321,7 +2377,7 @@ applyOpIrregular(EBCellFAB&             a_lhs,
                  const bool&            a_homogeneous,
                  const DataIndex&       a_datInd)
 {
-  CH_TIME("ebvto::incrRegOpIrr");
+  CH_TIME("nwoebvto::incrRegOpIrr");
   RealVect vectDx = m_dx*RealVect::Unit;
   for (int ivar = 0; ivar < SpaceDim; ivar++)
     {
@@ -2373,7 +2429,7 @@ NWOEBViscousTensorOp::
 cfinterp(const LevelData<EBCellFAB>&       a_phi,
          const LevelData<EBCellFAB>&       a_phiCoarse)
 {
-  CH_TIME("ebvto::cfinterp");
+  CH_TIME("nwoebvto::cfinterp");
   if (m_hasCoar)
     {
       LevelData<EBCellFAB>& phi = (LevelData<EBCellFAB>&)a_phi;

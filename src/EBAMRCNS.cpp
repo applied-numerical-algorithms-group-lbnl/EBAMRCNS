@@ -32,7 +32,7 @@
 #include "AMRMultiGrid.H"
 #include "EBAMRIO.H"
 #include "BaseIVFactory.H"
-#include "EBViscousTensorOpFactory.H"
+#include "NWOEBViscousTensorOpFactory.H"
 #include "EBConductivityOpFactory.H"
 #include "EBAMRPoissonOpFactory.H"
 #include "KappaSquareNormal.H"
@@ -316,16 +316,26 @@ defineFactories(bool a_atHalfTime)
       IntVect  giv    = 4*IntVect::Unit;
 
       // Viscous tensor operator.
-      bool noMG = true;
+      bool turnOffMG = true;
+      ParmParse pp2;
+      pp2.query("turn_off_mg", turnOffMG);
+      if(turnOffMG)
+        {
+          pout() <<"turning off multigrid for viscous solve" << endl;
+        }
+      else
+        {
+          pout() <<"using multigrid for viscous solve" << endl;
+        }
       s_veloFactory =
         RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >
         (dynamic_cast<AMRLevelOpFactory<LevelData<EBCellFAB> >*>
-         (new EBViscousTensorOpFactory(eblgs, alpha, beta, acoVelo, eta,
-                                       lambda, etaIrreg, lambdaIrreg,lev0Dx, refRat,
-                                       m_params.m_doBCVelo, m_params.m_ebBCVelo,giv, giv, -1, noMG)));
+         (new NWOEBViscousTensorOpFactory(eblgs, alpha, beta, acoVelo, eta,
+                                          lambda, etaIrreg, lambdaIrreg,lev0Dx, refRat,
+                                          m_params.m_doBCVelo, m_params.m_ebBCVelo,giv, giv, -1, turnOffMG)));
 
 
-      EBViscousTensorOp::doLazyRelax(m_params.m_doLazyRelax);
+      NWOEBViscousTensorOp::doLazyRelax(false);
 
       // Thermal diffusion operator.
       int relaxType = 1;
@@ -359,7 +369,7 @@ defineSolvers()
   if(tagAllIrregular) s_noEBCF = true;
 
   EBConductivityOp::setForceNoEBCF( s_noEBCF);
-  EBViscousTensorOp::setForceNoEBCF(s_noEBCF);
+  NWOEBViscousTensorOp::setForceNoEBCF(s_noEBCF);
   defineFactories(true);
   if(m_params.m_doDiffusion)
     {
@@ -500,9 +510,9 @@ advance()
 {
   CH_TIME("EBAMRCNS::advance");
   EBPatchGodunov::s_whichLev = m_level;
-  EBViscousTensorOp::s_step = AMR::s_step;
+  NWOEBViscousTensorOp::s_step = AMR::s_step;
   //this is so I can output a rhs
-  EBViscousTensorOp::s_whichLev = m_level;
+  NWOEBViscousTensorOp::s_whichLev = m_level;
   m_dtOld = m_dt;
 
   if(m_params.m_variableCoeff && (m_level== 0) && m_params.m_doDiffusion) defineSolvers();

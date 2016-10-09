@@ -25,8 +25,8 @@
 #include "EBFluxRegister.H"
 #include "ProblemDomain.H"
 #include "BaseLevelTGA.H"
-#include "EBViscousTensorOp.H"
 
+#include "NWOEBViscousTensorOp.H"
 #include "NamespaceHeader.H"
 
 //! Momentum TGA adds another function to EBLevelTGA 
@@ -61,10 +61,10 @@ public:
                              const LevelData<EBCellFAB>& a_gradU,
                              int a_level)
   {
-    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
+    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumTGA::unrecognized operator (i need EBVTO)");
+        MayDay::Error("MomentumTGA::unrecognized operator (i need NWOEBVTO)");
       }
     
     //flux gets multiplied by beta deep in the bowels here.
@@ -78,10 +78,10 @@ public:
                          const LevelData<EBCellFAB>* a_veloCoar,
                          int a_level)
   {
-    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
+    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumTGA::unrecognized operator (i need EBVTO)");
+        MayDay::Error("MomentumTGA::unrecognized operator (i need NWOEBVTO)");
       }
 
     //flux gets multiplied by beta deep in the bowels here.
@@ -123,10 +123,10 @@ public:
                              const LevelData<EBCellFAB>& a_gradU,
                              int a_level)
   {
-    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
+    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumBackwardEuler::unrecognized operator (i need EBVTO)");
+        MayDay::Error("MomentumBackwardEuler::unrecognized operator (i need NWOEBVTO)");
       }
 
     resetSolverAlphaAndBeta(1.0, 1.0);
@@ -139,10 +139,10 @@ public:
                          const LevelData<EBCellFAB>* a_veloCoar,
                          int a_level)
   {
-    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
+    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumBackwardEuler::unrecognized operator (i need EBVTO)");
+        MayDay::Error("MomentumBackwardEuler::unrecognized operator (i need NWOEBVTO)");
       }
 
     resetSolverAlphaAndBeta(0.0, 1.0);

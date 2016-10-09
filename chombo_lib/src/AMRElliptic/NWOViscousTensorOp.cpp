@@ -66,6 +66,7 @@ NWOcoarsenStuff(LevelData<FluxBox> &          a_etaCoar,
                 const int &                   a_refToDepth,
                 const int &                   a_coefficientAverageType)
 {
+  CH_TIME("NWOViscousTensorOp::nwocoarsen");
   CH_assert(a_etaCoar.nComp() == 1);
   CH_assert(a_etaFine.nComp() == 1);
   CoarseAverageFace averageOpFace(a_etaFine.disjointBoxLayout(), 1, a_refToDepth);
@@ -91,6 +92,7 @@ cellGrad(FArrayBox&             a_gradPhi,
          const  FArrayBox&      a_phi,
          const Box&             a_grid)
 {
+  CH_TIME("NWOViscousTensorOp::cellgrad");
   CH_assert(a_gradPhi.nComp() == SpaceDim*SpaceDim);
   CH_assert(a_phi.nComp() == SpaceDim);
 
@@ -192,6 +194,7 @@ getFaceDivAndGrad(FArrayBox&             a_faceDiv,
                   const int&             a_faceDir,
                   const Real             a_dx)
 {
+  CH_TIME("NWOViscousTensorOp::facedivandgrad");
   //set divergence to zero everywhere
   a_faceDiv.setVal(0.);
 
@@ -256,6 +259,7 @@ createCoarser(LevelData<FArrayBox>&       a_coarse,
               const LevelData<FArrayBox>& a_fine,
               bool ghosted)
 {
+  CH_TIME("NWOViscousTensorOp::createcoarser");
   // CH_assert(!ghosted);
   IntVect ghost = a_fine.ghostVect();
   DisjointBoxLayout dbl;
@@ -269,6 +273,7 @@ NWOViscousTensorOp::
 computeOperatorNoBCs(LevelData<FArrayBox>& a_lhs,
                      const LevelData<FArrayBox>& a_phi)
 {
+  CH_TIME("NWOViscousTensorOp::computeoperatornobcs");
   // assumes ghost cells are filled correctly coming in.
   for(DataIterator dit = m_grids.dataIterator(); dit.ok(); ++dit)
     {
@@ -741,8 +746,8 @@ void NWOViscousTensorOp::reflux(const LevelData<FArrayBox>& a_phiFine,
 
       for (int idir = 0; idir < SpaceDim; idir++)
         {
-          FArrayBox coarflux;
           Box faceBox = surroundingNodes(gridBox, idir);
+          FArrayBox coarflux(faceBox, SpaceDim);
           
           getFlux(coarflux, coarfab,  coareta[idir], coarlambda[idir], faceBox, idir);
 
@@ -859,7 +864,7 @@ void NWOViscousTensorOp::getFlux(FArrayBox&       a_flux,
 
   dx /= a_ref;
   CH_assert(a_data.nComp() == SpaceDim);
-  a_flux.resize(a_faceBox, a_data.nComp());
+  //  a_flux.resize(a_faceBox, a_data.nComp());
 
   //for some reason lost in the mists of time, this has to be
   //multiplied by beta
