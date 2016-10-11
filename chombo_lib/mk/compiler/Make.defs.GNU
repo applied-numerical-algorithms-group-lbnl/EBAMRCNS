@@ -82,10 +82,10 @@ ifeq ($(cxxname),g++)
   defcxxcomflags := $(_cxxbaseflags)
 
 ifeq ($(OPENMPCC),TRUE)
-  defcxxoptflags := -O2 -funroll-loops -fopenmp
+  defcxxoptflags := -O -funroll-loops -fopenmp
   defcxxdbgflags := -g -pedantic -Wall -fopenmp
 else
-  defcxxoptflags := -O2 -funroll-loops -Wno-unknown-pragmas
+  defcxxoptflags := -O -funroll-loops -Wno-unknown-pragmas
   defcxxdbgflags := -g -pedantic -Wall -Wno-unknown-pragmas
 endif
   #newer versions of gcc (4.3.2 works) can use this
@@ -182,7 +182,7 @@ ifeq ($(fname),g77)
   _g77minorver:= $(word 2,$(_g77version))
 
   deffcomflags = -fno-second-underscore
-  deffoptflags = -O2 -funroll-loops
+  deffoptflags = -O -funroll-loops
   # if machine has i686 in the uname -a, then add the -malign-double opt flag
   ifeq ($(findstring i686,$(unamea)),i686)
     deffoptflags += -malign-double
@@ -263,7 +263,7 @@ endif
 
 ifeq ($(fname),g95)
   deffcomflags = -fno-second-underscore
-  deffoptflags = -O2 -funroll-loops
+  deffoptflags = -O -funroll-loops
   # if machine has i686 in the uname -a, then add the -malign-double opt flag
   ifeq ($(findstring i686,$(unamea)),i686)
     deffoptflags += -malign-double
@@ -284,7 +284,7 @@ ifeq ($(fname),gfortran)
   deffcomflags = -Wno-line-truncation -fno-second-underscore
   # these flags get rid of unused variables warnings. (-Wno-unused-parameter -Wno-unused-variable)
   deffcomflags += -Wno-unused-parameter -Wno-unused-variable
-  deffoptflags = -O2 -funroll-loops
+  deffoptflags = -O -funroll-loops
   deffdbgflags = -g -ggdb -Wall -W
 
   # Try this for gcc 4.2 and above...

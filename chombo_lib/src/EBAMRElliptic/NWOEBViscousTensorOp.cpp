@@ -23,6 +23,7 @@
 #include "EBLevelDataOpsF_F.H"
 #include "EBAlias.H"
 #include "BCFunc.H"
+#include "DebugOut.H"
 #include "NWOEBQuadCFInterp.H"
 #include "NamespaceHeader.H"
 bool NWOEBViscousTensorOp::s_doLazyRelax = false;
@@ -275,7 +276,7 @@ faceCenteredAverageCellsToFaces(EBFaceFAB           &      a_faceData,
                                 const DataIndex& a_dit,
                                 int isrc, int idst, int inco)
 {
-  CH_TIME("EBLDO::faceCenteredAverageCellsToFaces");
+  CH_TIME("nwoebvto::faceCenteredAverageCellsToFaces");
   //get the surrounding faces box
   Box faceBox = ccFluxBox;
   int idir = a_faceData.direction();
@@ -1561,7 +1562,7 @@ NWOEBViscousTensorOp::
 norm(const LevelData<EBCellFAB>& a_rhs,
      int                         a_ord)
 {
-  CH_TIMERS("EBViscTensorOp::norm");
+  CH_TIMERS("nwoebvto::norm");
   CH_TIMER("mpi_allreduce",t1);
 
   Real maxNorm = 0.0;
@@ -1698,8 +1699,18 @@ relax(LevelData<EBCellFAB>&       a_phi,
   CH_assert(a_rhs.isDefined());
   CH_assert(a_phi.ghostVect() >= IntVect::Unit);
   CH_assert(a_phi.nComp() == a_rhs.nComp());
+
+  //change to false to get a lot of printouts
+  static bool printedStuff = true;
+
   LevelData<EBCellFAB> lphi;
   create(lphi, a_rhs);
+  if(!printedStuff)
+    {
+      pout() << "rhs: " ;
+      LevelData<EBCellFAB>* rhs = (LevelData<EBCellFAB>*)(&a_rhs);
+      printMaxMinLDCell(rhs);
+    }
   // do first red, then black passes
   for (int whichIter =0; whichIter < a_iterations; whichIter++)
     {
@@ -1709,12 +1720,24 @@ relax(LevelData<EBCellFAB>&       a_phi,
           //this call contains bcs and exchange
           if ((icolor == 0) || (!s_doLazyRelax))
             {
+              CH_TIME("applyingoperator");
               homogeneousCFInterp(a_phi);
               applyOp(  lphi,  a_phi, true);
+            }
+          if(!printedStuff)
+            {
+              pout() << "iter = "<< whichIter << ", icolor = " << icolor << endl;
+              pout() << "phi: " ;
+              printMaxMinLDCell(&a_phi);
+              pout() << "lphi: " ;
+              printMaxMinLDCell(&lphi);
+              
             }
           gsrbColor(a_phi, lphi, a_rhs, m_colors[icolor]);
         }
     }
+  printedStuff = true;
+  //  MayDay::Abort("leaving after first relax");
 }
 
 void
@@ -2074,6 +2097,7 @@ void
 NWOEBViscousTensorOp::
 fillVelGhost(const LevelData<EBCellFAB>& a_phi) const
 {
+  CH_TIME("nwoebvto::fillghostld");
   for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
     {
       fillVelGhost(a_phi[dit()], dit());
@@ -2083,6 +2107,7 @@ void
 NWOEBViscousTensorOp::
 fillVelGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const
 {
+  CH_TIME("nwoebvto::fillghostfab");
   EBCellFAB& phi = (EBCellFAB&) a_phi;
   ViscousBaseDomainBC* viscbc = dynamic_cast<ViscousBaseDomainBC*>(&(*m_domainBC));
   Box grid = m_eblg.getDBL()[a_datInd];
@@ -2123,7 +2148,7 @@ getFlux(EBFaceFAB&                    a_fluxCentroid,
         const DataIndex&              a_datInd,
         const int&                    a_idir)
 {
-  CH_TIME("EBAMRPoissonOp::getFlux2");
+  CH_TIME("nwoebvto::getFlux2.1");
 
   const FArrayBox& regPhi  = (const FArrayBox &)            a_phi.getSingleValuedFAB();
 
@@ -2270,6 +2295,7 @@ applyOp(LevelData<EBCellFAB>             & a_lhs,
 {
   CH_TIME("nwoebvto::applyOp");
   LevelData<EBCellFAB>&  phi = (LevelData<EBCellFAB>&) a_phi;
+  fillVelGhost(a_phi);
   phi.exchange(m_exchangeCopier);
 
 

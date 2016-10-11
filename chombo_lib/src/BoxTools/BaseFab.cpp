@@ -95,9 +95,9 @@ template < > void BaseFab<Real>::define()
   }
 #endif
 
-#ifdef CH_USE_SETVAL
+  //#ifdef CH_USE_SETVAL
   setVal(BaseFabRealSetVal);
-#endif
+  //#endif
 }
 
 template < > void BaseFab<int>::define()

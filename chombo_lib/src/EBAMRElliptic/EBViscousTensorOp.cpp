@@ -22,6 +22,7 @@
 #include "ParmParse.H"
 #include "EBLevelDataOpsF_F.H"
 #include "EBAlias.H"
+#include "EBDebugOut.H"
 #include "QuadCFInterp.H"
 #include "NamespaceHeader.H"
 bool EBViscousTensorOp::s_doLazyRelax = false;
@@ -1750,8 +1751,17 @@ relax(LevelData<EBCellFAB>&       a_phi,
   CH_assert(a_rhs.isDefined());
   CH_assert(a_phi.ghostVect() >= IntVect::Unit);
   CH_assert(a_phi.nComp() == a_rhs.nComp());
+  //change to false to get a lot of printouts
+  static bool printedStuff = true;
+
   LevelData<EBCellFAB> lphi;
   create(lphi, a_rhs);
+  if(!printedStuff)
+    {
+      pout() << "rhs: " ;
+      LevelData<EBCellFAB>* rhs = (LevelData<EBCellFAB>*)(&a_rhs);
+      printMaxMinLDCell(rhs);
+    }
   // do first red, then black passes
   for (int whichIter =0; whichIter < a_iterations; whichIter++)
     {
@@ -1764,9 +1774,19 @@ relax(LevelData<EBCellFAB>&       a_phi,
               homogeneousCFInterp(a_phi);
               applyOp(  lphi,  a_phi, true);
             }
+          if(!printedStuff)
+            {
+              pout() << "iter = "<< whichIter << ", icolor = " << icolor << endl;
+              pout() << "phi: " ;
+              printMaxMinLDCell(&a_phi);
+              pout() << "lphi: " ;
+              printMaxMinLDCell(&lphi);
+              
+            }
           gsrbColor(a_phi, lphi, a_rhs, m_colors[icolor]);
         }
     }
+  printedStuff = true;
 }
 
 void
