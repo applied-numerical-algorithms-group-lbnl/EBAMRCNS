@@ -15,7 +15,7 @@
 #include "AMRLevelFactory.H"
 #include "EBPatchGodunovFactory.H"
 #include "EBPatchPolytropicFactory.H"
-#include "EBPhysIBCFactory.H"
+
 #include "NamespaceHeader.H"
 
 //! \class EBAMRCNSFactory
@@ -26,7 +26,6 @@ class EBAMRCNSFactory: public AMRLevelFactory
   public:
   //! 
   AMRLevel* new_amrlevel() const;
-
 
   //! Create a new factory that assembles EBAMRCNS level solvers. This 
   //! constructor supports the older-style specification of initial conditions

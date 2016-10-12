@@ -80,6 +80,31 @@ public:
   {;}
 };
 
+///
+class SchlichtingParams
+{
+public:
+
+  Real         m_gamma;
+  Real         m_ms;
+  Real         m_stickyStart;
+  Real         m_stickyEnd;  
+  Real         m_initPress;
+  Real         m_initDense;
+  Real         m_specificHeat;
+  Real         m_initTemp;
+  Real         m_velMag;
+  RealVect     m_axis;
+  RealVect     m_corner;
+  RealVect     m_initVel;
+
+  Real distanceAlongAxis(const RealVect& a_point) const;
+  Real distanceFromPlane(const RealVect& a_point) const;
+  bool isThisPointSticky(const RealVect& a_point,const RealVect& a_normal) const;
+};
+
+///get stuff from input file
+extern void ParseSchlichtingParams(SchlichtingParams& a_params);
 
 extern ostream&
 operator<< (ostream&              a_os,

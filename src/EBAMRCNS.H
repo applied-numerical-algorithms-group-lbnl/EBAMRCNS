@@ -78,6 +78,8 @@ public:
   LevelData<EBCellFAB>& getNewState();
 
 
+  bool convergedToSteadyState();
+
   //! Returns a reference to the FAB containing the conserved state as it is at the 
   //! beginning of a time step.
   LevelData<EBCellFAB>& getOldState();
@@ -177,7 +179,6 @@ public:
                       int                  a_level,
                       int                  a_ref_ratio);
 
-  void resetACoeffs();
   virtual Real advance();
 
   virtual void postTimeStep();

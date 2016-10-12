@@ -62,7 +62,7 @@
 #include "NamespaceHeader.H"
 
 #ifdef CH_USE_HDF5
-int                                                      EBAMRCNS::s_NewPlotFile  = 1;
+int                                                      EBAMRCNS::s_NewPlotFile  = 0;
 #endif
 RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > > EBAMRCNS::s_tempFactory        =  RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >();
 RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > > EBAMRCNS::s_veloFactory        =  RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >();
@@ -80,6 +80,32 @@ bool EBAMRCNS::s_noEBCF = false;
 bool dumpStuff = false;
 
 
+bool 
+EBAMRCNS::
+convergedToSteadyState()
+{
+  EBCellFactory      cellFact(m_eblg.getEBISL());
+  LevelData<EBCellFAB>  udiff(m_eblg.getDBL(), m_stateNew.nComp(), 4*IntVect::Unit, cellFact);
+  EBLevelDataOps::setToZero(udiff);
+  EBLevelDataOps::incr(udiff, m_stateOld, -1.0);
+  EBLevelDataOps::incr(udiff, m_stateNew,  1.0);
+  Real umax, umin, eps;
+  Real dmax, dmin; 
+  int ivar;
+  ParmParse pp;
+  pp.get("convergence_metric", eps);
+  pp.get("convergence_variable", ivar);
+  EBLevelDataOps::getMaxMin(dmax, dmin, udiff, ivar);
+  EBLevelDataOps::getMaxMin(umax, umin, m_stateNew, ivar);
+  Real denom = 1;
+  if(Abs(umax - umin) > eps)
+    {
+      denom = Abs(umax-umin);
+    }
+  Real maxdiff = Abs(dmax-dmin)/denom;
+  pout() << "max difference in convergence variable = " << maxdiff << ", eps set to " << eps << endl;
+  return (maxdiff < eps);
+}
 //---------------------------------------------------------------------------------------
 EBAMRCNS::
 EBAMRCNS(const EBAMRCNSParams& a_params,
@@ -316,23 +342,13 @@ defineFactories(bool a_atHalfTime)
       IntVect  giv    = 4*IntVect::Unit;
 
       // Viscous tensor operator.
-      bool turnOffMG = true;
-      ParmParse pp2;
-      pp2.query("turn_off_mg", turnOffMG);
-      if(turnOffMG)
-        {
-          pout() <<"turning off multigrid for viscous solve" << endl;
-        }
-      else
-        {
-          pout() <<"using multigrid for viscous solve" << endl;
-        }
+      bool noMG = false;
       s_veloFactory =
         RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >
         (dynamic_cast<AMRLevelOpFactory<LevelData<EBCellFAB> >*>
          (new NWOEBViscousTensorOpFactory(eblgs, alpha, beta, acoVelo, eta,
                                           lambda, etaIrreg, lambdaIrreg,lev0Dx, refRat,
-                                          m_params.m_doBCVelo, m_params.m_ebBCVelo,giv, giv, -1, turnOffMG)));
+                                          m_params.m_doBCVelo, m_params.m_ebBCVelo,giv, giv, -1, noMG)));
 
 
       NWOEBViscousTensorOp::doLazyRelax(m_params.m_doLazyRelax);
@@ -360,7 +376,6 @@ EBAMRCNS::
 defineSolvers()
 {
   CH_TIME("EBAMRCNS::defineSolvers");
-  resetACoeffs();
   ParmParse pp;
   bool tagAllIrregular = false;
   if(pp.contains("tag_all_irregular"))
@@ -516,7 +531,7 @@ advance()
   NWOEBViscousTensorOp::s_whichLev = m_level;
   m_dtOld = m_dt;
 
-  if((m_level== 0) && m_params.m_doDiffusion) defineSolvers();
+  if(m_params.m_variableCoeff && (m_level== 0) && m_params.m_doDiffusion) defineSolvers();
 
   if(m_params.m_verbosity >= 3)
     {
@@ -916,24 +931,6 @@ finalAdvance(LevelData<EBCellFAB>& a_Ustar)
 //============
 void 
 EBAMRCNS::
-resetACoeffs()
-{
-  Interval srcInt(CRHO, CRHO);  
-  Interval dstInt(0, 0);
-  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
-    {
-      const Box& region = m_eblg.getDBL().get(dit());
-      (*m_acoVelo)[dit()].copy(region, dstInt, region, m_stateNew[dit()], srcInt);
-    }
-  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
-    {
-      const Box& region = m_eblg.getDBL().get(dit());
-      (*m_acoTemp)[dit()].copy(region, dstInt, region, m_stateNew[dit()], srcInt);
-      (*m_acoTemp)[dit()] *= m_params.m_specHeatCv;
-    }
-}
-void 
-EBAMRCNS::
 getDivSigma(LevelData<EBCellFAB>& a_divSigma,  
             LevelData<EBCellFAB>& a_UStar)
 {
@@ -974,7 +971,15 @@ getDivSigma(LevelData<EBCellFAB>& a_divSigma,
     }
 
   
+  Interval srcInt(CRHO, CRHO);  
+  Interval dstInt(0, 0);
+  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+    {
+      const Box& region = m_eblg.getDBL().get(dit());
+      (*m_acoVelo)[dit()].copy(region, dstInt, region, a_UStar[dit()], srcInt);
+    }
 
+  defineSolvers();
   if(m_params.m_backwardEuler)
     {
       s_veloIntegratorBE->updateSoln(velnew, velold, rhsZero,  fineVelFRPtr, coarVelFRPtr,
@@ -1061,6 +1066,14 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
   // Set the a coefficients for the thermal conduction equation to Cv * rho, 
   // specifying both the old and new values so that the density gets linearly
   // interpolated.
+  Interval srcInt(CRHO, CRHO);  
+  Interval dstInt(0, 0);
+  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+    {
+      const Box& region = m_eblg.getDBL().get(dit());
+      (*m_acoTemp)[dit()].copy(region, dstInt, region, a_UStar[dit()], srcInt);
+      (*m_acoTemp)[dit()] *= m_params.m_specHeatCv;
+    }
 
   LevelData<EBCellFAB>& rhsTemp = m_rhsTemp;
   EBLevelDataOps::setToZero(rhsTemp);
@@ -1069,6 +1082,8 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
 
   m_redisRHS.copyTo(srcComp, rhsTemp, dstComp);
   EBLevelDataOps::setToZero(m_redisRHS);
+
+  defineSolvers();
 
   if(m_params.m_backwardEuler)
     {
@@ -1624,6 +1639,7 @@ postTimeStepRefluxRedistDance()
   if(m_params.m_doDiffusion && !turn_off_reflux)
     {
       refluxRHSEnergyAndMomentum();
+      defineSolvers();
       implicitReflux();
     }
 }
@@ -2066,8 +2082,8 @@ tagCells(IntVectSet& a_tags)
     }
   consTemp.exchange(intervDensity);
 
-  bool tagAllIrregular = true;
-  bool tagInflow = true;
+  bool tagAllIrregular = false;
+  bool tagInflow = false;
   if(pp.contains("tag_all_irregular"))
     {
       pp.get("tag_all_irregular", tagAllIrregular);
@@ -2236,15 +2252,12 @@ tagCells(IntVectSet& a_tags)
   pp.query("tag_hi_and_lo", tagHiLo);
   if(tagHiLo)
     {
-      for(int idir = 0; idir < SpaceDim; idir++)
-	{
-	  Box loBox = adjCellLo(m_problem_domain.domainBox(), idir, 1);
-	  Box hiBox = adjCellHi(m_problem_domain.domainBox(), idir, 1);
-	  loBox.shift(1,  1);
-	  hiBox.shift(1, -1);
-	  localTags |= loBox;
-	  localTags |= hiBox;
-	}
+      Box loBox = adjCellLo(m_problem_domain.domainBox(), 1, 1);
+      Box hiBox = adjCellHi(m_problem_domain.domainBox(), 1, 1);
+      loBox.shift(1,  1);
+      hiBox.shift(1, -1);
+      localTags |= loBox;
+      localTags |= hiBox;
     }
 
   // Need to do this in two steps unless a IntVectSet::operator &=
@@ -2456,6 +2469,7 @@ initialData()
 
   ebphysIBCPtr->initialize(m_stateNew, m_eblg.getEBISL());
   ebphysIBCPtr->initialize(m_stateOld, m_eblg.getEBISL());
+
 }
 //-------------------------------------------------------------------------
 
@@ -2464,6 +2478,7 @@ void
 EBAMRCNS::
 postInitialGrid(const bool a_restart)
 {
+  if(m_level == 0) defineSolvers();
 }
 void
 EBAMRCNS::
@@ -2490,6 +2505,7 @@ postInitialize()
         sumConserved(m_originalMomentum[iv-velInt.begin()], iv);
       sumConserved(m_originalEnergy, CENG); // Index not otherwise accessible.
     }
+    if(m_level==0) defineSolvers();
 }
 //-------------------------------------------------------------------------
 
