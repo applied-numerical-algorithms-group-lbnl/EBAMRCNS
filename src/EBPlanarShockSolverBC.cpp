@@ -175,6 +175,9 @@ fillVelGhost(FArrayBox&     a_phi,
           bool atInflow, atOutflow, atMixed;
           whereAMI(atInflow, atOutflow, atMixed, idir, side);
           bool fullNeum = !(atInflow || atMixed);
+          //debug
+          fullNeum = true;
+          //end debug
           if(fullNeum)
             {
               NeumannViscousTensorDomainBC neumannBC;
@@ -184,6 +187,21 @@ fillVelGhost(FArrayBox&     a_phi,
             }
           else //diri or mixed
             {
+              /**
+              FArrayBox neumghost(a_phi.box(), a_phi.nComp());
+              FArrayBox dirighost(a_phi.box(), a_phi.nComp());
+              neumghost.copy(a_phi);
+              dirighost.copy(a_phi);
+              NeumannViscousTensorDomainBC neumannBC;
+              neumannBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+              neumannBC.setValue(0.0);
+              neumannBC.fillVelGhost(neumghost, valid, a_domain, a_dx, a_homogeneous);
+
+              DirichletViscousTensorDomainBC diriBC;
+              diriBC.setCoef(m_eblg, m_beta, m_eta, m_lambda);
+              diriBC.setValue(0.0);
+              diriBC.fillVelGhost(dirighost, valid, a_domain, a_dx, a_homogeneous);
+              **/
               for(int comp = 0; comp < SpaceDim; comp++)
                 {
                   Real inhomogval;

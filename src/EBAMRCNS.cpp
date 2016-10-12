@@ -335,7 +335,7 @@ defineFactories(bool a_atHalfTime)
                                           m_params.m_doBCVelo, m_params.m_ebBCVelo,giv, giv, -1, turnOffMG)));
 
 
-      NWOEBViscousTensorOp::doLazyRelax(false);
+      NWOEBViscousTensorOp::doLazyRelax(m_params.m_doLazyRelax);
 
       // Thermal diffusion operator.
       int relaxType = 1;
@@ -360,6 +360,7 @@ EBAMRCNS::
 defineSolvers()
 {
   CH_TIME("EBAMRCNS::defineSolvers");
+  resetACoeffs();
   ParmParse pp;
   bool tagAllIrregular = false;
   if(pp.contains("tag_all_irregular"))
@@ -515,7 +516,7 @@ advance()
   NWOEBViscousTensorOp::s_whichLev = m_level;
   m_dtOld = m_dt;
 
-  if(m_params.m_variableCoeff && (m_level== 0) && m_params.m_doDiffusion) defineSolvers();
+  if((m_level== 0) && m_params.m_doDiffusion) defineSolvers();
 
   if(m_params.m_verbosity >= 3)
     {
@@ -915,6 +916,24 @@ finalAdvance(LevelData<EBCellFAB>& a_Ustar)
 //============
 void 
 EBAMRCNS::
+resetACoeffs()
+{
+  Interval srcInt(CRHO, CRHO);  
+  Interval dstInt(0, 0);
+  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+    {
+      const Box& region = m_eblg.getDBL().get(dit());
+      (*m_acoVelo)[dit()].copy(region, dstInt, region, m_stateNew[dit()], srcInt);
+    }
+  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+    {
+      const Box& region = m_eblg.getDBL().get(dit());
+      (*m_acoTemp)[dit()].copy(region, dstInt, region, m_stateNew[dit()], srcInt);
+      (*m_acoTemp)[dit()] *= m_params.m_specHeatCv;
+    }
+}
+void 
+EBAMRCNS::
 getDivSigma(LevelData<EBCellFAB>& a_divSigma,  
             LevelData<EBCellFAB>& a_UStar)
 {
@@ -955,13 +974,6 @@ getDivSigma(LevelData<EBCellFAB>& a_divSigma,
     }
 
   
-  Interval srcInt(CRHO, CRHO);  
-  Interval dstInt(0, 0);
-  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
-    {
-      const Box& region = m_eblg.getDBL().get(dit());
-      (*m_acoVelo)[dit()].copy(region, dstInt, region, a_UStar[dit()], srcInt);
-    }
 
   if(m_params.m_backwardEuler)
     {
@@ -1049,14 +1061,6 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
   // Set the a coefficients for the thermal conduction equation to Cv * rho, 
   // specifying both the old and new values so that the density gets linearly
   // interpolated.
-  Interval srcInt(CRHO, CRHO);  
-  Interval dstInt(0, 0);
-  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
-    {
-      const Box& region = m_eblg.getDBL().get(dit());
-      (*m_acoTemp)[dit()].copy(region, dstInt, region, a_UStar[dit()], srcInt);
-      (*m_acoTemp)[dit()] *= m_params.m_specHeatCv;
-    }
 
   LevelData<EBCellFAB>& rhsTemp = m_rhsTemp;
   EBLevelDataOps::setToZero(rhsTemp);
@@ -1065,8 +1069,6 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
 
   m_redisRHS.copyTo(srcComp, rhsTemp, dstComp);
   EBLevelDataOps::setToZero(m_redisRHS);
-
-  //defineSolvers();
 
   if(m_params.m_backwardEuler)
     {
@@ -1622,7 +1624,6 @@ postTimeStepRefluxRedistDance()
   if(m_params.m_doDiffusion && !turn_off_reflux)
     {
       refluxRHSEnergyAndMomentum();
-      //      defineSolvers();
       implicitReflux();
     }
 }
@@ -2463,7 +2464,6 @@ void
 EBAMRCNS::
 postInitialGrid(const bool a_restart)
 {
-  if(m_level == 0) defineSolvers();
 }
 void
 EBAMRCNS::
@@ -2490,7 +2490,6 @@ postInitialize()
         sumConserved(m_originalMomentum[iv-velInt.begin()], iv);
       sumConserved(m_originalEnergy, CENG); // Index not otherwise accessible.
     }
-  //  if(m_level==0) defineSolvers();
 }
 //-------------------------------------------------------------------------
 

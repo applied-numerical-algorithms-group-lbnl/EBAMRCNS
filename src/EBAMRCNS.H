@@ -177,6 +177,7 @@ public:
                       int                  a_level,
                       int                  a_ref_ratio);
 
+  void resetACoeffs();
   virtual Real advance();
 
   virtual void postTimeStep();
