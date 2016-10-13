@@ -83,30 +83,6 @@ class EBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
                     const IntVect&                                     a_ghostCellsPhi,
                     const IntVect&                                     a_ghostCellsRHS);
 
-  //! Constructs a viscous tensor operator using the given data. This
-  //! constructor is for a time-dependent a coefficient.
-  EBViscousTensorOp(const EBLevelGrid &                                a_eblgFine,
-                    const EBLevelGrid &                                a_eblg,
-                    const EBLevelGrid &                                a_eblgCoar,
-                    const EBLevelGrid &                                a_eblgCoarMG,
-                    const Real&                                        a_alpha,
-                    const Real&                                        a_beta,
-                    const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef0,
-                    const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef1,
-                    const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef,
-                    const RefCountedPtr<LevelData<EBFluxFAB> >&        a_eta,
-                    const RefCountedPtr<LevelData<EBFluxFAB> >&        a_lambda,
-                    const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_etaIrreg,
-                    const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_lambdaIrreg,
-                    const Real&                                        a_dx,
-                    const Real&                                        a_dxCoar,
-                    const int&                                         a_refToFine,
-                    const int&                                         a_refToCoar,
-                    const RefCountedPtr<ViscousBaseDomainBC>&          a_domainBC,
-                    const RefCountedPtr<ViscousBaseEBBC>&              a_ebBC,
-                    const bool&                                        a_hasMGObjects,
-                    const IntVect&                                     a_ghostCellsPhi,
-                    const IntVect&                                     a_ghostCellsRHS);
 
   //! Destructor.
   virtual ~EBViscousTensorOp();
@@ -114,6 +90,18 @@ class EBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
   ///for tga to reset stuff
   virtual void setAlphaAndBeta(const Real& a_alpha,
                                const Real& a_beta);
+
+  ///
+  /**
+     This sets the data storage for the a coefficient to a different
+     object and recalculates the stuff that depends on it. Use this only if you know what you're doing.
+  */
+  void resetACoefficient(RefCountedPtr<LevelData<EBCellFAB> >& a_acoef)
+  {
+    m_acoef = a_acoef;
+    calculateAlphaWeight();
+    calculateRelaxationCoefficient();
+  }
 
 #ifdef CH_USE_HDF5
   virtual void outputLevel(LevelData<EBCellFAB>& a_rhs, string& a_name)
@@ -367,6 +355,7 @@ class EBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
                      const LevelData<EBCellFAB>& a_residual,
                      int                         a_iterations);
 
+
   ///
   /**
      Calculate restricted residual:
@@ -615,13 +604,6 @@ class EBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
   //! time-independent a coefficient, this is where the coefficient lives.
   RefCountedPtr<LevelData<EBCellFAB> >         m_acoef;
 
-  //! The a coefficient at the beginning of the time step. This is NULL if
-  //! the conductivity operator is time independent.
-  RefCountedPtr<LevelData<EBCellFAB> >         m_acoef0;
-
-  //! The a coefficient at the end of the time step. This is NULL if
-  //! the conductivity operator is time independent.
-  RefCountedPtr<LevelData<EBCellFAB> >         m_acoef1;
 
   RefCountedPtr<LevelData<EBFluxFAB> >         m_eta;
   RefCountedPtr<LevelData<EBFluxFAB> >         m_lambda;
@@ -638,8 +620,8 @@ class EBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
   Real                                         m_dx;
   Real                                         m_dxCoar;
   Real getSafety();
-  void calculateAlphaWeight();
-  void calculateRelaxationCoefficient();
+  virtual void calculateAlphaWeight();
+  virtual void calculateRelaxationCoefficient();
 
   //refinement ratios and whether this object has multigrid objects
   bool                                         m_hasFine;

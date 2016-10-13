@@ -73,8 +73,6 @@ EBConductivityOp(const EBLevelGrid &                                  a_eblgFine
     m_dx(a_dx),
     m_dxCoar(a_dxCoar),
     m_acoef(a_acoef),
-    m_acoef0(), // Not used since acoef is time-independent
-    m_acoef1(), // Not used since acoef is time-independent
     m_bcoef(a_bcoef),
     m_bcoIrreg(a_bcoIrreg),
     m_alpha(a_alpha),
@@ -199,177 +197,6 @@ EBConductivityOp(const EBLevelGrid &                                  a_eblgFine
 }
 //-----------------------------------------------------------------------
 EBConductivityOp::
-EBConductivityOp(const EBLevelGrid &                                  a_eblgFine,
-                 const EBLevelGrid &                                  a_eblg,
-                 const EBLevelGrid &                                  a_eblgCoar,
-                 const EBLevelGrid &                                  a_eblgCoarMG,
-                 const RefCountedPtr<EBQuadCFInterp>&                 a_quadCFI,
-                 const RefCountedPtr<ConductivityBaseDomainBC>&       a_domainBC,
-                 const RefCountedPtr<ConductivityBaseEBBC>&           a_ebBC,
-                 const Real    &                                      a_dx,
-                 const Real    &                                      a_dxCoar,
-                 const int&                                           a_refToFine,
-                 const int&                                           a_refToCoar,
-                 const bool&                                          a_hasFine,
-                 const bool&                                          a_hasCoar,
-                 const bool&                                          a_hasMGObjects,
-                 const bool&                                          a_layoutChanged,
-                 const Real&                                          a_alpha,
-                 const Real&                                          a_beta,
-                 const RefCountedPtr<LevelData<EBCellFAB> >&          a_acoef0,
-                 const RefCountedPtr<LevelData<EBCellFAB> >&          a_acoef1,
-                 const RefCountedPtr<LevelData<EBCellFAB> >&          a_acoef,
-                 const RefCountedPtr<LevelData<EBFluxFAB> >&          a_bcoef,
-                 const RefCountedPtr<LevelData<BaseIVFAB<Real> > >&   a_bcoIrreg,
-                 const IntVect&                                       a_ghostCellsPhi,
-                 const IntVect&                                       a_ghostCellsRHS,
-                 const int&                                           a_relaxType)
-  : LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB>(true), // is time-dependent
-    m_relaxType(a_relaxType),
-    m_ghostCellsPhi(a_ghostCellsPhi),
-    m_ghostCellsRHS(a_ghostCellsRHS),
-    m_quadCFIWithCoar(a_quadCFI),
-    m_eblg(a_eblg),
-    m_eblgFine(),
-    m_eblgCoar(),
-    m_eblgCoarMG(),
-    m_eblgCoarsenedFine(),
-    m_domainBC(a_domainBC),
-    m_ebBC(a_ebBC),
-    m_dxFine(),
-    m_dx(a_dx),
-    m_dxCoar(a_dxCoar),
-    m_acoef(a_acoef),
-    m_acoef0(a_acoef0),
-    m_acoef1(a_acoef1),
-    m_bcoef(a_bcoef),
-    m_bcoIrreg(a_bcoIrreg),
-    m_alpha(a_alpha),
-    m_beta(a_beta),
-    m_alphaDiagWeight(),
-    m_betaDiagWeight(),
-    m_refToFine(a_hasFine ? a_refToFine : 1),
-    m_refToCoar(a_hasCoar ? a_refToCoar : 1),
-    m_hasFine(a_hasFine),
-    m_hasInterpAve(false),
-    m_hasCoar(a_hasCoar),
-    m_ebAverage(),
-    m_ebInterp(),
-    m_opEBStencil(),
-    m_relCoef(),
-    m_vofIterIrreg(),
-    m_vofIterMulti(),
-    m_vofIterDomLo(),
-    m_vofIterDomHi(),
-    m_loCFIVS(),
-    m_hiCFIVS(),
-    m_fastFR(),
-    m_hasMGObjects(a_hasMGObjects),
-    m_layoutChanged(a_layoutChanged),
-    m_ebAverageMG(),
-    m_ebInterpMG(),
-    m_dblCoarMG(),
-    m_ebislCoarMG(),
-    m_domainCoarMG(),
-    m_colors()
-{
-  CH_TIME("EBConductivityOp::ConductivityOp");
-  int ncomp = 1;
-  m_hasEBCF = false;
-  if (m_hasFine)
-    {
-      m_eblgFine       = a_eblgFine;
-      m_dxFine         = m_dx/a_refToFine;
-    }
-
-  EBCellFactory fact(m_eblg.getEBISL());
-  m_relCoef.define(m_eblg.getDBL(), 1, IntVect::Zero, fact);
-  if (m_hasCoar)
-    {
-      m_eblgCoar       = a_eblgCoar;
-      m_refToCoar      = a_refToCoar   ;
-
-
-      DataIterator dit = m_eblg.getDBL().dataIterator(); 
-      int nbox = dit.size();
-      for (int idir = 0; idir < SpaceDim; idir++)
-        {
-          m_loCFIVS[idir].define(m_eblg.getDBL());
-          m_hiCFIVS[idir].define(m_eblg.getDBL());
-#pragma omp parallel
-          {
-#pragma omp for
-            for (int mybox=0;mybox<nbox;mybox++)
-              {
-                pout() << "starting lo cfivs for box " << mybox << endl;
-                m_loCFIVS[idir][dit[mybox]].define(m_eblg.getDomain(), m_eblg.getDBL().get(dit[mybox]),
-                                              m_eblg.getDBL(), idir,Side::Lo);
-                pout() << "starting hi cfivs for box " << mybox << endl;
-                m_hiCFIVS[idir][dit[mybox]].define(m_eblg.getDomain(), m_eblg.getDBL().get(dit[mybox]),
-                                              m_eblg.getDBL(), idir,Side::Hi);
-              }
-          }
-        }
-
-      //if this fails, then the AMR grids violate proper nesting.
-      ProblemDomain domainCoarsenedFine;
-      DisjointBoxLayout dblCoarsenedFine;
-
-      int maxBoxSize = 32;
-      bool dumbool;
-      bool hasCoarser = EBAMRPoissonOp::getCoarserLayouts(dblCoarsenedFine,
-                                                          domainCoarsenedFine,
-                                                          m_eblg.getDBL(),
-                                                          m_eblg.getEBISL(),
-                                                          m_eblg.getDomain(),
-                                                          m_refToCoar,
-                                                          m_eblg.getEBIS(),
-                                                          maxBoxSize, dumbool);
-
-      //should follow from coarsenable
-      if (hasCoarser)
-        {
-          m_eblgCoarsenedFine = EBLevelGrid(dblCoarsenedFine, domainCoarsenedFine, 4, m_eblg.getEBIS());
-          m_hasInterpAve = true;
-          m_ebInterp.define( m_eblg.getDBL(),     m_eblgCoar.getDBL(),
-                             m_eblg.getEBISL(), m_eblgCoar.getEBISL(),
-                             domainCoarsenedFine, m_refToCoar, ncomp, m_eblg.getEBIS(),
-                             a_ghostCellsPhi);
-          m_ebAverage.define(m_eblg.getDBL(),     m_eblgCoarsenedFine.getDBL(),
-                             m_eblg.getEBISL(), m_eblgCoarsenedFine.getEBISL(),
-                             domainCoarsenedFine, m_refToCoar, ncomp, m_eblg.getEBIS(),
-                             a_ghostCellsRHS);
-
-        }
-    }
-
-  //special mg objects for when we do not have
-  //a coarser level or when the refinement to coarse
-  //is greater than two
-  //flag for when we need special MG objects
-  m_hasMGObjects = a_hasMGObjects;
-  m_layoutChanged = a_layoutChanged;
-  if (m_hasMGObjects)
-    {
-      int mgRef = 2;
-      m_eblgCoarMG = a_eblgCoarMG;
-
-      m_ebInterpMG.define( m_eblg.getDBL(),     m_eblgCoarMG.getDBL(),
-                           m_eblg.getEBISL(), m_eblgCoarMG.getEBISL(),
-                           m_eblgCoarMG.getDomain(), mgRef, ncomp, m_eblg.getEBIS(),
-                           a_ghostCellsPhi);
-      m_ebAverageMG.define(m_eblg.getDBL(),     m_eblgCoarMG.getDBL(),
-                           m_eblg.getEBISL(), m_eblgCoarMG.getEBISL(),
-                           m_eblgCoarMG.getDomain() , mgRef, ncomp, m_eblg.getEBIS(),
-                           a_ghostCellsRHS);
-
-    }
-
-  //define stencils for the operator
-  defineStencils();
-}
-//-----------------------------------------------------------------------
-EBConductivityOp::
 ~EBConductivityOp()
 {
 }
@@ -430,19 +257,6 @@ getSafety()
 {
   Real safety = 1.0;
   return safety;
-}
-//-----------------------------------------------------------------------
-void
-EBConductivityOp::
-resetACoefficient(RefCountedPtr<LevelData<EBCellFAB> >& a_acoef)
-{
-  // This cannot be used if the a coefficient is time-dependent!
-  CH_assert(m_acoef0 == NULL);
-  CH_assert(m_acoef1 == NULL);
-
-  m_acoef = a_acoef;
-  calculateAlphaWeight();
-  calculateRelaxationCoefficient();
 }
 //-----------------------------------------------------------------------
 void
@@ -567,32 +381,6 @@ void
 EBConductivityOp::
 setTime(Real a_oldTime, Real a_mu, Real a_dt)
 {
-  // This only affects a coefficients that are time-dependent.
-  if (m_acoef0 != NULL)
-    {
-      CH_assert(m_acoef1 != NULL); // All or nothing!
-
-      // The a coefficient is linearly interpolated as
-      // acoef = acoef0 + mu * (acoef1 - acoef0)
-      //       = (1 - mu) * acoef0 + mu * acoef1.
-      DataIterator dit = m_eblg.getDBL().dataIterator(); 
-      int nbox = dit.size();
-#pragma omp parallel
-      {
-#pragma omp for
-        for(int mybox=0; mybox<nbox; mybox++)
-          {
-            (*m_acoef)[dit[mybox]].axby((*m_acoef0)[dit[mybox]], (*m_acoef1)[dit[mybox]],
-                                        1.0 - a_mu, a_mu);
-          }
-      }
-
-      // Notify any observers that the operator's state has changed.
-      notifyObserversOfChange();
-
-      // Refine the stencils.
-      defineStencils();
-    }
 }
 //-----------------------------------------------------------------------
 void
@@ -666,21 +454,11 @@ calculateRelaxationCoefficient()
       {
         const Box& grid = m_eblg.getDBL().get(dit[mybox]);
       
-        if (!m_acoef.isNull())
-          {
-            // For time-independent acoef, initialize lambda = alpha * acoef.
-            const EBCellFAB& acofab = (*m_acoef)[dit[mybox]];
-            m_relCoef[dit[mybox]].setVal(0.);
-            m_relCoef[dit[mybox]].plus(acofab, 0, 0, 1);
-            m_relCoef[dit[mybox]]*= m_alpha;
-          }
-        else
-          {
-            // Otherwise, average the old and new values of acoef.
-            m_relCoef[dit[mybox]].setVal(0.);
-            m_relCoef[dit[mybox]].axby((*m_acoef0)[dit[mybox]], (*m_acoef1)[dit[mybox]],
-                                       0.5*m_alpha, 0.5*m_alpha, 0, 0, 0);
-          }
+        // For time-independent acoef, initialize lambda = alpha * acoef.
+        const EBCellFAB& acofab = (*m_acoef)[dit[mybox]];
+        m_relCoef[dit[mybox]].setVal(0.);
+        m_relCoef[dit[mybox]].plus(acofab, 0, 0, 1);
+        m_relCoef[dit[mybox]]*= m_alpha;
       
         // Compute the relaxation coefficient in regular cells.
         BaseFab<Real>& regRel = m_relCoef[dit[mybox]].getSingleValuedFAB();

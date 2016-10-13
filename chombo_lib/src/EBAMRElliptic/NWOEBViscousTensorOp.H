@@ -83,30 +83,6 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
                     const IntVect&                                     a_ghostCellsPhi,
                     const IntVect&                                     a_ghostCellsRHS);
 
-  //! Constructs a viscous tensor operator using the given data. This
-  //! constructor is for a time-dependent a coefficient.
-  NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblgFine,
-                    const EBLevelGrid &                                a_eblg,
-                    const EBLevelGrid &                                a_eblgCoar,
-                    const EBLevelGrid &                                a_eblgCoarMG,
-                    const Real&                                        a_alpha,
-                    const Real&                                        a_beta,
-                    const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef0,
-                    const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef1,
-                    const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef,
-                    const RefCountedPtr<LevelData<EBFluxFAB> >&        a_eta,
-                    const RefCountedPtr<LevelData<EBFluxFAB> >&        a_lambda,
-                    const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_etaIrreg,
-                    const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_lambdaIrreg,
-                    const Real&                                        a_dx,
-                    const Real&                                        a_dxCoar,
-                    const int&                                         a_refToFine,
-                    const int&                                         a_refToCoar,
-                    const RefCountedPtr<ViscousBaseDomainBC>&          a_domainBC,
-                    const RefCountedPtr<ViscousBaseEBBC>&              a_ebBC,
-                    const bool&                                        a_hasMGObjects,
-                    const IntVect&                                     a_ghostCellsPhi,
-                    const IntVect&                                     a_ghostCellsRHS);
 
   //! Destructor.
   virtual ~NWOEBViscousTensorOp();
@@ -363,6 +339,18 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
 
   ///
   /**
+     This sets the data storage for the a coefficient to a different
+     object and recalculates the stuff that depends on it. Use this only if you know what you're doing.
+  */
+  void resetACoefficient(RefCountedPtr<LevelData<EBCellFAB> >& a_acoef)
+  {
+    m_acoef = a_acoef;
+    calculateAlphaWeight();
+    calculateRelaxationCoefficient();
+  }
+
+  ///
+  /**
      Calculate restricted residual:
      a_resCoarse[2h] = I[h->2h] (a_rhsFine[h] - L[h](a_phiFine[h]))
   */
@@ -601,14 +589,6 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
   //! time-independent a coefficient, this is where the coefficient lives.
   RefCountedPtr<LevelData<EBCellFAB> >         m_acoef;
 
-  //! The a coefficient at the beginning of the time step. This is NULL if
-  //! the conductivity operator is time independent.
-  RefCountedPtr<LevelData<EBCellFAB> >         m_acoef0;
-
-  //! The a coefficient at the end of the time step. This is NULL if
-  //! the conductivity operator is time independent.
-  RefCountedPtr<LevelData<EBCellFAB> >         m_acoef1;
-
   RefCountedPtr<LevelData<EBFluxFAB> >         m_eta;
   RefCountedPtr<LevelData<EBFluxFAB> >         m_lambda;
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >  m_etaIrreg;
@@ -624,8 +604,8 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
   Real                                         m_dx;
   Real                                         m_dxCoar;
   Real getSafety();
-  void calculateAlphaWeight();
-  void calculateRelaxationCoefficient();
+  virtual void calculateAlphaWeight();
+  virtual void calculateRelaxationCoefficient();
 
   //refinement ratios and whether this object has multigrid objects
   bool                                         m_hasFine;

@@ -70,8 +70,6 @@ EBViscousTensorOp(const EBLevelGrid &                                a_eblgFine,
   m_alphaDiagWeight(),
   m_betaDiagWeight(),
   m_acoef(a_acoef),
-  m_acoef0(),
-  m_acoef1(),
   m_eta(a_eta),
   m_lambda(a_lambda),
   m_etaIrreg(a_etaIrreg),
@@ -703,158 +701,6 @@ getVelDotSigma(LevelData<EBFluxFAB>      & a_velDotSigma,
         }
     }
 }
-//-----------------------------------------------------------------------
-EBViscousTensorOp::
-EBViscousTensorOp(const EBLevelGrid &                                a_eblgFine,
-                  const EBLevelGrid &                                a_eblg,
-                  const EBLevelGrid &                                a_eblgCoar,
-                  const EBLevelGrid &                                a_eblgCoarMG,
-                  const Real&                                        a_alpha,
-                  const Real&                                        a_beta,
-                  const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef0,
-                  const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef1,
-                  const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef,
-                  const RefCountedPtr<LevelData<EBFluxFAB> >&        a_eta,
-                  const RefCountedPtr<LevelData<EBFluxFAB> >&        a_lambda,
-                  const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_etaIrreg,
-                  const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_lambdaIrreg,
-                  const Real&                                        a_dx,
-                  const Real&                                        a_dxCoar,
-                  const int&                                         a_refToFine,
-                  const int&                                         a_refToCoar,
-                  const RefCountedPtr<ViscousBaseDomainBC>&          a_domainBC,
-                  const RefCountedPtr<ViscousBaseEBBC>&              a_ebBC,
-                  const bool&                                        a_hasMGObjects,
-                  const IntVect&                                     a_ghostCellsPhi,
-                  const IntVect&                                     a_ghostCellsRHS):
-  LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB>(true), // is time-dependent
-  m_loCFIVS(),
-  m_hiCFIVS(),
-  m_ghostPhi(a_ghostCellsPhi),
-  m_ghostRHS(a_ghostCellsRHS),
-  m_eblgFine(a_eblgFine),
-  m_eblg(a_eblg),
-  m_eblgCoar(a_eblgCoar),
-  m_eblgCoarMG(a_eblgCoarMG),
-  m_alpha(a_alpha),
-  m_beta(a_beta),
-  m_alphaDiagWeight(),
-  m_betaDiagWeight(),
-  m_acoef(a_acoef),
-  m_acoef0(a_acoef0),
-  m_acoef1(a_acoef1),
-  m_eta(a_eta),
-  m_lambda(a_lambda),
-  m_etaIrreg(a_etaIrreg),
-  m_lambdaIrreg(a_lambdaIrreg),
-  m_fastFR(),
-  m_dx(a_dx),
-  m_dxCoar(a_dxCoar),
-  m_hasFine(a_eblgFine.isDefined()),
-  m_hasCoar(a_eblgCoar.isDefined()),
-  m_refToFine(a_refToFine),
-  m_refToCoar(a_refToCoar),
-  m_hasMGObjects(a_hasMGObjects),
-  m_ghostCellsPhi(a_ghostCellsPhi),
-  m_ghostCellsRHS(a_ghostCellsRHS),
-  m_opEBStencil(),
-  m_relCoef(),
-  m_grad(),
-  m_vofIterIrreg(),
-  m_vofIterMulti(),
-  m_vofIterDomLo(),
-  m_vofIterDomHi(),
-  m_interpWithCoarser(),
-  m_ebAverage(),
-  m_ebAverageMG(),
-  m_ebInterp(),
-  m_ebInterpMG(),
-  m_domainBC(a_domainBC),
-  m_ebBC(a_ebBC),
-  m_colors()
-{
-  CH_TIME("ebvto:ebvto");
-  EBArith::getMultiColors(m_colors);
-
-  if (m_hasCoar)
-    {
-      EBCellFactory factCoarse(m_eblgCoar.getEBISL());
-      m_zeroCoarse.define(m_eblgCoar.getDBL(), SpaceDim, a_ghostCellsPhi, factCoarse);
-      EBLevelDataOps::setToZero(m_zeroCoarse);
-
-      ProblemDomain domainCoar = coarsen(m_eblg.getDomain(), m_refToCoar);
-      m_interpWithCoarser = RefCountedPtr<EBTensorCFInterp>(new EBTensorCFInterp(m_eblg.getDBL(),  m_eblgCoar.getDBL(),
-                                                                                 m_eblg.getEBISL(),m_eblgCoar.getEBISL(),
-                                                                                 domainCoar, m_refToCoar, SpaceDim, m_dx,
-                                                                                 *m_eblg.getCFIVS()));
-
-      for (int idir = 0; idir < SpaceDim; idir++)
-        {
-          m_loCFIVS[idir].define(m_eblg.getDBL());
-          m_hiCFIVS[idir].define(m_eblg.getDBL());
-
-          DataIterator dit = m_eblg.getDBL().dataIterator();
-          int nbox=dit.size();
-#pragma omp parallel for
-          for (int mybox=0;mybox<nbox; mybox++)
-            {
-              m_loCFIVS[idir][dit[mybox]].define(m_eblg.getDomain(), m_eblg.getDBL().get(dit[mybox]),
-                                            m_eblg.getDBL(), idir,Side::Lo);
-              m_hiCFIVS[idir][dit[mybox]].define(m_eblg.getDomain(), m_eblg.getDBL().get(dit[mybox]),
-                                            m_eblg.getDBL(), idir,Side::Hi);
-            }
-        }
-
-      //if this fails, then the AMR grids violate proper nesting.
-      ProblemDomain domainCoarsenedFine;
-      DisjointBoxLayout dblCoarsenedFine;
-
-      int maxBoxSize = 32;
-      bool dumbool;
-      bool hasCoarser = EBAMRPoissonOp::getCoarserLayouts(dblCoarsenedFine,
-                                                          domainCoarsenedFine,
-                                                          m_eblg.getDBL(),
-                                                          m_eblg.getEBISL(),
-                                                          m_eblg.getDomain(),
-                                                          m_refToCoar,
-                                                          m_eblg.getEBIS(),
-                                                          maxBoxSize, dumbool);
-
-      //should follow from coarsenable
-      if (hasCoarser)
-        {
-          //      EBLevelGrid eblgCoarsenedFine(dblCoarsenedFine, domainCoarsenedFine, 4, Chombo_EBIS::instance());
-          EBLevelGrid eblgCoarsenedFine(dblCoarsenedFine, domainCoarsenedFine, 4, m_eblg.getEBIS() );
-          m_ebInterp.define( m_eblg.getDBL(),     m_eblgCoar.getDBL(),
-                             m_eblg.getEBISL(), m_eblgCoar.getEBISL(),
-                             domainCoarsenedFine, m_refToCoar, SpaceDim,
-                             m_eblg.getEBIS(),     a_ghostCellsPhi, true, true);
-          m_ebAverage.define(m_eblg.getDBL(),   eblgCoarsenedFine.getDBL(),
-                             m_eblg.getEBISL(), eblgCoarsenedFine.getEBISL(),
-                             domainCoarsenedFine, m_refToCoar, SpaceDim,
-                             m_eblg.getEBIS(), a_ghostCellsRHS);
-
-        }
-    }
-  if (m_hasMGObjects)
-    {
-      int mgRef = 2;
-      m_eblgCoarMG = a_eblgCoarMG;
-
-      m_ebInterpMG.define( m_eblg.getDBL(),     m_eblgCoarMG.getDBL(),
-                           m_eblg.getEBISL(), m_eblgCoarMG.getEBISL(),
-                           m_eblgCoarMG.getDomain(), mgRef, SpaceDim,
-                           m_eblg.getEBIS(),   a_ghostCellsPhi, true, true);
-      m_ebAverageMG.define(m_eblg.getDBL(),     m_eblgCoarMG.getDBL(),
-                           m_eblg.getEBISL(), m_eblgCoarMG.getEBISL(),
-                           m_eblgCoarMG.getDomain() , mgRef, SpaceDim,
-                           m_eblg.getEBIS(),   a_ghostCellsRHS);
-
-    }
-
-  defineStencils();
-}
-//-----------------------------------------------------------------------
 
 //-----------------------------------------------------------------------
 void
@@ -926,30 +772,6 @@ void
 EBViscousTensorOp::
 setTime(Real a_oldTime, Real a_mu, Real a_dt)
 {
-  CH_TIME("ebvto::setTime");
-  // This only affects a coefficients that are time-dependent.
-  if (m_acoef0 != NULL)
-    {
-      CH_assert(m_acoef1 != NULL); // All or nothing!
-
-      // The a coefficient is linearly interpolated as
-      // acoef = acoef0 + mu * (acoef1 - acoef0)
-      //       = (1 - mu) * acoef0 + mu * acoef1.
-      DataIterator dit = m_eblg.getDBL().dataIterator();
-      int nbox=dit.size();
-#pragma omp parallel for
-      for (int mybox=0;mybox<nbox; mybox++)
-        {
-          (*m_acoef)[dit[mybox]].axby((*m_acoef0)[dit[mybox]], (*m_acoef1)[dit[mybox]],
-                                 1.0 - a_mu, a_mu);
-        }
-
-      // Notify any observers that the operator's state has changed.
-      notifyObserversOfChange();
-
-      // Redefine the stencils.
-      defineStencils();
-    }
 }
 //-----------------------------------------------------------------------
 
