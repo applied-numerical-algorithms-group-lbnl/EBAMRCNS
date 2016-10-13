@@ -1,7 +1,7 @@
 #problem independent stuff
 artificial_viscosity = 0.3
 #restart_file = chk.noeb.nx.256.000060.2d.hdf5
-
+turn_off_mg = false
 logflag = 0
 #cfl = 0.9
 cfl = 0.1
@@ -9,7 +9,7 @@ use_mass_redist = 1
 initial_cfl = 0.01
 verbosity = 2
 
-max_step = 10
+max_step = 4
 
 max_time = 0.7
 tag_buffer_size = 3
@@ -29,13 +29,15 @@ use_subcycling = true
 # Grid stuff
 max_level = 1
 #coarsest grid size
+#n_cell =  128 128 128
 n_cell =  64 64 64
+#n_cell =  32 32 32
 
 
 ref_ratio = 2 2 2 2 2 2 2
 #ref_ratio = 8 8 8
 block_factor =  16
-max_grid_size = 16
+max_grid_size = 32
 fill_ratio = 0.75
 
 ###file output stuff
@@ -64,7 +66,7 @@ shock_backward = 0
 grid_buffer_size = 1
 
 ebvto_do_lazy_relax = true
- amrmultigrid.num_smooth = 32
+ amrmultigrid.num_smooth = 4
  amrmultigrid.num_mg = 1
  amrmultigrid.hang_eps = 1.0e-15
  amrmultigrid.norm_thresh = 1.0e-15
@@ -96,7 +98,7 @@ turn_off_implicit_reflux = true
 
 shock_mach = 2.78
 #shock_mach = 7.1
-shock_center = 6.0e-4
+shock_center = 1.0e-2
 shock_normal = 0
 start_dirichlet = 7.0
 

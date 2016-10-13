@@ -339,15 +339,14 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
 
   ///
   /**
-     This sets the data storage for the a coefficient to a different
-     object and recalculates the stuff that depends on it. Use this only if you know what you're doing.
+     This does not work anymore because acoef is now wrapped in the stencil
+     void resetACoefficient(RefCountedPtr<LevelData<EBCellFAB> >& a_acoef)
+     {
+     m_acoef = a_acoef;
+     calculateAlphaWeight();
+     calculateRelaxationCoefficient();
+     }
   */
-  void resetACoefficient(RefCountedPtr<LevelData<EBCellFAB> >& a_acoef)
-  {
-    m_acoef = a_acoef;
-    calculateAlphaWeight();
-    calculateRelaxationCoefficient();
-  }
 
   ///
   /**

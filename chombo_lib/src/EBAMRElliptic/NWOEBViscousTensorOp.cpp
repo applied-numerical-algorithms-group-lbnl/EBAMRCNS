@@ -1045,6 +1045,13 @@ getVoFStencil(VoFStencil&      a_vofStencil,
   CH_TIME("nwoebvto::getVoFStencil");
   const EBISBox& ebisBox = m_eblg.getEBISL()[a_dit];
   a_vofStencil.clear();
+
+  //doing the diagonal thing and everything in line
+  Real volFrac = m_eblg.getEBISL()[a_dit].volFrac(a_vof);
+  Real alphaWeight =    (*m_acoef)[a_dit](a_vof, 0);
+  alphaWeight *= volFrac;
+  a_vofStencil.add(a_vof, alphaWeight, a_ivar);
+
   for (int idir = 0; idir < SpaceDim; idir++)
     {
       for (SideIterator sit; sit.ok(); ++sit)
@@ -2145,22 +2152,31 @@ applyOp(LevelData<EBCellFAB>             & a_lhs,
         const LevelData<EBCellFAB>       & a_phi,
         bool                               a_homogeneous)
 {
-  CH_TIME("nwoebvto::applyOp");
+  CH_TIME("nwoebvto::applyOpFull");
   LevelData<EBCellFAB>&  phi = (LevelData<EBCellFAB>&) a_phi;
-  fillVelGhost(a_phi);
-  phi.exchange(m_exchangeCopier);
+  {
+    CH_TIME("ghostcell fills");
+    fillVelGhost(a_phi);
+    phi.exchange(m_exchangeCopier);
+  }
 
+  /**
+     This is not done anymore because alpha and a are now part of the stencil
+     and part of regular apply
+     EBLevelDataOps::setToZero(a_lhs);
+     incr( a_lhs, a_phi, m_alpha);
+  **/
+  {
+    CH_TIME("applying op without bcs");
+    DataIterator dit = m_eblg.getDBL().dataIterator();
+    int nbox=dit.size();
+    for (int mybox=0;mybox<nbox; mybox++)
+      {
 
-  EBLevelDataOps::setToZero(a_lhs);
-  incr( a_lhs, a_phi, m_alpha);
-  DataIterator dit = m_eblg.getDBL().dataIterator();
-  int nbox=dit.size();
-  for (int mybox=0;mybox<nbox; mybox++)
-    {
-
-      applyOpRegular(  a_lhs[dit[mybox]], a_phi[dit[mybox]], a_homogeneous, dit[mybox]);
-      applyOpIrregular(a_lhs[dit[mybox]], a_phi[dit[mybox]], a_homogeneous, dit[mybox]);
-    }
+        applyOpRegular(  a_lhs[dit[mybox]], a_phi[dit[mybox]], a_homogeneous, dit[mybox]);
+        applyOpIrregular(a_lhs[dit[mybox]], a_phi[dit[mybox]], a_homogeneous, dit[mybox]);
+      }
+  }
 }
 
 /*****/
@@ -2190,35 +2206,9 @@ applyOpRegular(EBCellFAB&             a_lhs,
                const bool&            a_homogeneous,
                const DataIndex&       a_datInd)
 {
-  CH_TIME("nwoebvto::incrRegOpDir");
+  CH_TIME("nwoebvto::applyopRegularNoBCs");
+  //assumes ghost cells already filled
   const Box& grid = m_eblg.getDBL()[a_datInd];
-  ViscousBaseDomainBC* viscbc = dynamic_cast<ViscousBaseDomainBC*>(&(*m_domainBC));
-  if(viscbc == NULL)
-    {
-      MayDay::Error("dynamic cast failed");
-    }
-  //fill ghost cells
-  EBCellFAB& phi = (EBCellFAB&) a_phi;
-  Box domBox = m_eblg.getDomain().domainBox();
-  if (!s_turnOffBCs)
-    {
-      FArrayBox& fab = phi.getFArrayBox();
-      viscbc->fillVelGhost(fab, grid, domBox, m_dx, a_homogeneous);
-    }
-  else
-    {
-      Box valid = m_eblg.getDBL()[a_datInd];
-      for(int idir = 0; idir < SpaceDim; idir++)
-        {
-          for(SideIterator sit; sit.ok(); ++sit)
-            {
-              FArrayBox& fab = phi.getFArrayBox();
-              ExtrapolateBC(fab, valid,  m_dx, idir, sit());
-            }
-          //grow so that we hit corners
-          valid.grow(idir, 1);
-        }
-    }
   BaseFab<Real>      & lphfab  =  a_lhs.getSingleValuedFAB();
   const BaseFab<Real>& phifab  =  a_phi.getSingleValuedFAB();
   const BaseFab<Real>& acofab  =(*m_acoef)[a_datInd].getSingleValuedFAB();
@@ -2255,7 +2245,7 @@ applyOpIrregular(EBCellFAB&             a_lhs,
                  const bool&            a_homogeneous,
                  const DataIndex&       a_datInd)
 {
-  CH_TIME("nwoebvto::incrRegOpIrr");
+  CH_TIME("nwoebvto::applyOpIrregular");
   RealVect vectDx = m_dx*RealVect::Unit;
   for (int ivar = 0; ivar < SpaceDim; ivar++)
     {
