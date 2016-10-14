@@ -99,6 +99,9 @@ Pool::~Pool()
 /// getPtr and returnPtr must be as fast as possible!
 void* Pool::getPtr()
 {
+#ifdef _OPENMP
+  return malloc(m_ptrSize_);
+#else
   if (m_next_ == 0)
   {
     m_next_ = getMoreMemory();
@@ -108,12 +111,17 @@ void* Pool::getPtr()
   m_next_ = *(void**)m_next_;  // point m_next_ to next free chunk in list.
 
   return result;
+#endif
 }
 
 void Pool::returnPtr(void* ptr)
 {
+#ifdef _OPENMP
+  free(ptr);
+#else
   *(void**)ptr = m_next_;  // Stamp *ptr with the first free chunk.
   m_next_ = ptr;           // Make ptr the first free chunk.
+#endif
 }
 
 //  notes on performing getPtr and returnPtr in a lock-free synchronized manner.

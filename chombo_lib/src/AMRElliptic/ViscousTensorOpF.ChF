@@ -198,6 +198,7 @@ c     here the first index is the variable, the second is the face direction
 c     told you it is  a long loop
       chf_enddo
 
+      ch_flops=ch_flops+CHF_POINTS[region]*(4 + 6*CH_SPACEDIM + 12*(CH_SPACEDIM*CH_SPACEDIM))
       return
 
       end

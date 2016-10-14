@@ -181,11 +181,19 @@ use ChF;
         die "problem $flag in chfautoid processor\n";
     }
 
+###process Points macros.
+    require "pointspp.pm";
+    PointsProc->import();
+    unless(my $flag = &PointsProc::procPointsMacro($ChF::T2File, $ChF::T1File,
+                                                    $ChF::SpaceDim, $ChF::debug))
+    {
+        die "problem $flag in Points processor\n";
+    }
 
 ###process DINVTERM macros.
     require "dinvtermpp.pm";
     DInvTermProc->import();
-    unless(my $flag = &DInvTermProc::procDInvTermMacros($ChF::T2File, $ChF::FOUTFile,
+    unless(my $flag = &DInvTermProc::procDInvTermMacros($ChF::T1File, $ChF::FOUTFile,
                                                         $ChF::SpaceDim, $ChF::debug))
     {
         die "problem $flag in dinvterm processor\n";

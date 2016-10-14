@@ -16,6 +16,8 @@
 #include "MayDay.H"
 #include "Vector.H"
 #include "ClockTicks.H"
+#include "CH_Counters.H"
+
 
 #ifdef CH_MPI
 #include "mpi.h"
@@ -32,7 +34,6 @@
 
 #include <string>
 #include <iostream>
-#include <sys/time.h>
 
 #include "BaseNamespaceHeader.H"
 
@@ -302,6 +303,7 @@ extern std::fstream LBFILE;
     int                m_thread_id;
     static bool        s_memorySampling;
     unsigned int       m_memoryMin, m_memoryMax;
+    unsigned long long int      m_flopEnter, m_flops;
 
     static bool        s_tracing;
 
@@ -326,7 +328,8 @@ extern std::fstream LBFILE;
 
   };
 
-#ifdef _OPENMP
+/*
+//#ifdef _OPENMP
   class AutoStartLeaf
   {
   public:
@@ -396,22 +399,6 @@ AutoStart::~AutoStart()
     }
 }
 
-inline double TimerGetTimeStampWC()
-{
-  if(onThread0())
-    {
-      // #ifdef CH_MPI
-      //     return( MPI_Wtime() );
-      // #endif
-#ifndef CH_NTIMER
-      struct timeval tv;   //  Values from call to gettimeofday
-      struct timezone tz;
-      gettimeofday(&tv, &tz);
-      return((double)tv.tv_sec + 0.000001 * (double)tv.tv_usec);
-#endif
-    }
-  return 0;
-}
 
 inline void TraceTimer::leafStart()
 {
@@ -419,6 +406,7 @@ inline void TraceTimer::leafStart()
     {
       if (m_pruned) return;
       ++m_count;
+      m_flopEnter=ch_flops();
       m_last_WCtime_stamp = ch_ticks();
     }
 }
@@ -428,12 +416,14 @@ inline void TraceTimer::leafStop()
   if(onThread0())
     {
       if (m_pruned) return;
+      m_flops+=ch_flops()-m_flopEnter;
       m_accumulated_WCtime +=  ch_ticks() - m_last_WCtime_stamp;
       m_last_WCtime_stamp=0;
     }
 }
 // Pruning options
 #else
+*/
   class AutoStartLeaf
   {
   public:
@@ -482,24 +472,11 @@ inline void TraceTimer::leafStop()
     m_timer->stop(m_mutex);
   }
 
-  inline double TimerGetTimeStampWC()
-  {
-    // #ifdef CH_MPI
-    //     return( MPI_Wtime() );
-    // #endif
-#ifndef CH_NTIMER
-    struct timeval tv;   //  Values from call to gettimeofday
-    struct timezone tz;
-    gettimeofday(&tv, &tz);
-    return((double)tv.tv_sec + 0.000001 * (double)tv.tv_usec);
-#else
-    return 0;
-#endif
-  }
 
 inline void TraceTimer::leafStart()
 {
   if (m_pruned) return;
+  m_flopEnter=ch_flops();
   ++m_count;
   m_last_WCtime_stamp = ch_ticks();
 }
@@ -508,10 +485,11 @@ inline void TraceTimer::leafStop()
 {
   if (m_pruned) return;
   m_accumulated_WCtime +=  ch_ticks() - m_last_WCtime_stamp;
+  m_flops+=ch_flops()-m_flopEnter;
   m_last_WCtime_stamp=0;
 }
 // Pruning options
-#endif
+//#endif
 #endif // CH_NTIMER 
 #include "BaseNamespaceFooter.H"
 

@@ -517,6 +517,8 @@ sub SubroutProc::doFortranProc
     if(!$incall){
         print SubroutProc::FOUT $moduledecs;
         print SubroutProc::FOUT $indentstr."implicit none";
+        print SubroutProc::FOUT $indentstr."integer*8 ch_flops";
+        print SubroutProc::FOUT $indentstr."COMMON/ch_timer/ ch_flops";
         ## only declare CHF_ID array if it is used
         if($debug)
         {

@@ -15,9 +15,6 @@
 #ifndef _CH_Thread_H_
 #define _CH_Thread_H_
 
-#if CH_OPENMP==1
-#include <omp.h>
-#endif
 //returns true if we are on thread 0 (or if not threaded)
 extern bool onThread0();
 

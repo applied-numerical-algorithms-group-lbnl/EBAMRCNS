@@ -24,11 +24,14 @@ BITSETWORD BitSet::trueMasks[BITSETWORDSIZE];
 
 int BitSet::initialize()
 {
-  trueMasks[BITSETWORDSIZE-1] = 1;
-  for (int i=BITSETWORDSIZE-2; i>=0 ; --i)
-    {
-      trueMasks[i] = trueMasks[i+1] << 1;
-    }
+#pragma omp single
+  {
+   trueMasks[BITSETWORDSIZE-1] = 1;
+   for (int i=BITSETWORDSIZE-2; i>=0 ; --i)
+     {
+       trueMasks[i] = trueMasks[i+1] << 1;
+     }
+  }
   return 0;
 }
 

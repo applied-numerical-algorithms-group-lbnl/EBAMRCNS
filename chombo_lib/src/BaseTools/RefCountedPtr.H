@@ -311,12 +311,14 @@ public:
     return name_;
   }
 
-  // These do not increment and decrement the reference count.  Rather they
-  // relate to memory tracking.  However, deletion of the pointer is in
-  // decrement
-  void increment();
-  void decrement();
+  // these functions mostly control the memory tracking features.
+  // However, deletion of the pointer is in freeMem
+
+  void incrementMem();
+  void freeMem();
 protected:
+  void refUp(); // atomic refcount increment
+  void refDown();// atomic refcount decrement and freeMem on refCount_==0
   pointer ptr_;
   int* refCount_;
   static std::string name_;
@@ -340,11 +342,14 @@ int RefCountedPtr<T, OP>::size_ = sizeof(T)+2*sizeof(int);
 
 template <typename T, typename OP>
 inline void
-RefCountedPtr<T, OP>::increment()
+RefCountedPtr<T, OP>::incrementMem()
 {
 #ifdef CH_USE_MEMORY_TRACKING
-  ch_memcount+=size_;
-  s_Arena.bytes += size_;
+#pragma omp critical(s_Arena)
+  {
+    ch_memcount+=size_;
+    s_Arena.bytes += size_;
+  }
   refCount_[1] = size_;
   if (s_Arena.bytes > s_Arena.peak)
     {
@@ -355,11 +360,14 @@ RefCountedPtr<T, OP>::increment()
 
 template <typename T, typename OP>
 inline
-void RefCountedPtr<T, OP>::decrement()
+void RefCountedPtr<T, OP>::freeMem()
 {
 #ifdef CH_USE_MEMORY_TRACKING
-  ch_memcount-=refCount_[1];
-  s_Arena.bytes -= refCount_[1];
+#pragma omp critical(s_Arena)
+  {
+    ch_memcount-=refCount_[1];
+    s_Arena.bytes -= refCount_[1];
+  }
 #endif
   RCPDBG(pout() << "====> Destroying " << ptr_ << std::endl;)
   OP::destroy(ptr_);
@@ -381,20 +389,46 @@ RefCountedPtr<T, OP>::RefCountedPtr(pointer const ptr)
       if (refCount_ == 0)
         MayDay::Error("RefCountedPtr::RefCountedPtr(T* ptr) out of memory");
       *refCount_ = 1;
-      increment();
+      incrementMem();
       RCPDBG(pout() << "====> Creating " << ptr << std::endl;)
     }
 }
 
+template<typename T, typename OP>
+inline
+void RefCountedPtr<T, OP>::refUp()
+{
+  RCPDBG(pout() << "refUp " << ptr_ << std::endl;);
+  if(refCount_ != 0)
+    {
+#pragma omp atomic
+      ++(*refCount_);   // this looks dumb, but the atomic MUST be on the very next line
+    }
+}     
+
+template<typename T, typename OP>
+inline
+void RefCountedPtr<T, OP>::refDown()
+{
+  RCPDBG(pout() << "refDown " << ptr_ << std::endl;);
+  if(refCount_ != 0)
+    {
+      int c;
+#pragma omp atomic capture
+      c = --(*refCount_);   // many threads can be decrementing refCount_
+      // we should never "bounce" off zero with RefCountedPtr.  If we do then there is
+      // a use case I have not comprehended.
+      if(c==0) freeMem();
+    }
+}     
 template <typename T, typename OP>
 inline
 RefCountedPtr<T, OP>::RefCountedPtr(const Self& other)
   : ptr_(other.ptr_),
     refCount_(other.refCount_)
 {
-  RCPDBG(pout() << "standard copy " << ptr_ << std::endl;)
-  if (refCount_ != 0)
-    ++(*refCount_);
+  RCPDBG(pout() << "standard copy " << ptr_ << std::endl;);
+  refUp();  
 }
 
 template <typename T, typename OP>
@@ -404,9 +438,8 @@ RefCountedPtr<T, OP>::RefCountedPtr(
   : ptr_(other.ptr_),
     refCount_(other.refCount_)
 {
-  RCPDBG(pout() << "const conversion copy " << ptr_ << std::endl;)
-  if (refCount_ != 0)
-    ++(*refCount_);
+  RCPDBG(pout() << "const conversion copy " << ptr_ << std::endl;);
+  refUp();
 }
 
 template <typename T, typename OP>
@@ -419,19 +452,18 @@ RefCountedPtr<T, OP>::RefCountedPtr(const RefCountedPtr<S, OP>& other)
   RCPDBG(pout() << "related conversion copy " << ptr_ << std::endl;)
   // Note: a failure here means you cannot convert S* into T* as they are
   //       not properly related.
-  if (other.ptr_ != NULL) CH_assert(ptr_ != NULL);
-  if (refCount_ != 0)
-    ++(*refCount_);
+  if (other.ptr_ != NULL) 
+    {
+      CH_assert(ptr_ != NULL);
+    }
+  refUp();
 }
 
 template <typename T, typename OP>
 inline
 RefCountedPtr<T, OP>::~RefCountedPtr()
 {
-  if (refCount_ != 0 && --(*refCount_) == 0)
-    {
-      decrement();
-    }
+  refDown();
 }
 
 template <typename T, typename OP>
@@ -439,16 +471,21 @@ inline typename RefCountedPtr<T, OP>::Self&
 RefCountedPtr<T, OP>::operator =(const Self& rhs)
 {
   RCPDBG(pout() << "standard assign " << rhs.ptr_ << std::endl;)
+
+    // this is THE tricky code for RefCountedPtr
+    // rhs is const for the life of this function, BUT rhs might be *this
+    // for another thread on the next line of code.
+#pragma omp critical(RCPAssign)
+    {
   if (ptr_ != rhs.ptr_)
     {
-      if (refCount_ != 0 && --(*refCount_) == 0)
-        {
-          decrement();
-        }
+      refDown();
+
       ptr_ = rhs.ptr_;
       refCount_ = rhs.refCount_;
-      if (refCount_ != 0)
-        ++(*refCount_);
+      refUp();
+  
+    }
     }
   return *this;
 }
@@ -459,16 +496,21 @@ RefCountedPtr<T, OP>::operator =(
   const RefCountedPtr<typename RCPTypeTr<T>::InvertConstType, OP>& rhs)
 {
   RCPDBG(pout() << "const conversion assign " << rhs.ptr_ << std::endl;)
+#pragma omp critical(RCPAssign)
+    {
   if (ptr_ != rhs.ptr_)
     {
-      if (refCount_ != 0 && --(*refCount_) == 0)
-        {
-          decrement();
-        }
+      //refDown();
+            if (refCount_ != 0 && --(*refCount_) == 0)
+          {
+            freeMem();
+            }
       ptr_ = rhs.ptr_;
       refCount_ = rhs.refCount_;
-      if (refCount_ != 0)
-        ++(*refCount_);
+      //refUp();
+           if (refCount_ != 0)
+          ++(*refCount_);
+    }
     }
   return *this;
 }
@@ -479,19 +521,24 @@ inline typename RefCountedPtr<T, OP>::Self&
 RefCountedPtr<T, OP>::operator =(const RefCountedPtr<S, OP>& rhs)
 {
   RCPDBG(pout() << "related conversion assign " << rhs.ptr_ << std::endl;)
+#pragma omp critical(RCPAssign)
+    {
   if (ptr_ != rhs.ptr_)
     {
-      if (refCount_ != 0 && --(*refCount_) == 0)
-        {
-          decrement();
-        }
+      //refDown();
+           if (refCount_ != 0 && --(*refCount_) == 0)
+         {
+           freeMem();
+         }
       ptr_ = dynamic_cast<T*>(rhs.ptr_);
       // Note: a failure here means you cannot convert S* into T* as they are
       //       not properly related.
-      if (rhs.ptr_ != NULL) CH_assert(ptr_ != NULL);
+      if (rhs.ptr_ != NULL){ CH_assert(ptr_ != NULL); }
       refCount_ = rhs.refCount_;
-      if (refCount_ != 0)
-        ++(*refCount_);
+      //refUp();
+         if (refCount_ != 0)
+            ++(*refCount_);
+    }
     }
   return *this;
 }
@@ -562,13 +609,19 @@ template <typename T, typename OP>
 inline void
 RefCountedPtr<T, OP>::swap(Self& b)
 {
-  pointer s = ptr_;
-  ptr_ = b.ptr_;
-  b.ptr_ = s;
-
-  int* r = refCount_;
-  refCount_ = b.refCount_;
-  b.refCount_ = r;
+#ifdef _OPENMP
+#pragma omp critical
+#endif
+  {
+    // not precisely a robust swap.  Lots of bad things could happen
+    pointer s = ptr_;
+    ptr_ = b.ptr_;
+    b.ptr_ = s;
+    
+    int* r = refCount_;
+    refCount_ = b.refCount_;
+    b.refCount_ = r;
+  }
 }
 
 template <typename T, typename OP>
