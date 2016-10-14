@@ -590,10 +590,12 @@ getEBVTOFactory(RefCountedPtr<EBViscousTensorOpFactory>&                       a
   RefCountedPtr<BaseEBBCFactory>          ebBC;
   getViscousBCFactories(domBC, ebBC, a_eta, a_lambda,  a_grids, a_ebisl, a_params);
 
+  bool turnOffMG = false;
+  pp2.query("turn_off_mg", turnOffMG);
   a_factory = RefCountedPtr<EBViscousTensorOpFactory>
     (new EBViscousTensorOpFactory(eblg, alpha, beta, a_aco, a_eta, a_lambda, a_etaIrreg, a_lambdaIrreg,
                                   a_params.coarsestDx[0],  a_params.refRatio, domBC, ebBC,
-                                  a_params.ghostPhi, a_params.ghostRHS, -1, true));
+                                  a_params.ghostPhi, a_params.ghostRHS, -1, turnOffMG));
 }
 
 /**/
@@ -627,10 +629,12 @@ getNWOEBVTOFactory(RefCountedPtr<NWOEBViscousTensorOpFactory>&                  
   RefCountedPtr<BaseEBBCFactory>          ebBC;
   getViscousBCFactories(domBC, ebBC, a_eta, a_lambda,  a_grids, a_ebisl, a_params);
 
+  bool turnOffMG = false;
+  pp2.query("turn_off_mg", turnOffMG);
   a_factory = RefCountedPtr<NWOEBViscousTensorOpFactory>
     (new NWOEBViscousTensorOpFactory(eblg, alpha, beta, a_aco, a_eta, a_lambda, a_etaIrreg, a_lambdaIrreg,
                                      a_params.coarsestDx[0],  a_params.refRatio, domBC, ebBC,
-                                     a_params.ghostPhi, a_params.ghostRHS, -1, true));
+                                     a_params.ghostPhi, a_params.ghostRHS, -1, turnOffMG));
 }
 /**/
 void
