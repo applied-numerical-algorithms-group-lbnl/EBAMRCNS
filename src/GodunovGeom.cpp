@@ -349,6 +349,24 @@ getEBAMRCNSFactory(      RefCountedPtr<EBAMRCNSFactory>&                  a_fact
   pp.get("specific_heat",   a_params.m_specHeatCv);
   pp.get("thermal_cond",    a_params.m_thermalCond);
   pp.query("backward_euler", a_params.m_backwardEuler);
+  pp.query("crank_nicolson", a_params.m_crankNicolson);
+  if(a_params.m_backwardEuler && a_params.m_crankNicolson)
+    {
+      pout() << "both crank nicolson and backward euler set to true so I chose crank nicolson" << endl;
+      a_params.m_backwardEuler = false;
+    }
+  if(a_params.m_crankNicolson)
+    {
+      pout() << "advancing parabolic terms using Crank Nicholson" << endl;
+    }
+  else if(a_params.m_backwardEuler)
+    {
+      pout() << "advancing parabolic terms using backward Euler" << endl;
+    }
+  else
+    {
+      pout() << "advancing parabolic terms using TGA (default)" << endl;
+    }
   a_params.m_tagBufferSize = 1;
 
   fillSolverBCs(a_params, a_iprob);
@@ -1810,9 +1828,19 @@ fillAMRParams(EBAMRCNSParams& a_params, int a_iprob)
     }
   
   ppgodunov.query("backward_euler",a_params.m_backwardEuler);
-  if(a_params.m_backwardEuler)
+  ppgodunov.query("crank_nicolson",a_params.m_crankNicolson);
+  if(a_params.m_backwardEuler && a_params.m_crankNicolson)
     {
-      pout() << "advancing parabolic terms using backward euler" << endl;
+      pout() << "both crank nicolson and backward euler set to true so I chose crank nicolson" << endl;
+      a_params.m_backwardEuler = false;
+    }
+  if(a_params.m_crankNicolson)
+    {
+      pout() << "advancing parabolic terms using Crank Nicolson" << endl;
+    }
+  else if(a_params.m_backwardEuler)
+    {
+      pout() << "advancing parabolic terms using backward Euler" << endl;
     }
   else
     {
@@ -1820,7 +1848,7 @@ fillAMRParams(EBAMRCNSParams& a_params, int a_iprob)
     }
 
   ppgodunov.query("slip_boundaries",a_params.m_slipBoundaries);
-  ppgodunov.query("use_backward_euler",a_params.m_backwardEuler);
+
   
   if(a_params.m_slipBoundaries)
     {

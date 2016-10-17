@@ -34,6 +34,7 @@ public:
   bool                                m_prepostSmooth;
   bool                                m_explicitHyperbolicSource;
   bool                                m_backwardEuler;
+  bool                                m_crankNicolson;
   int                                 m_redistRad;
   int                                 m_tagBufferSize;
   int                                 m_verbosity;
@@ -72,7 +73,8 @@ public:
     m_useAirCoefs         = false;
     m_doLazyRelax         = true;
     m_explicitHyperbolicSource = false;
-    m_backwardEuler       = true;
+    m_backwardEuler       = false;
+    m_crankNicolson      = false;
     m_variableCoeff = m_useAirCoefs;
     m_checkMaxMin   = false;
   }

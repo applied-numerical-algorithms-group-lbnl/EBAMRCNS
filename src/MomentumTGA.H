@@ -91,7 +91,68 @@ public:
 
 };
 
-//! MomentumBackwardEuler adds another function to EBLevelBackwardEuler
+//! MomentumCrankNicolson adds another function to EBLevelCrankNicolson
+//! that does not make sense in a broader context
+class MomentumCrankNicolson: public EBLevelCrankNicolson
+{
+
+public:
+
+  //! Create a new TGA level integrator.
+  //! \param a_grids The disjoint box layout on which the level integrator is defined.
+  //! \param a_refRat The refinement ratios for the boxes.
+  //! \param a_level0Domain The coarsest grid level defining the problem domain.
+  //! \param a_opFact A factory that generates level diffusion operators.
+  //! \param a_solver A multigrid solver.
+  MomentumCrankNicolson(const Vector<DisjointBoxLayout>&                               a_grids,
+                        const Vector<int>&                                             a_refRat,
+                        const ProblemDomain&                                           a_level0Domain,
+                        RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >&      a_opFact,
+                        const RefCountedPtr<AMRMultiGrid<LevelData<EBCellFAB> > >&     a_solver)
+    :EBLevelCrankNicolson(a_grids, a_refRat, a_level0Domain, a_opFact,         a_solver)
+  {
+  }
+
+  //! Destructor
+  virtual ~MomentumCrankNicolson()
+  {
+  }
+
+  /// compute volfrac(sigma dot grad U) from inputs
+  void getShearStressDotGradU(LevelData<EBCellFAB>&       a_sigmaGradU,
+                             const LevelData<EBCellFAB>& a_gradU,
+                             int a_level)
+  {
+    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
+    if(ebvto == NULL)
+      {
+        MayDay::Error("MomentumCrankNicolson::unrecognized operator (i need NWOEBVTO)");
+      }
+
+    resetSolverAlphaAndBeta(1.0, 1.0);
+    ebvto->getShearStressDotGradU(a_sigmaGradU, a_gradU, a_level);
+  }
+
+  /// compute volfrac( div sigma u) from inputs
+  void getKappaDivSigmaU(LevelData<EBCellFAB>&       a_divSigmaU,
+                         const LevelData<EBCellFAB>& a_velocity,
+                         const LevelData<EBCellFAB>* a_veloCoar,
+                         int a_level)
+  {
+    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
+    if(ebvto == NULL)
+      {
+        MayDay::Error("MomentumCrankNicolson::unrecognized operator (i need NWOEBVTO)");
+      }
+
+    resetSolverAlphaAndBeta(0.0, 1.0);
+    ebvto->getKappaDivSigmaU(a_divSigmaU, a_velocity, a_veloCoar, a_level);
+  }
+
+};
+
+
+//! MomentumCrankNicolson adds another function to EBLevelCrankNicolson
 //! that does not make sense in a broader context
 class MomentumBackwardEuler: public EBLevelBackwardEuler
 {

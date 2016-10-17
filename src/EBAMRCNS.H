@@ -428,6 +428,10 @@ protected:
 
   static RefCountedPtr<MomentumTGA > s_veloIntegratorTGA;
   static RefCountedPtr< EBLevelTGA > s_tempIntegratorTGA;
+
+  static RefCountedPtr<MomentumCrankNicolson > s_veloIntegratorCN;
+  static RefCountedPtr< EBLevelCrankNicolson > s_tempIntegratorCN;
+
   void fillCoefficients(const LevelData<EBCellFAB>& a_state);
   void     clearSolvers();
 
