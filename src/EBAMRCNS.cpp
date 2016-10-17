@@ -68,6 +68,8 @@ RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > > EBAMRCNS::s_tempFactory
 RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > > EBAMRCNS::s_veloFactory        =  RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >();
 RefCountedPtr<MomentumBackwardEuler>                     EBAMRCNS::s_veloIntegratorBE   =  RefCountedPtr<MomentumBackwardEuler>();
 RefCountedPtr< EBLevelBackwardEuler>                     EBAMRCNS::s_tempIntegratorBE   =  RefCountedPtr< EBLevelBackwardEuler>();
+RefCountedPtr<MomentumCrankNicolson>                     EBAMRCNS::s_veloIntegratorCN   =  RefCountedPtr<MomentumCrankNicolson>();
+RefCountedPtr< EBLevelCrankNicolson>                     EBAMRCNS::s_tempIntegratorCN   =  RefCountedPtr< EBLevelCrankNicolson>();
 
 RefCountedPtr<MomentumTGA>                     EBAMRCNS::s_veloIntegratorTGA   =  RefCountedPtr<MomentumTGA>();
 RefCountedPtr< EBLevelTGA>                     EBAMRCNS::s_tempIntegratorTGA   =  RefCountedPtr< EBLevelTGA>();
@@ -138,6 +140,8 @@ clearSolvers()
 {
   s_tempFactory  =  RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >();
   s_veloFactory  =  RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >();
+  s_veloIntegratorCN  =  RefCountedPtr<MomentumCrankNicolson>();
+  s_tempIntegratorCN  =  RefCountedPtr< EBLevelCrankNicolson>();
   s_veloIntegratorBE  =  RefCountedPtr<MomentumBackwardEuler>();
   s_tempIntegratorBE  =  RefCountedPtr< EBLevelBackwardEuler>();
   s_veloIntegratorTGA  =  RefCountedPtr<MomentumTGA>();
@@ -466,6 +470,12 @@ defineSolvers()
       s_veloIntegratorTGA  = RefCountedPtr<MomentumTGA>(new  MomentumTGA(grids, refRat, lev0Dom, s_veloFactory, s_veloSolver));
       s_veloIntegratorTGA->setEBLG(eblgs);
       s_tempIntegratorTGA->setEBLG(eblgs);
+
+
+      s_tempIntegratorCN  = RefCountedPtr< EBLevelCrankNicolson>( new  EBLevelCrankNicolson(grids, refRat, lev0Dom, s_tempFactory, s_tempSolver));
+      s_veloIntegratorCN  = RefCountedPtr<MomentumCrankNicolson>(new  MomentumCrankNicolson(grids, refRat, lev0Dom, s_veloFactory, s_veloSolver));
+      s_veloIntegratorCN->setEBLG(eblgs);
+      s_tempIntegratorCN->setEBLG(eblgs);
     }
 }
 //---------------------------------------------------------------------------------------
@@ -942,6 +952,7 @@ getDivSigma(LevelData<EBCellFAB>& a_divSigma,
   EBLevelDataOps::setToZero(rhsZero);
 
   getVelocity(   velold,  a_UStar);
+  getVelocity(   velnew,  a_UStar);
   EBFluxRegister*       coarVelFRPtr = NULL;
   EBFluxRegister*       fineVelFRPtr = NULL;
   LevelData<EBCellFAB>* vCoarOldPtr = NULL;
@@ -970,7 +981,7 @@ getDivSigma(LevelData<EBCellFAB>& a_divSigma,
       fineVelFRPtr = &m_veloFluxRegister;
     }
 
-  
+  bool zeroPhi = false;
   Interval srcInt(CRHO, CRHO);  
   Interval dstInt(0, 0);
   for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
@@ -980,17 +991,23 @@ getDivSigma(LevelData<EBCellFAB>& a_divSigma,
     }
 
   defineSolvers();
-  if(m_params.m_backwardEuler)
+  if(m_params.m_crankNicolson)
+    {
+      s_veloIntegratorCN->updateSoln(velnew, velold, rhsZero,  fineVelFRPtr, coarVelFRPtr,
+                                     vCoarOldPtr, vCoarNewPtr, m_time, tCoarOld, tCoarNew, m_dt,
+                                     m_level, zeroPhi);
+    }
+  else if(m_params.m_backwardEuler)
     {
       s_veloIntegratorBE->updateSoln(velnew, velold, rhsZero,  fineVelFRPtr, coarVelFRPtr,
                                      vCoarOldPtr, vCoarNewPtr, m_time, tCoarOld, tCoarNew, m_dt,
-                                     m_level, true);
+                                     m_level, zeroPhi);
     }
   else
     {
       s_veloIntegratorTGA->updateSoln(velnew, velold, rhsZero,  fineVelFRPtr, coarVelFRPtr,
                                       vCoarOldPtr, vCoarNewPtr, m_time, tCoarOld, tCoarNew, m_dt,
-                                      m_level, true);
+                                      m_level, zeroPhi);
     }
 
   EBLevelDataOps::scale(velold, -1./m_dt);
@@ -1033,6 +1050,7 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
   LevelData<EBCellFAB>&  Told = m_tempOld;
   LevelData<EBCellFAB>&  Tnew = m_tempNew;
   getTemperature(Told,  a_UStar);
+  getTemperature(Tnew,  a_UStar);
 
   EBFluxRegister*       coarTempFRPtr = NULL;
   EBFluxRegister*       fineTempFRPtr = NULL;
@@ -1085,17 +1103,24 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
 
   defineSolvers();
 
-  if(m_params.m_backwardEuler)
+  bool zeroPhi = false;
+  if(m_params.m_crankNicolson)
+    {
+      s_tempIntegratorCN->updateSoln(Tnew, Told, rhsTemp,  fineTempFRPtr, coarTempFRPtr,
+                                     TCoarOldPtr, TCoarNewPtr, m_time, tCoarOld, tCoarNew, m_dt/2.,
+                                     m_level, zeroPhi);
+    }
+  else if(m_params.m_backwardEuler)
     {
       s_tempIntegratorBE->updateSoln(Tnew, Told, rhsTemp,  fineTempFRPtr, coarTempFRPtr,
                                      TCoarOldPtr, TCoarNewPtr, m_time, tCoarOld, tCoarNew, m_dt/2.,
-                                     m_level, true);
+                                     m_level, zeroPhi);
     }
   else
     {
       s_tempIntegratorTGA->updateSoln(Tnew, Told, rhsTemp,  fineTempFRPtr, coarTempFRPtr,
                                       TCoarOldPtr, TCoarNewPtr, m_time, tCoarOld, tCoarNew, m_dt/2.,
-                                      m_level, true);
+                                      m_level, zeroPhi);
 
     }
 
