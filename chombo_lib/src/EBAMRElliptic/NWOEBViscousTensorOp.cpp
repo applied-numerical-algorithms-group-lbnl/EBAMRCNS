@@ -676,61 +676,6 @@ getVelDotSigma(LevelData<EBFluxFAB>      & a_velDotSigma,
 }
 
 //-----------------------------------------------------------------------
-void
-NWOEBViscousTensorOp::
-finerOperatorChanged(const MGLevelOp<LevelData<EBCellFAB> >& a_operator,
-                     int a_coarseningFactor)
-{
-  CH_TIME("nwoebvto::finerOperatorChanged");
-  const NWOEBViscousTensorOp& op =
-    dynamic_cast<const NWOEBViscousTensorOp&>(a_operator);
-
-  // Perform multigrid coarsening on the operator data.
-  Interval interv(0, 0); // All data is scalar.
-  EBLevelGrid eblgCoar = m_eblg;
-  EBLevelGrid eblgFine = op.m_eblg;
-  LevelData<EBCellFAB>& acoefCoar = *m_acoef;
-  const LevelData<EBCellFAB>& acoefFine = *(op.m_acoef);
-  LevelData<EBFluxFAB>& etaCoar = *m_eta;
-  const LevelData<EBFluxFAB>& etaFine = *(op.m_eta);
-  LevelData<EBFluxFAB>& lambdaCoar = *m_lambda;
-  const LevelData<EBFluxFAB>& lambdaFine = *(op.m_lambda);
-  LevelData<BaseIVFAB<Real> >& etaCoarIrreg = *m_etaIrreg;
-  const LevelData<BaseIVFAB<Real> >& etaFineIrreg = *(op.m_etaIrreg);
-  LevelData<BaseIVFAB<Real> >& lambdaCoarIrreg = *m_lambdaIrreg;
-  const LevelData<BaseIVFAB<Real> >& lambdaFineIrreg = *(op.m_lambdaIrreg);
-  if (a_coarseningFactor != 1)
-    {
-      EBCoarseAverage averageOp(eblgFine.getDBL(), eblgCoar.getDBL(),
-                                eblgFine.getEBISL(), eblgCoar.getEBISL(),
-                                eblgCoar.getDomain(), a_coarseningFactor, 1,
-                                eblgCoar.getEBIS());
-
-      //MayDay::Warning("might want to figure out what harmonic averaging is in this context");
-      averageOp.average(acoefCoar, acoefFine, interv);
-      averageOp.average(etaCoar, etaFine, interv);
-      averageOp.average(etaCoarIrreg, etaFineIrreg, interv);
-      averageOp.average(lambdaCoar, lambdaFine, interv);
-      averageOp.average(lambdaCoarIrreg, lambdaFineIrreg, interv);
-    }
-
-  // Handle parallel domain ghost elements.
-  acoefCoar.exchange(interv);
-  etaCoar.exchange(interv);
-  lambdaCoar.exchange(interv);
-  etaCoarIrreg.exchange(interv);
-  lambdaCoarIrreg.exchange(interv);
-
-  // Recompute the relaxation coefficient for the operator.
-  calculateAlphaWeight();
-  calculateRelaxationCoefficient();
-
-  // Notify any observers of this change.
-  notifyObserversOfChange();
-}
-//-----------------------------------------------------------------------
-
-//-----------------------------------------------------------------------
 Real
 NWOEBViscousTensorOp::
 getSafety()
@@ -883,22 +828,21 @@ defineStencils()
   for (int mybox=0;mybox<nbox; mybox++)
     {
 
+      const DataIndex& datind = dit[mybox];
       BaseIVFAB<Real> dumbiv; //no irregular flux for this bit
-      Box smallBox = m_eblg.getDBL()[dit[mybox]];
+      Box smallBox = m_eblg.getDBL()[datind];
       Box grownBox = smallBox;
       grownBox.grow(m_ghostPhi);
-      const EBISBox& ebisBox = m_eblg.getEBISL()[dit[mybox]];
+      const EBISBox& ebisBox = m_eblg.getEBISL()[datind];
       EBCellFAB dumEBCF(ebisBox, grownBox,1);
       EBFluxFAB dumEBFF(ebisBox, smallBox,1);
-      m_divergenceStencil[dit[mybox]] = RefCountedPtr<DivergenceStencil>( new DivergenceStencil(dumEBCF, dumEBFF, dumbiv, smallBox, ebisBox, m_dx*RealVect::Unit, false));
+      m_divergenceStencil[datind] = RefCountedPtr<DivergenceStencil>( new DivergenceStencil(dumEBCF, dumEBFF, dumbiv, smallBox, ebisBox, m_dx*RealVect::Unit, false));
     }
   LayoutData<IntVectSet> ivsStencLD(m_eblg.getDBL());
   m_vofIterIrreg.define(m_eblg.getDBL());
   m_vofIterMulti.define(m_eblg.getDBL());
   m_alphaDiagWeight.define(  m_eblg.getDBL());
   m_betaDiagWeight.define(   m_eblg.getDBL());
-  LayoutData<BaseIVFAB<VoFStencil> > slowStencil(m_eblg.getDBL());
-
   EBCellFactory ebcellfact(m_eblg.getEBISL());
   m_relCoef.define(m_eblg.getDBL(), SpaceDim, IntVect::Zero, ebcellfact);
 
@@ -916,15 +860,23 @@ defineStencils()
       m_vofIterDomLo[ivar].define( m_eblg.getDBL()); // vofiterator cache for domain lo
       m_vofIterDomHi[ivar].define( m_eblg.getDBL()); // vofiterator cache for domain hi
     }
+  Real fakeBeta = 1;
+  m_domainBC->setCoef(m_eblg,   fakeBeta,      m_eta,      m_lambda);
+  m_ebBC->setCoef(    m_eblg,   fakeBeta,      m_etaIrreg, m_lambdaIrreg, m_eta, m_lambda);
+  m_ebBC->define(    *m_eblg.getCFIVS(), 1.0);
   //first define the iterators
   // DataIterator dit = m_eblg.getDBL().dataIterator();
   // int nbox=dit.size();
   //not thread safe
   //#pragma omp parallel for
+  EBCellFactory fact(m_eblg.getEBISL());              
+  LevelData<EBCellFAB> phiProxy(m_eblg.getDBL(), SpaceDim, m_ghostPhi, fact);
+  LevelData<EBCellFAB> rhsProxy(m_eblg.getDBL(), SpaceDim, m_ghostRHS, fact);
   for (int mybox=0;mybox<nbox; mybox++)
     {
-      const EBISBox& ebisBox = m_eblg.getEBISL()[dit[mybox]];
-      const Box&     grid = m_eblg.getDBL().get(dit[mybox]);
+      const DataIndex& datind = dit[mybox];
+      const EBISBox& ebisBox = m_eblg.getEBISL()[datind];
+      const Box&     grid = m_eblg.getDBL().get(datind);
       //need to grow the irregular set by one near multivalued cells
       IntVectSet ivsIrreg = ebisBox.getIrregIVS(grid);
       IntVectSet ivsMulti = ebisBox.getMultiCells(grid);
@@ -940,13 +892,13 @@ defineStencils()
 
       IntVectSet ivsStenc(grid);
       ivsStenc -= ivsComplement;
-      ivsStencLD[dit[mybox]] = ivsStenc;
+      ivsStencLD[datind] = ivsStenc;
       /**/
 
-      m_alphaDiagWeight[dit[mybox]].define(ivsStenc, ebisBox.getEBGraph(), SpaceDim);
-      m_betaDiagWeight [dit[mybox]].define(ivsStenc, ebisBox.getEBGraph(), SpaceDim);
-      m_vofIterIrreg   [dit[mybox]].define(ivsStenc, ebisBox.getEBGraph()   );
-      m_vofIterMulti   [dit[mybox]].define(ivsMulti, ebisBox.getEBGraph()   );
+      m_alphaDiagWeight[datind].define(ivsStenc, ebisBox.getEBGraph(), SpaceDim);
+      m_betaDiagWeight [datind].define(ivsStenc, ebisBox.getEBGraph(), SpaceDim);
+      m_vofIterIrreg   [datind].define(ivsStenc, ebisBox.getEBGraph()   );
+      m_vofIterMulti   [datind].define(ivsMulti, ebisBox.getEBGraph()   );
 
       for (int idir = 0; idir < SpaceDim; idir++)
         {
@@ -954,35 +906,30 @@ defineStencils()
           IntVectSet hiIrreg = ivsStenc;
           loIrreg &= sideBoxLo[idir];
           hiIrreg &= sideBoxHi[idir];
-          m_vofIterDomLo[idir][dit[mybox]].define(loIrreg,ebisBox.getEBGraph());
-          m_vofIterDomHi[idir][dit[mybox]].define(hiIrreg,ebisBox.getEBGraph());
+          m_vofIterDomLo[idir][datind].define(loIrreg,ebisBox.getEBGraph());
+          m_vofIterDomHi[idir][datind].define(hiIrreg,ebisBox.getEBGraph());
         }
-      slowStencil[dit[mybox]].define(ivsStenc, ebisBox.getEBGraph(), 1);
 
-    }
-
-  Real fakeBeta = 1;
-  m_domainBC->setCoef(m_eblg,   fakeBeta,      m_eta,      m_lambda);
-  m_ebBC->setCoef(    m_eblg,   fakeBeta,      m_etaIrreg, m_lambdaIrreg, m_eta, m_lambda);
-  m_ebBC->define(    *m_eblg.getCFIVS(), 1.0);
-
-  //now define the stencils for each variable
-  for (int ivar = 0; ivar < SpaceDim; ivar++)
-    {
-      LayoutData<BaseIVFAB<VoFStencil> >* fluxStencil = m_ebBC->getFluxStencil(ivar);
-      DataIterator dit = m_eblg.getDBL().dataIterator();
-      int nbox=dit.size();
-      for (int mybox=0;mybox<nbox; mybox++)
+      //now define the stencils for each variable
+      for (int ivar = 0; ivar < SpaceDim; ivar++)
         {
-          const EBISBox& ebisBox = m_eblg.getEBISL()[dit[mybox]];
-          for (m_vofIterIrreg[dit[mybox]].reset(); m_vofIterIrreg[dit[mybox]].ok(); ++m_vofIterIrreg[dit[mybox]])
+          LayoutData<BaseIVFAB<VoFStencil> >* fluxStencil = m_ebBC->getFluxStencil(ivar);
+          DataIterator dit = m_eblg.getDBL().dataIterator();
+
+          const EBISBox& ebisBox = m_eblg.getEBISL()[datind];
+          VoFIterator &  vofit = m_vofIterIrreg[datind];
+          const Vector<VolIndex>& vofvec = vofit.getVector();
+          // cast from VolIndex to BaseIndex
+          Vector<RefCountedPtr<BaseIndex> >    dstVoF(vofvec.size());
+          Vector<RefCountedPtr<BaseStencil> > stencil(vofvec.size());
+          for(int ivec = 0; ivec < vofvec.size(); ivec++)
             {
-              const VolIndex& vof = m_vofIterIrreg[dit[mybox]]();
-              VoFStencil& vofsten = slowStencil[dit[mybox]](vof, 0);
-              getVoFStencil(vofsten, vof, dit[mybox], ivar);
+              const VolIndex& vof = vofvec[ivec];
+              VoFStencil vofsten;
+              getVoFStencil(vofsten, vof, datind, ivar);
               if (fluxStencil != NULL)
                 {
-                  BaseIVFAB<VoFStencil>& stenFAB = (*fluxStencil)[dit[mybox]];
+                  BaseIVFAB<VoFStencil>& stenFAB = (*fluxStencil)[datind];
                   //only real irregular cells are going to have EB fluxes
                   //but we are working on a bigger set
                   if (stenFAB.getIVS().contains(vof.gridIndex()))
@@ -992,19 +939,16 @@ defineStencils()
                       //this might need to get multiplied by the -normal[idir]
                       Real factor = bndryArea/m_dx;
                       fluxStencilPt *= factor;
-                      slowStencil[dit[mybox]](vof, 0) += fluxStencilPt;
-
                     }
                 }
+              dstVoF[ivec]  = RefCountedPtr<BaseIndex  >(new  VolIndex(vof));
+              stencil[ivec] = RefCountedPtr<BaseStencil>(new VoFStencil(vofsten));
 
-              Real diagWeight = EBArith::getDiagWeight(slowStencil[dit[mybox]](vof, 0), vof, ivar);
-              m_betaDiagWeight[dit[mybox]](vof, ivar) = diagWeight;
+              Real diagWeight = EBArith::getDiagWeight(vofsten, vof, ivar);
+              m_betaDiagWeight[datind](vof, ivar) = diagWeight;
             }
-          m_opEBStencil[ivar][dit[mybox]] = RefCountedPtr<EBStencil>
-            (new EBStencil(m_vofIterIrreg[dit[mybox]].getVector(),  slowStencil[dit[mybox]],
-                           m_eblg.getDBL().get(dit[mybox]), m_eblg.getEBISL()[dit[mybox]],
-                           m_ghostCellsPhi, m_ghostCellsRHS, ivar, true, SpaceDim,
-                           ivsStencLD[dit[mybox]], true));
+          m_opEBStencil[ivar][datind] = RefCountedPtr<VCAggStencil>
+            (new VCAggStencil(dstVoF, stencil, phiProxy[datind], rhsProxy[datind], m_relCoef[datind], m_alphaDiagWeight[datind],SpaceDim));
 
         }
     }
@@ -1531,15 +1475,11 @@ relax(LevelData<EBCellFAB>&       a_phi,
   //change to false to get a lot of printouts
   static bool printedStuff = true;
 
-  LevelData<EBCellFAB> lphi;
-  create(lphi, a_rhs);
   if(!printedStuff)
     {
       pout() << "rhs: " << endl;;
       LevelData<EBCellFAB>* rhs = (LevelData<EBCellFAB>*)(&a_rhs);
       printMaxMinLDCell(rhs);
-//      pout() << "phi going into relax: "  << endl;
-//      printMaxMinLDCell(&a_phi);
     }
   // do first red, then black passes
   for (int whichIter =0; whichIter < a_iterations; whichIter++)
@@ -1550,22 +1490,20 @@ relax(LevelData<EBCellFAB>&       a_phi,
           //this call contains bcs and exchange
           if ((icolor == 0) || (!s_doLazyRelax))
             {
-              CH_TIME("applyingoperator");
+              CH_TIME("ghostfill and homogcfinterp");
+              fillVelGhost(a_phi);
               homogeneousCFInterp(a_phi);
-              applyOp(  lphi,  a_phi, true);
             }
           if(!printedStuff)
             {
               pout() << "iter = "<< whichIter << ", icolor = " << icolor << endl;
               pout() << "phi: " ;
               printMaxMinLDCell(&a_phi);
-              pout() << "lphi: " ;
-              printMaxMinLDCell(&lphi);
-              
             }
-          gsrbColor(a_phi, lphi, a_rhs, m_colors[icolor]);
+          gsrbColor(a_phi, a_rhs, m_colors[icolor]);
         }
     }
+
   //MayDay::Abort("leaving after first relax");
   if(!printedStuff)
     {
@@ -1592,7 +1530,6 @@ homogeneousCFInterp(LevelData<EBCellFAB>&   a_phif)
 void
 NWOEBViscousTensorOp::
 gsrbColor(LevelData<EBCellFAB>&       a_phi,
-          const LevelData<EBCellFAB>& a_lph,
           const LevelData<EBCellFAB>& a_rhs,
           const IntVect&              a_color)
 {
@@ -1607,11 +1544,28 @@ gsrbColor(LevelData<EBCellFAB>&       a_phi,
 #pragma omp for
     for (int mybox=0;mybox<nbox; mybox++)
       {
+        //first do the the regular stuff
         Box dblBox  = dbl.get(dit[mybox]);
-        BaseFab<Real>&       regPhi =     a_phi[dit[mybox]].getSingleValuedFAB();
-        const BaseFab<Real>& regLph =     a_lph[dit[mybox]].getSingleValuedFAB();
-        const BaseFab<Real>& regRhs =     a_rhs[dit[mybox]].getSingleValuedFAB();
-        const BaseFab<Real>& regRel = m_relCoef[dit[mybox]].getSingleValuedFAB();
+        const DataIndex datInd = dit[mybox];
+        BaseFab<Real>&       regPhi =     a_phi[datInd].getSingleValuedFAB();
+        const BaseFab<Real>& regRhs =     a_rhs[datInd].getSingleValuedFAB();
+        const BaseFab<Real>& regRel = m_relCoef[datInd].getSingleValuedFAB();
+
+
+        //assumes ghost cells already filled
+
+        const BaseFab<Real>& acofab  =(*m_acoef)[datInd].getSingleValuedFAB();
+        const EBFluxFAB& eta  =     (*m_eta)[datInd];
+        const EBFluxFAB& lam  =  (*m_lambda)[datInd];
+
+        Vector<const BaseFab<Real>* > etaside(3, &(eta[0].getSingleValuedFAB()));
+        Vector<const BaseFab<Real>* > lamside(3, &(lam[0].getSingleValuedFAB()));
+        for(int idir = 0; idir < SpaceDim; idir++)
+          {
+            etaside[idir] = &(eta[idir].getSingleValuedFAB());
+            lamside[idir] = &(lam[idir].getSingleValuedFAB());
+          }
+
         IntVect loIV = dblBox.smallEnd();
         IntVect hiIV = dblBox.bigEnd();
         
@@ -1623,41 +1577,37 @@ gsrbColor(LevelData<EBCellFAB>&       a_phi,
               }
           }
         
+        for(int ivar = 0; ivar < SpaceDim; ivar++)
+          {
+            m_opEBStencil[ivar][datInd]->cachePhi(a_phi[datInd]);
+          }
         if (loIV <= hiIV)
           {
-            int ncomp = SpaceDim;
             Box coloredBox(loIV, hiIV);
-            FORT_GSRBVTOP(CHF_FRA(regPhi),
-                          CHF_CONST_FRA(regLph),
-                          CHF_CONST_FRA(regRhs),
-                          CHF_CONST_FRA(regRel),
-                          CHF_BOX(coloredBox),
-                          CHF_CONST_INT(ncomp));
+            FORT_GSRBNWOEBVTOP(CHF_FRA(regPhi),
+                               CHF_CONST_FRA(regRhs),
+                               CHF_CONST_FRA(regRel),
+                               CHF_CONST_FRA1(acofab,0),
+                               CHF_CONST_FRA1((*etaside[0]), 0),
+                               CHF_CONST_FRA1((*etaside[1]), 0),
+                               CHF_CONST_FRA1((*etaside[2]), 0),
+                               CHF_CONST_FRA1((*lamside[0]), 0),
+                               CHF_CONST_FRA1((*lamside[1]), 0),
+                               CHF_CONST_FRA1((*lamside[2]), 0),
+                               CHF_CONST_REAL(m_dx),
+                               CHF_CONST_REAL(m_alpha),
+                               CHF_CONST_REAL(m_beta),
+                               CHF_BOX(coloredBox));
           }
-
-        for (m_vofIterMulti[dit[mybox]].reset(); m_vofIterMulti[dit[mybox]].ok(); ++m_vofIterMulti[dit[mybox]])
+        for(int ivar = 0; ivar < SpaceDim; ivar++)
           {
-            const VolIndex& vof = m_vofIterMulti[dit[mybox]]();
-            const IntVect& iv = vof.gridIndex();
-            
-            bool doThisVoF = true;
-            for (int idir = 0; idir < SpaceDim; idir++)
-              {
-                if (iv[idir] % 2 != a_color[idir])
-                  {
-                    doThisVoF = false;
-                    break;
-                  }
-              }
-
-            if (doThisVoF)
-              {
-                for (int ivar = 0; ivar < SpaceDim; ivar++)
-                  {
-                    Real resid = a_rhs[dit[mybox]](vof, ivar) - a_lph[dit[mybox]](vof, ivar);
-                    a_phi[dit[mybox]](vof, ivar) += m_relCoef[dit[mybox]](vof, ivar)*resid;
-                  }
-              }
+            m_opEBStencil[ivar][datInd]->uncachePhi(a_phi[datInd]);
+          }
+        for(int ivar = 0; ivar < SpaceDim; ivar++)
+          {
+            m_opEBStencil[ivar][datInd]->relax(a_phi[datInd], a_rhs[datInd], 
+                                               m_relCoef[datInd], m_alphaDiagWeight[datInd],
+                                               m_alpha, m_beta, ivar, a_color);
           }
       }
   }// end pragma
@@ -1935,7 +1885,7 @@ void
 NWOEBViscousTensorOp::
 fillVelGhost(const LevelData<EBCellFAB>& a_phi) const
 {
-  CH_TIME("nwoebvto::fillghostld");
+  CH_TIME("nwoebvto::fillghostLD");
   for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
     {
       fillVelGhost(a_phi[dit()], dit());
@@ -2228,7 +2178,7 @@ applyOpIrregular(EBCellFAB&             a_lhs,
   RealVect vectDx = m_dx*RealVect::Unit;
   for (int ivar = 0; ivar < SpaceDim; ivar++)
     {
-      m_opEBStencil[ivar][a_datInd]->apply(a_lhs, a_phi, m_alphaDiagWeight[a_datInd], m_alpha, m_beta, false);
+      m_opEBStencil[ivar][a_datInd]->apply(a_lhs, a_phi, m_alphaDiagWeight[a_datInd], m_alpha, m_beta, ivar, false);
     }
   if (!a_homogeneous)
     {

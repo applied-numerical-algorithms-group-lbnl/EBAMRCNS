@@ -241,7 +241,7 @@ public:
                   const Real&                 a_tnew);
   ///
   static Real
-  getDiagWeight(  VoFStencil&     a_vofStencil,
+  getDiagWeight(  const VoFStencil&     a_vofStencil,
                   const VolIndex& a_vof,
                   int a_var = 0);
 

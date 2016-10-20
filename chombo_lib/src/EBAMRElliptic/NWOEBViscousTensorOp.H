@@ -38,6 +38,7 @@
 #include "NWOEBQuadCFInterp.H"
 #include "EBLevelGrid.H"
 #include "EBAMRIO.H"
+#include "VCAggStencil.H"
 #include "DivergenceStencil.H"
 
 #include "NamespaceHeader.H"
@@ -201,11 +202,6 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
     s_turnOffBCs = false;
   }
 
-
-  //! This is called on multigrid operators when their AMR operators
-  //! are altered.
-  void finerOperatorChanged(const MGLevelOp<LevelData<EBCellFAB> >& a_operator,
-                            int a_coarseningFactor);
 
   //functions used by the wider world
 
@@ -529,7 +525,6 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
 
 
   void gsrbColor(LevelData<EBCellFAB>&       a_phi,
-                 const LevelData<EBCellFAB>& a_lph,
                  const LevelData<EBCellFAB>& a_rhs,
                  const IntVect&              a_color);
 
@@ -612,12 +607,11 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
   int                                          m_refToCoar;
   bool                                         m_hasMGObjects;
 
-  //ghost cell information needed for ebstencil optimizations
   IntVect                                      m_ghostCellsPhi;
   IntVect                                      m_ghostCellsRHS;
 
-  //stencil to apply irregular operator
-  LayoutData<RefCountedPtr<EBStencil> >        m_opEBStencil[CH_SPACEDIM];
+  //stencil to apply irregular operator and do irregular relaxation
+  LayoutData<RefCountedPtr<VCAggStencil> >     m_opEBStencil[CH_SPACEDIM];
 
   //relaxation coefficent
   LevelData<EBCellFAB>                         m_relCoef;

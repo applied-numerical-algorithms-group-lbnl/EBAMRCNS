@@ -57,7 +57,6 @@ class EBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
 
   static int s_whichLev;
   static int s_step;
-  static bool s_setIntersectionsToZero;
 
 
   //! Constructs a viscous tensor operator using the given data. This

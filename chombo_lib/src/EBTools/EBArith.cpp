@@ -869,7 +869,7 @@ timeInterpolate(LevelData<EBCellFAB>&       a_U,
 }
 Real
 EBArith::
-getDiagWeight(  VoFStencil&     a_vofStencil,
+getDiagWeight(  const VoFStencil&     a_vofStencil,
                 const VolIndex& a_vof,
                 int             a_ivar)
 {
