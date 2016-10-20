@@ -31,7 +31,7 @@ bool EBViscousTensorOp::s_turnOffBCs = false; //needs to default to
 int EBViscousTensorOp::s_whichLev = -1;
 int EBViscousTensorOp::s_step = -1;
 
-bool EBViscousTensorOp::s_setIntersectionsToZero = true;
+bool EBViscousTensorOp::s_setIntersectionsToZero = false;
 bool EBViscousTensorOp::s_forceNoEBCF = true;
 
 //-----------------------------------------------------------------------

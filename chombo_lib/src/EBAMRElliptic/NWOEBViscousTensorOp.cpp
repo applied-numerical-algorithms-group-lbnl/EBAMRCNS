@@ -33,7 +33,6 @@ int NWOEBViscousTensorOp::s_step = -1;
 bool NWOEBViscousTensorOp::s_turnOffBCs = false; //really needs to default to false
 
 
-bool NWOEBViscousTensorOp::s_setIntersectionsToZero = true;
 bool NWOEBViscousTensorOp::s_forceNoEBCF = true;
 
 //-----------------------------------------------------------------------
@@ -1000,26 +999,6 @@ defineStencils()
 
               Real diagWeight = EBArith::getDiagWeight(slowStencil[dit[mybox]](vof, 0), vof, ivar);
               m_betaDiagWeight[dit[mybox]](vof, ivar) = diagWeight;
-            }
-          if (s_setIntersectionsToZero)
-            {
-              for (int idir = 0; idir < SpaceDim; idir++)
-                {
-                  {
-                    VoFIterator& vofit = m_vofIterDomLo[idir][dit[mybox]];
-                    for (vofit.reset(); vofit.ok(); ++vofit)
-                      {
-                        slowStencil[dit[mybox]](vofit(), 0) *= 0.0;
-                      }
-                  }
-                  {
-                    VoFIterator& vofit = m_vofIterDomHi[idir][dit[mybox]];
-                    for (vofit.reset(); vofit.ok(); ++vofit)
-                      {
-                        slowStencil[dit[mybox]](vofit(), 0) *= 0.0;
-                      }
-                  }
-                }
             }
           m_opEBStencil[ivar][dit[mybox]] = RefCountedPtr<EBStencil>
             (new EBStencil(m_vofIterIrreg[dit[mybox]].getVector(),  slowStencil[dit[mybox]],
@@ -2259,34 +2238,31 @@ applyOpIrregular(EBCellFAB&             a_lhs,
                           a_homogeneous, 0.0);
     }
 
-  if (!s_setIntersectionsToZero)
-    { 
-      for (int idir = 0; idir < SpaceDim; idir++)
+  for (int idir = 0; idir < SpaceDim; idir++)
+    {
+      for (int comp = 0; comp < SpaceDim; comp++)
         {
-          for (int comp = 0; comp < SpaceDim; comp++)
+          for (m_vofIterDomLo[idir][a_datInd].reset(); m_vofIterDomLo[idir][a_datInd].ok();  ++m_vofIterDomLo[idir][a_datInd])
             {
-              for (m_vofIterDomLo[idir][a_datInd].reset(); m_vofIterDomLo[idir][a_datInd].ok();  ++m_vofIterDomLo[idir][a_datInd])
-                {
-                  Real flux;
-                  const VolIndex& vof = m_vofIterDomLo[idir][a_datInd]();
-                  m_domainBC->getFaceFlux(flux,vof,comp,a_phi,
-                                          RealVect::Zero,vectDx,idir,Side::Lo, a_datInd, 0.0,
-                                          a_homogeneous);
+              Real flux;
+              const VolIndex& vof = m_vofIterDomLo[idir][a_datInd]();
+              m_domainBC->getFaceFlux(flux,vof,comp,a_phi,
+                                      RealVect::Zero,vectDx,idir,Side::Lo, a_datInd, 0.0,
+                                      a_homogeneous);
 
-                  //area gets multiplied in by bc operator
-                  a_lhs(vof,comp) -= flux*m_beta/m_dx;
-                }
-              for (m_vofIterDomHi[idir][a_datInd].reset(); m_vofIterDomHi[idir][a_datInd].ok();  ++m_vofIterDomHi[idir][a_datInd])
-                {
-                  Real flux;
-                  const VolIndex& vof = m_vofIterDomHi[idir][a_datInd]();
-                  m_domainBC->getFaceFlux(flux,vof,comp,a_phi,
-                                          RealVect::Zero,vectDx,idir,Side::Hi,a_datInd,0.0,
-                                          a_homogeneous);
+              //area gets multiplied in by bc operator
+              a_lhs(vof,comp) -= flux*m_beta/m_dx;
+            }
+          for (m_vofIterDomHi[idir][a_datInd].reset(); m_vofIterDomHi[idir][a_datInd].ok();  ++m_vofIterDomHi[idir][a_datInd])
+            {
+              Real flux;
+              const VolIndex& vof = m_vofIterDomHi[idir][a_datInd]();
+              m_domainBC->getFaceFlux(flux,vof,comp,a_phi,
+                                      RealVect::Zero,vectDx,idir,Side::Hi,a_datInd,0.0,
+                                      a_homogeneous);
 
-                  //area gets multiplied in by bc operator
-                  a_lhs(vof,comp) += flux*m_beta/m_dx;
-                }
+              //area gets multiplied in by bc operator
+              a_lhs(vof,comp) += flux*m_beta/m_dx;
             }
         }
     }
