@@ -25,7 +25,6 @@ fixed_dt   = -1
 gamma = 1.666666667
 domain_length = 1.e-2 1.e-2 1.e-2
 explicit_hyperbolic_source = true
-backward_euler = true
 outflow_bc = true
 ###explosion problem defns
 
@@ -122,3 +121,4 @@ shock_center = 6.0e-4
 shock_normal = 0
 start_dirichlet = 7.0e-4
 
+crank_nicolson = true
