@@ -125,6 +125,7 @@ export USE_EB
 export USE_EXTNAME
 export USE_FEATURE
 export USE_FFTW
+export USE_PAPI
 export USE_HDF
 export USE_MF
 export USE_MT
@@ -252,6 +253,7 @@ $(subst DOUBLE,-DCH_USE_DOUBLE,$(subst FLOAT,-DCH_USE_FLOAT,$(PRECISION)))\
 $(subst FALSE,,$(subst TRUE,-DCH_USE_HDF5 $(subst FALSE,$(HDFINCFLAGS),$(subst TRUE,$(HDFMPIINCFLAGS),$(MPI))),$(USE_HDF)))\
 $(cxxcppflags) $(fcppflags) $(appcppflags)\
 $(subst FALSE,,$(subst TRUE,$(fftincflags),$(USE_FFTW)))\
+$(subst FALSE,,$(subst TRUE, -DCH_PAPI $(PAPIINCFLAGS),$(USE_PAPI)))\
 $(subst FALSE,,$(subst TRUE, -DCH_USE_PETSC $(petscincflags),$(USE_PETSC)))\
 $(subst FALSE,,$(subst TRUE, -DCH_USE_PYTHON ,$(USE_PYTHON)))\
 $(cppcallsfort) $(libincludes) 
@@ -282,6 +284,7 @@ LIBFLAGS := -L$(CHOMBO_HOME) $(patsubst %,-l%$(config),$(_lib_names))\
 $(subst FALSE,,$(subst TRUE,$(mpilibflags),$(MPI)))\
 $(subst FALSE,,$(subst TRUE,$(subst FALSE,$(HDFLIBFLAGS),$(subst TRUE,$(HDFMPILIBFLAGS),$(MPI))),$(USE_HDF)))\
 $(subst FALSE,,$(subst TRUE,$(fftlibflags),$(USE_FFTW)))\
+$(subst FALSE,,$(subst TRUE,$(PAPILIBDIR) -lpapi,$(USE_PAPI)))\
 $(subst FALSE,,$(subst TRUE,$(petsclibflags),$(USE_PETSC)))\
 $(flibflags) $(syslibflags)
 

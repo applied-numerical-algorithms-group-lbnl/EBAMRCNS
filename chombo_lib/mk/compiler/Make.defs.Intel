@@ -28,23 +28,14 @@
 ##   __IFC, _EFC      == (?) ix86, itanium architecture
 ##  Use 'icc -E -dM' to see all predefined macros.
 ##
-##  Versions tried: 9,10,11
+##  Versions deprecated: 9,10,11
+##  Versions tried: 16.0.1
 ##
-##  The C++ compiler doesn't handle the GCC v4 <cmath> header file.
-##  To avoid this, force the compiler to not use gcc headers in this case.
 
 makefiles+=compiler/Make.defs.Intel
 
 cxxname := $(notdir $(firstword $(CXX)))
 fname   := $(notdir $(firstword $(FC)))
-
-# Itanium compilers have different names
-ifeq ($(cxxname),ecc)
-  cxxname := icc
-endif
-ifeq ($(fname),efc)
-  fname := ifc
-endif
 
 ifeq ($(fname),ifort)
   fname := ifc
@@ -55,104 +46,22 @@ endif
 
 getcompilerversion := $(CHOMBO_HOME)/mk/compilerVersion.pl
 
-ifeq ($(cxxname),icc)
-  _iccversion := $(subst ., ,$(shell $(getcompilerversion) $(CXX)))
+# '-EP' is different from '-E -P' in icc	
+# -C disable stripping out C++ comments, which are valid code in Fortran
+CH_CPP = $(CXX) -EP -C
 
-  ifeq ($(_iccversion),)
-    $(error unknown Intel C++ compiler version [$(shell $(CXX) -V)])
-  endif
+_cxxbaseflags = -restrict -m64 -std=c++11
 
-  _iccmajorver:= $(word 1,$(_iccversion))
-  _iccminorver:= $(word 2,$(_iccversion))
-
-  #$(warning "CXX=$(CXX) iccversion=$(_iccversion)  major=$(_iccmajorver)  minor=$(_iccminorver)")
-
-  # '-EP' is different from '-E -P' in icc	
-  # -C disable stripping out C++ comments, which are valid code in Fortran
-  CH_CPP = $(CXX) -EP -C
-
-  ifeq (0,$(shell test $(_iccmajorver) -ge 10 ; echo $$?))
-    # disable warnings: 239 is underflow in floating-point constant
-    #                   654 is overloaded virtual function
-    #                  1125 is overloaded function is hidden -- virtual function override intended?
-    #                  1476 is "field uses tail padding of a base class"
-    #                  1572 is floating point equality tests are unreliable
-    #               25,1345 turn off warnings about strings which arent helpful when applied to Fortran code
-    # for at least version 11, must use -diag-disable in place of -wd
-    # have not verified if all of the above warning numbers mean the same thing for newer intel version
-    _disable_warnings = -diag-disable 1125,654,239,1476,1572
-  else
-    # version 8.0 does not know about warning number 1572, but it is there starting with 8.1
-    #  for now, just don't use it unless v >= 10
-    #_disable_warnings = -wd 1125,654,239,1476,1572
-    _disable_warnings = -wd 1125,654,239,1476
-  endif
-
-  # icpc version 11.0 on Davinci (Itanium) doesn't seem to know about this flag, so will comment (ndk)
-  #ifeq (0,$(shell test $(_iccmajorver) -ge 11 ; echo $$?))
-  #  # -vec-report0 turns off the output "remark: LOOP WAS VECTORIZED."
-  #  _disable_warnings += -vec-report0
-  #endif
-
-  defcxxcomflags += $(_disable_warnings)
-
-  defcxxdbgflags = -g -C
-  # compiler core dumps on Itanium at -O3 before v8
-  ifeq ($(arch),ia64)
-    ifeq (0,$(shell test $(_iccmajorver) -le 7 ; echo $$?))
-      defcxxoptflags = -ip -unroll
-    endif
-    ifeq (0,$(shell test $(_iccmajorver) -ge 10 ; echo $$?))
-      defcxxoptflags = -O2
-      #defcxxoptflags = -O2 -ip -unroll
-    endif
-
-  else
-    defcxxoptflags = -O3 -ip -unroll
-    ifneq ($(findstring athlon,$(unamea)),athlon)
-      # vectorize for Pentiums but not EMT64
-      ifeq ($(findstring i686,$(arch)),i686)
-        # PIII and later
-        defcxxoptflags += -tpp6 -xK
-      endif
-    endif
-  endif
-
-  # new v9 options
-  # -debug * puts more (hopefully useful) debug info in object files
-  # -debug extended  is a nice idea, but gets an error
-  # -sox saves compiler version and compile options in the object file (needed?)
-  # -ftrapuv initializes stack variables to a flag value
-  # disable warnings:
-  ifeq (0,$(shell test $(_iccmajorver) -ge 9 ; echo $$?))
-    defcxxcomflags += -sox
-    defcxxdbgflags += -debug -ftrapuv -Wno-unknown-pragmas
-    #defcxxoptflags += 
-  endif
-
-  # memory tracking doesn't work for the AMRTimeDependent test
-  #USE_MT = FALSE
-  # let's try now
-  USE_MT = TRUE
-
-  # try commenting this out -- NDK
-  # icpc in v8.[01] objects to the use of the variable name "__interface" in one of the
-  # glibc headers (netinet/in.h) that comes with SuSE v9. 
-  #ifeq ($(_iccmajorver),8)
-  #  defcxxcomflags += -D__interface=interfacearg
-  #endif
-
-  # try commenting this out -- NDK
-  # v9 and gcc v4 headers dont mix (<cmath> wont compile)
-  # so force icpc to use only its own headers, not gcc's
-  #ifeq (0,$(shell test $(_iccmajorver) -ge 9 ; echo $$?))
-  #  _gccmajorver:= $(word 1,$(subst ., ,$(shell gcc -dumpversion)))
-  #  ifeq ($(_gccmajorver),4)
-  #    defcxxcomflags += -cxxlib-icc
-  #  endif
-  #endif
-
+ifeq ($(OPENMPCC),TRUE)
+  _cxxbaseflags += -fopenmp
+else
+  _cxxbaseflags += -Wno-unknown-pragmas -diag-disable 3180
 endif
+
+defcxxdbgflags = -g -Wall -Wextra -pedantic -fstack-protector-all $(_cxxbaseflags)
+defcxxoptflags = -march=native -m64 -qopt-multi-version-aggressive $(_cxxbaseflags)
+
+defldflags = -static-intel
 
 ifeq ($(fname),ifc)
   #_ifcversion := $(subst ., ,$(shell $(FC) -V 2>&1 | awk '/^Intel.*Version/{if($$7~/Version/){print $$8};if($$8~/Version/){print $$9}}'))
@@ -205,8 +114,8 @@ ifeq ($(fname),ifc)
       # -CS to check array shapes and -CA to check points not implemented
       deffdbgflags += -CB -CU -CV
     else
-      # do all run-time checks
-      deffdbgflags += -C
+      # just build object code
+      deffdbgflags += -c
     endif
   endif
 
@@ -217,7 +126,7 @@ ifeq ($(fname),ifc)
   # -ftrapuv initializes stack variables to a flag value
   ifeq (0,$(shell test $(_ifcmajorver) -ge 9 ; echo $$?))
     deffcomflags += -sox
-    deffdbgflags += -debug -ftrapuv
+#    deffdbgflags += -debug -ftrapuv
     deffoptflags +=
   endif
 

@@ -1820,11 +1820,11 @@ Vector<int> EBGraphImplem::coarsenFaces(const VolIndex&       a_coarVoF,
               for (int ithisFine = 0; ithisFine < theseFineVoFs.size(); ithisFine++)
                 {
                   const VolIndex& thisFineVoF = theseFineVoFs[ithisFine];
-                  int thesetwocon = -1;
+                  //                  int thesetwocon = -1;
                   if (a_fineGraph.isConnected(thisFineVoF, otherFineVoF))
                     {
                       addThisFace = true;
-                      thesetwocon = 1;
+                      //                      thesetwocon = 1;
                     }
                 }
             }

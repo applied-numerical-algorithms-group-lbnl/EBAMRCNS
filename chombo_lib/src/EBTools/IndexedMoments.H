@@ -182,7 +182,7 @@ public:
   }
 
   /// outputs the current state to pout() (a la parstream.H)
-  void pout() const;
+  void spout() const;
 
   ///
   /**

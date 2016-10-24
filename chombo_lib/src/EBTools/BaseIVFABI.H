@@ -228,7 +228,7 @@ int BaseIVFAB<T>::size(const Box& a_region,
 
   //add for each data point
   int datasize = 0;
-  for (int ivof = 0; ivof < vofs.size(); ivof++)
+  for (unsigned int ivof = 0; ivof < vofs.size(); ivof++)
     {
       if (s_verboseDebug)
         {
@@ -277,7 +277,7 @@ void BaseIVFAB<T>::linearOut(void* a_buf,
   charbuffer += linearListSize(vofs);
 
   //output the data
-  for (int ivof = 0; ivof < vofs.size(); ivof++)
+  for (unsigned int ivof = 0; ivof < vofs.size(); ivof++)
     {
       const VolIndex& vof = vofs[ivof];
       if (s_verboseDebug)
@@ -312,7 +312,7 @@ void BaseIVFAB<T>::linearIn(void* a_buf, const Box& a_region, const Interval& a_
   charbuffer += linearListSize(vofs);
 
   //input the data
-  for (int ivof = 0; ivof < vofs.size(); ivof++)
+  for (unsigned int ivof = 0; ivof < vofs.size(); ivof++)
     {
       const VolIndex& vof = vofs[ivof];
       if (s_verboseDebug)

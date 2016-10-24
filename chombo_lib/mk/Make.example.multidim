@@ -135,6 +135,7 @@ $(subst DOUBLE,-DCH_USE_DOUBLE,$(subst FLOAT,-DCH_USE_FLOAT,$(PRECISION)))\
 $(subst FALSE,,$(subst TRUE,-DCH_USE_HDF5 $(subst FALSE,$(HDFINCFLAGS),$(subst TRUE,$(HDFMPIINCFLAGS),$(MPI))),$(USE_HDF)))\
 $(cxxcppflags) $(fcppflags) $(appcppflags) $(cppcallsfort) \
 $(subst FALSE,,$(subst TRUE,$(fftincflags),$(USE_FFTW)))\
+$(subst FALSE,,$(subst TRUE, -DCH_USE_PETSC $(petscincflags),$(USE_PETSC)))\
 $(subst FALSE,,$(subst TRUE,-I$(CHOMBO_HOME)/include/multidim,$(MULTIDIM)))\
 
 # over-ride libflags -- for now, do this explicitly for 1,2,3,4,5,6D
@@ -144,6 +145,8 @@ $(all_dimension_libs) \
 $(subst FALSE,,$(subst TRUE,$(mpilibflags),$(MPI)))\
 $(subst FALSE,,$(subst TRUE,$(subst FALSE,$(HDFLIBFLAGS),$(subst TRUE,$(HDFMPILIBFLAGS),$(MPI))),$(USE_HDF)))\
 $(subst FALSE,,$(subst TRUE,$(fftlibflags),$(USE_FFTW)))\
+$(subst FALSE,,$(subst TRUE,$(petsclibflags),$(USE_PETSC)))\
+$(subst FALSE,,$(subst TRUE,$(PAPILIBDIR) -lpapi,$(USE_PAPI)))\
 $(flibflags) $(syslibflags)
 
 # names of subdirectories used for compilation files -- there's probably a 

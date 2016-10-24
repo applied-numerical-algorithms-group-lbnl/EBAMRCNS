@@ -37,9 +37,9 @@ IVSFAB<T>::getIVS() const
 }
 /******************/
 template <class T> inline
-IVSFAB<T>::IVSFAB()
+IVSFAB<T>::IVSFAB():m_dataPtr(0),m_nComp(0),m_nIvs(0),m_loVect(IntVect::Unit), m_hiVect(IntVect::Zero), m_isDefined(false)
 {
-  setDefaultValues();
+
 }
 /******************/
 template <class T> inline
@@ -50,27 +50,14 @@ IVSFAB<T>::~IVSFAB()
 /******************/
 template <class T> inline
 IVSFAB<T>::IVSFAB(const IntVectSet& a_ivsin,
-                        const int&        a_nvarin)
-{
-  setDefaultValues();
-  define(a_ivsin, a_nvarin);
-}
-/******************/
-template <class T> inline
-void
-IVSFAB<T>::define(const IntVectSet& a_ivsin,
-                     const int& a_nvarin)
-{
-  clear();
-  m_isDefined = true;
+                  const int&        a_nvarin):m_dataPtr(0), m_nComp(a_nvarin), m_nIvs(0),
+                                              m_loVect(IntVect::Zero), 
+                                              m_hiVect(IntVect::Unit),
+                                              m_ivmap(a_ivsin.minBox(), a_nvarin),m_ivs(a_ivsin)
+{ 
   CH_assert(a_nvarin > 0);
-  m_ivs = a_ivsin;
-  m_nComp = a_nvarin;
-  m_nIvs = 0;
   if (!a_ivsin.isEmpty())
     {
-      Box minbox = a_ivsin.minBox();
-      m_ivmap.resize(minbox, 1);
       IVSIterator ivsit(a_ivsin);
       for (ivsit.reset(); ivsit.ok(); ++ivsit)
         {
@@ -83,14 +70,6 @@ IVSFAB<T>::define(const IntVectSet& a_ivsin,
         {
           m_dataPtr = new T[m_nComp*m_nIvs];
         }
-      else
-        {
-          m_dataPtr = NULL;
-        }
-    }
-  else
-    {
-      m_dataPtr = NULL;
     }
   if (m_nIvs > 0)
     {
@@ -101,7 +80,7 @@ IVSFAB<T>::define(const IntVectSet& a_ivsin,
           m_hiVect[dir] = 1;
         }
       m_hiVect[0] = m_nIvs;
-
+      
     }
   else
     {
@@ -109,6 +88,7 @@ IVSFAB<T>::define(const IntVectSet& a_ivsin,
       m_hiVect = IntVect::Zero;
       m_dataPtr = NULL;
     }
+  m_isDefined=true;
 
 }
 /******************/
@@ -572,6 +552,7 @@ IVSFAB<T>::hiVect() const
   return m_hiVect.getVect();
 }
 /******************/
+/*
 template <class T> inline
 void
 IVSFAB<T>::setDefaultValues()
@@ -583,20 +564,6 @@ IVSFAB<T>::setDefaultValues()
   m_loVect = IntVect::Unit;
   m_hiVect = IntVect::Zero;
 }
-/******************/
-template <class T> inline
-IVSFAB<T>&
-IVSFAB<T>::operator= (const IVSFAB<T>& a_input)
-{
-  MayDay::Error("IVSFAB operator = not defined");
-  return *this;
-}
-/******************/
-template <class T> inline
-IVSFAB<T>::IVSFAB (const IVSFAB<T>& a_input)
-{
-  MayDay::Error("IVSFAB copy constructor not defined");
-}
-
+*/
 #include "NamespaceFooter.H"
 #endif

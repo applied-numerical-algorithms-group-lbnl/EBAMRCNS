@@ -52,12 +52,11 @@ public:
              const dstData_t                          & a_dstData);
 
   ///
-  virtual ~AggStencil()
+  ~AggStencil()
   {
   }
 
   ///
-  virtual 
   void apply(dstData_t       & a_lph,
              const srcData_t & a_phi,
              const int       & a_varDest,
@@ -70,7 +69,6 @@ public:
      Sets dataPtr for a_phi initial variable to a_varSrc
      Runs over ncomp components
    */
-  virtual 
   void apply(dstData_t       & a_lph,
              const srcData_t & a_phi,
              const int       & a_src,
@@ -79,11 +77,9 @@ public:
              const bool      & a_incrementOnly) const;
 
   ///
-  virtual 
   void   cache(const dstData_t& a_lph) const;
 
   ///
-  virtual
   void uncache(      dstData_t& a_phi) const;
 
   struct

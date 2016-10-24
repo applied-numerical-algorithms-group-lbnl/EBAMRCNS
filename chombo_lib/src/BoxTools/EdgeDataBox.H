@@ -34,7 +34,7 @@ public:
   ~EdgeDataBox();
 
   /// resize EdgeDataBox similar to BaseFab::resize()
-  void resize(const Box& bx, int n=1);
+  //void resize(const Box& bx, int n=1);
 
   ///
   void define(const Box& bx, int n=1);

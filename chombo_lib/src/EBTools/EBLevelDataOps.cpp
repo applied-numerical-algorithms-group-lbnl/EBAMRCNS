@@ -34,7 +34,7 @@ EBLevelDataOps::pruneCoveredBoxes(Vector<Box>&              a_boxes,
                                   const int&                a_ghosts)
 {
   Vector<int> procs;
-  EBLoadBalance(procs,  a_boxes, a_domain);
+  LoadBalance(procs,  a_boxes);
   DisjointBoxLayout dbl(a_boxes, procs);
   EBISLayout ebisl;
   a_ebisPtr->fillEBISLayout(ebisl, dbl, a_domain, a_ghosts+1);
@@ -51,9 +51,10 @@ EBLevelDataOps::pruneCoveredBoxes(Vector<Box>&              a_boxes,
   for (DataIterator dit = dbl.dataIterator(); dit.ok(); ++dit)
     {
       Box grid = dbl.get(dit());
-      grid.grow(a_ghosts);
-      grid &= ebisl[dit()].getDomain();
-      if (ebisl[dit()].isCovered(grid))
+      Box grownBox = grid;
+      grownBox.grow(a_ghosts);
+      grownBox &= ebisl[dit()].getDomain();
+      if (ebisl[dit()].isCovered(grownBox))
         {
           coveredBoxesLocal.push_back(grid);
         }

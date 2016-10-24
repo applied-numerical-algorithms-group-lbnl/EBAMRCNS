@@ -263,12 +263,12 @@ operator=(const map<IndexTM<int, Dim>,  Real>& a_mapin)
 template <int Dim, int P>
 void
 IndexedMoments<Dim, P>:: 
-pout() const
+spout() const
 {
-  ::pout() << "index \t  moment  " << endl;
+  pout() << "index \t  moment  " << endl;
   for(MomentIterator<Dim, P> iter; iter.ok(); ++iter)
     {
-      ::pout() <<  iter() << "\t" << (*this)[iter()] << endl;
+      pout() <<  iter() << "\t" << (*this)[iter()] << endl;
     }
 }
 

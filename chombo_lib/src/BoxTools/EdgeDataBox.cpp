@@ -138,6 +138,7 @@ EdgeDataBox::define(const Box& a_bx, int a_nComp)
 // ---------------------------------------------------------
 // should resize fluxes in space (could be faster than re-allocating
 // storage)
+/*
 void
 EdgeDataBox::resize(const Box& a_bx, int a_nComp)
 {
@@ -171,7 +172,7 @@ EdgeDataBox::resize(const Box& a_bx, int a_nComp)
   }
 
 }
-
+*/
 // ---------------------------------------------------------
 void
 EdgeDataBox::setVal(const Real val)

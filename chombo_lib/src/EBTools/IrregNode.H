@@ -136,19 +136,19 @@ public:
   **/
   IndMomSDMinOne m_faceMoments[2*SpaceDim];
 
-  void pout()
+  void spout()
   {
-    ::pout() << "irreg node" << endl;
-    ::pout() << "volume moments " << endl;
-    m_volumeMoments.pout();
+    pout() << "irreg node" << endl;
+    pout() << "volume moments " << endl;
+    m_volumeMoments.spout();
   
-    ::pout() << "EB moments " << endl;
-    m_EBMoments.pout();
+    pout() << "EB moments " << endl;
+    m_EBMoments.spout();
   
     for(int iindex = 0; iindex <2*SpaceDim; iindex++)
       {
-        ::pout() << "face moments index " << iindex << endl;
-        m_faceMoments[iindex].pout();
+        pout() << "face moments index " << iindex << endl;
+        m_faceMoments[iindex].spout();
       }
   }
 

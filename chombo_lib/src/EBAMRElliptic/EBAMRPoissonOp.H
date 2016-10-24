@@ -708,6 +708,10 @@ EBAMRPoissonOp(const EBLevelGrid &                  a_eblgFine,
   void levelSlowRelax(LevelData<EBCellFAB>&       a_phi,
                       const LevelData<EBCellFAB>& a_rhs);
 
+  void levelJacobi(LevelData<EBCellFAB>&       a_phi,
+                   const LevelData<EBCellFAB>& a_rhs,
+                   int                         a_iterations);
+
   void levelMultiColorGS(LevelData<EBCellFAB>&       a_phi,
                          const LevelData<EBCellFAB>& a_rhs);
 

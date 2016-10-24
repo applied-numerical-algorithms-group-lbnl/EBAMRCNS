@@ -58,7 +58,7 @@ ifeq ($(cxxname),g++)
   # -Wno-unused-local-typedefs turns off a set of annoying "typedef locally 
   #defined but not used warnings in RefCountedPtr.H
 
-  _cxxbaseflags := -Wno-unused-but-set-variable -Wno-long-long -Wno-sign-compare -Wno-deprecated -ftemplate-depth-45  -Wno-unused-local-typedefs
+  _cxxbaseflags := -std=c++11 -Wno-unused-but-set-variable -Wno-long-long -Wno-sign-compare -Wno-deprecated -ftemplate-depth-55  -Wno-unused-local-typedefs
 
   # g++ v3.4.0 started objecting to some uses of HOFFSET()
   # TJL - Changed moving from csh to sh...

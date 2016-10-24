@@ -644,7 +644,7 @@ QuadCFInterp::getPhiStar(BaseFab<Real> & a_phistar,
       int ihilo = sign(a_hiorlo);
       Box phistarbox = interp_ivs.minBox();
       phistarbox.shift(a_idir, ihilo);
-      a_phistar.resize(phistarbox, ncomp);
+      a_phistar.define(phistarbox, ncomp);
       CH_STOP(tpreamble);
       for (int ivar = a_variables.begin(); ivar <= a_variables.end(); ivar++)
         {

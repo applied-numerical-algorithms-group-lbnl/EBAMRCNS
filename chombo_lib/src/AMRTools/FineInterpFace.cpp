@@ -208,7 +208,8 @@ FineInterpFace::interpGridData(BaseFab<Real>& a_fine,
   // hardwired to 6 due to lack of variable number of arguments in chfpp
   // this is designed to accomodate the Chombo max-dimension of 6
 #define MAXDIM 6
-  BaseFab<Real> slopes[MAXDIM];
+  BaseFab<Real> slopes[MAXDIM] ={{b,num_comp},{b,num_comp},{b,num_comp},{b,num_comp},
+	{b,num_comp},{b,num_comp}};
 
 
   // this is a trick to make domain face-centered while still
@@ -226,19 +227,8 @@ FineInterpFace::interpGridData(BaseFab<Real>& a_fine,
   domainFaceBox &= m_coarse_problem_domain;
   domainFaceBox.surroundingNodes(a_faceDir);
 
-  for (int dir = 0; dir < SpaceDim; ++dir)
-    {
-      BaseFab<Real>& dir_slope = slopes[dir];
-      dir_slope.resize(b, num_comp);
-    }
   // define the extras over a unit box in order to avoid issues with null
   // pointers and undefined FAB's
-  for (int dir=SpaceDim; dir<MAXDIM; dir++)
-    {
-      Box unitBox(IntVect::Zero, IntVect::Zero);
-      BaseFab<Real>& dir_slope = slopes[dir];
-      dir_slope.resize(unitBox, num_comp);
-    }
 
   for (int dir = 0; dir < SpaceDim; ++dir)
     {

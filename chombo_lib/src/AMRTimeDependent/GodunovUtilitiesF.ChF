@@ -912,7 +912,8 @@ c     in order from smallest to largest
 
       subroutine GETSECONDDIFF(
 !
-!     Returns second-order approximation to second derivative.
+!     Returns second-order approximation to second derivative,
+!     or first-order at boundary cells.
 !
      &     CHF_FRA[d2W],
      &     CHF_CONST_FRA[W],
@@ -941,29 +942,35 @@ c     in order from smallest to largest
             d2W(CHF_AUTOIX[i], iv) = dWR - dWL
          CHF_ENDDO
          if (hasLo .eq. 1) then
-!     Left-sided coefficients:
+!     For SECOND-order approx, left-sided coefficients:
 !     2, -5,  4, -1   which can be obtained from the sum of
 !     1, -2,  1       multiplied by 2, and
 !         1, -2,  1   multiplied by -1.
+!     Then:
+!              d2W(CHF_AUTOIX[i], iv) =
+!     &           two * d2W(CHF_OFFSETIX[i; +ioff], iv)
+!     &           - d2W(CHF_OFFSETIX[i; +2*ioff], iv)
+!     But this SECOND-order approx leads to bad artifacts.
+!     It is OK to drop 1 order at boundary with this FIRST-order approx.
             CHF_AUTOMULTIDO[loBox; i]
                d2W(CHF_AUTOIX[i], iv) =
-     &           two * d2W(CHF_OFFSETIX[i; +ioff], iv)
-     &           - d2W(CHF_OFFSETIX[i; +2*ioff], iv)
-!     This gives only FIRST-order approx to second derivative:
-!     &           d2W(CHF_OFFSETIX[i; +ioff], iv)
+     &           d2W(CHF_OFFSETIX[i; +ioff], iv)
             CHF_ENDDO
          endif
          if (hasHi .eq. 1) then
-!     Right-sided coefficients:
+!     For SECOND-order approx, right-sided coefficients:
 !     -1,  4, -5, 2   which can be obtained from the sum of
 !      1, -2,  1      multiplied by -1, and
 !          1, -2, 1   multiplied by 2.
+!     Then:
+!               d2W(CHF_AUTOIX[i], iv) =
+!     &           two * d2W(CHF_OFFSETIX[i; -ioff], iv)
+!     &           - d2W(CHF_OFFSETIX[i; -2*ioff], iv)
+!     But this SECOND-order approx leads to bad artifacts.
+!     It is OK to drop 1 order at boundary with this FIRST-order approx.
             CHF_AUTOMULTIDO[hiBox; i]
                d2W(CHF_AUTOIX[i], iv) =
-     &           two * d2W(CHF_OFFSETIX[i; -ioff], iv)
-     &           - d2W(CHF_OFFSETIX[i; -2*ioff], iv)
-!     This gives only FIRST-order approx to second derivative:
-!     &           d2W(CHF_OFFSETIX[i; -ioff], iv)
+     &           d2W(CHF_OFFSETIX[i; -ioff], iv)
             CHF_ENDDO
          endif
       enddo

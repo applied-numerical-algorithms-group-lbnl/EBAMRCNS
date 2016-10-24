@@ -640,6 +640,8 @@ EBISLevel* EBIndexSpace::buildNextLevel(const GeometryService & a_geoserver,
                                       this,
                                       m_distributedData,
                                       a_fixRegularNextToMultiValued);
+
+    delete leak;
   }
 
   return m_ebisLevel[ilev];

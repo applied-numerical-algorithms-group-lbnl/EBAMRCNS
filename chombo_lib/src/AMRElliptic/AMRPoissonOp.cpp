@@ -1329,7 +1329,7 @@ void AMRPoissonOp::looseGSRB(LevelData<FArrayBox>&       a_phi,
       {
 	// invoke physical BC's where necessary
 	{
-	  CH_TIME("AMRPoissonOp::looseGSRB::BCs");
+
 	  m_bc(a_phi[dit[ibox]], dbl[dit[ibox]], m_domain, m_dx, true);
 	}
 	
@@ -1379,9 +1379,8 @@ void AMRPoissonOp::looseGSRB(LevelData<FArrayBox>&       a_phi,
 void AMRPoissonOp::overlapGSRB(LevelData<FArrayBox>&       a_phi,
                                const LevelData<FArrayBox>& a_rhs)
 {
-  CH_TIMERS("AMRPoissonOp::overlapGSRB");
+  CH_TIME("AMRPoissonOp::overlapGSRB");
 
-  CH_TIMER("applyBC", tb);
 
   CH_assert(a_phi.isDefined());
   CH_assert(a_rhs.isDefined());
@@ -1405,9 +1404,7 @@ void AMRPoissonOp::overlapGSRB(LevelData<FArrayBox>&       a_phi,
     for(int ibox = 0; ibox < nbox; ibox++)
       {
 	// invoke physical BC's where necessary
-	CH_START(tb);
 	m_bc(a_phi[dit[ibox]], dbl[dit[ibox]], m_domain, m_dx, true);
-	CH_STOP(tb);
 	Box region = dbl[dit[ibox]];
 	region.grow(-1); // just do the interior on the first run through
 	int whichPass = 0;
@@ -1801,7 +1798,7 @@ void AMRPoissonOp::getFlux(FArrayBox&       a_flux,
   // if this fails, the data box was too small (one cell wide, in fact)
   CH_assert(!edgebox.isEmpty());
 
-  a_flux.resize(edgebox, a_data.nComp());
+  a_flux.define(edgebox, a_data.nComp());
 
   //FArrayBox fflux(edgebox, a_data.nComp());
   Real scale = m_beta * a_ref / m_dx;

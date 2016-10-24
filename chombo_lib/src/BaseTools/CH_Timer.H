@@ -48,7 +48,7 @@ using namespace std;
 #define CH_TIMERS(name)    (void)0
 #define CH_START(tpointer)  (void)0
 #define CH_STOP(tpointer)  (void)0
-#define CH_STOPV(tpointer, val) (void)0
+//#define CH_STOPV(tpointer, val) (void)0
 #define CH_TIMER_REPORT()  (void)0
 #define CH_TIMER_REPORTNAME(stream, name) (void)0
 #define CH_TIMER_RESET()   (void)0
@@ -62,30 +62,59 @@ extern std::fstream LBFILE;
 
 #define CH_TIMER(name, tpointer)                                        \
   const char* TimerTag_##tpointer = name ;                             \
-  CH_XD::TraceTimer* tpointer = CH_XD::TraceTimer::getTimer(TimerTag_##tpointer)
+  CH_XD::TraceTimer* tpointer = NULL ;\
+_Pragma("omp master");                                                  \
+    {                                                                       \
+      tpointer = CH_XD::TraceTimer::getTimer(TimerTag_##tpointer) ;            \
+    }
 
 #define CH_TIME(name)                                                   \
   const char* TimerTagA = name ;                                       \
   char CH_TimermutexA = 0;                                              \
-  CH_XD::TraceTimer* ch_tpointer = CH_XD::TraceTimer::getTimer(TimerTagA); \
+  CH_XD::TraceTimer* ch_tpointer = NULL;                                       \
+  _Pragma("omp master")                                                 \
+  {                                                                    \
+    ch_tpointer = CH_XD::TraceTimer::getTimer(TimerTagA);                     \
+  }                                                                    \
   CH_XD::AutoStart autostart(ch_tpointer, &CH_TimermutexA)
+
+#define CH_FLOPS(flops) \
+  if(ch_tpointer)ch_tpointer->addFlops(flops);
 
 #define CH_TIMELEAF(name)                                                   \
   const char* TimerTagA = name ;                                       \
-  CH_XD::TraceTimer* ch_tpointer = CH_XD::TraceTimer::getTimer(TimerTagA); \
+  CH_XD::TraceTimer* ch_tpointer = NULL; \
+  _Pragma("omp master")                                                 \
+  {                                                                    \
+    ch_tpointer = CH_XD::TraceTimer::getTimer(TimerTagA);                     \
+  }                                                                    \
   CH_XD::AutoStartLeaf autostart(ch_tpointer)
 
 #define CH_TIMERS(name)                                                   \
   const char* TimerTagA = name ;                                       \
   char CH_TimermutexA = 0;                                              \
   char CH_Timermutex = 0;                                               \
-  CH_XD::TraceTimer* ch_tpointer = CH_XD::TraceTimer::getTimer(TimerTagA); \
+  CH_XD::TraceTimer* ch_tpointer = NULL;                                       \
+  _Pragma("omp master")                                                 \
+  {                                                                    \
+    ch_tpointer = CH_XD::TraceTimer::getTimer(TimerTagA);                     \
+  }                                                                    \
   CH_XD::AutoStart autostart(ch_tpointer, &CH_TimermutexA, &CH_Timermutex)
 
-#define CH_START(tpointer) tpointer->start(&CH_Timermutex)
 
-#define CH_STOP(tpointer) tpointer->stop(&CH_Timermutex)
-#define CH_STOPV(tpointer, val ) val = tpointer->stop(&CH_Timermutex)
+#define CH_START(tpointer) \
+  _Pragma("omp master")    \
+  {                        \
+  tpointer->start(&CH_Timermutex); \
+  }
+
+#define CH_STOP(tpointer) \
+  _Pragma("omp master") \
+  {                     \
+  tpointer->stop(&CH_Timermutex); \
+   }
+
+//#define CH_STOPV(tpointer, val )
 
 #define CH_TIMER_REPORT() CH_XD::TraceTimer::report()
 
@@ -328,112 +357,17 @@ extern std::fstream LBFILE;
 
   };
 
-#ifdef _OPENMP
   class AutoStartLeaf
   {
   public:
     AutoStartLeaf(TraceTimer* a_timer):m_timer(a_timer)
     {
-      a_timer->leafStart();
+      if(a_timer)a_timer->leafStart();
     }
 
     ~AutoStartLeaf()
     {
-      if(onThread0())
-	{
-	  m_timer->leafStop();
-	}
-    }
-
-    bool active();
-
-  private:
-    TraceTimer* m_timer;
-  };
-
-  class AutoStart
-  {
-  public:
-    AutoStart(TraceTimer* a_timer, char* mutex, char* childMutex)
-    {
-      if(onThread0())
-	{
-	  m_mutex = mutex;
-	  m_childMutex = childMutex; 
-	  m_timer = a_timer;
-	  a_timer->start(mutex);
-	}
-    }
-    AutoStart(TraceTimer* a_timer, char* mutex)
-    {
-      if(onThread0())
-	{
-	  m_mutex = mutex;
-	  m_childMutex = &AutoStart::ok;
-	  m_timer = a_timer;
-	  a_timer->start(mutex);
-	}
-    }
-    
-    inline ~AutoStart();
-    bool active();
-  private:
-    char* m_mutex;
-    char* m_childMutex;
-    TraceTimer* m_timer;
-    static char ok;
-    
-  };
-
-inline
-AutoStart::~AutoStart()
-{
-  if(onThread0())
-    {
-#  ifndef NDEBUG
-      if (*m_childMutex == 1)
-	MayDay::Error("Child timer still running on function exit");
-#  endif
-      m_timer->stop(m_mutex);
-    }
-}
-
-
-inline void TraceTimer::leafStart()
-{
-  if(onThread0())
-    {
-      if (m_pruned) return;
-      ++m_count;
-      m_flopEnter=ch_flops();
-      m_last_WCtime_stamp = ch_ticks();
-    }
-}
-
-inline void TraceTimer::leafStop()
-{
-  if(onThread0())
-    {
-      if (m_pruned) return;
-      m_flops+=ch_flops()-m_flopEnter;
-      m_accumulated_WCtime +=  ch_ticks() - m_last_WCtime_stamp;
-      m_last_WCtime_stamp=0;
-    }
-}
-// Pruning options
-#else
-
-  class AutoStartLeaf
-  {
-  public:
-    AutoStartLeaf(TraceTimer* a_timer):m_timer(a_timer)
-    {
-      a_timer->leafStart();
-    }
-
-    ~AutoStartLeaf()
-    {
-      m_timer->leafStop();
+      if(m_timer)m_timer->leafStop();
     }
 
     bool active();
@@ -447,11 +381,13 @@ inline void TraceTimer::leafStop()
   public:
     AutoStart(TraceTimer* a_timer, char* mutex, char* childMutex)
       :m_mutex(mutex), m_childMutex(childMutex),m_timer(a_timer)
-    {a_timer->start(mutex);}
+    {if(a_timer)a_timer->start(mutex);}
     AutoStart(TraceTimer* a_timer, char* mutex)
       :m_mutex(mutex), m_childMutex(&AutoStart::ok),m_timer(a_timer)
-    {a_timer->start(mutex);}
-    inline ~AutoStart();
+    {if(a_timer)a_timer->start(mutex);}
+    ~AutoStart()
+    {  if(m_timer)m_timer->stop(m_mutex); }
+  
     bool active();
   private:
     char* m_mutex;
@@ -461,15 +397,7 @@ inline void TraceTimer::leafStop()
 
   };
 
-  inline
-  AutoStart::~AutoStart()
-  {
-#  ifndef NDEBUG
-    if (*m_childMutex == 1)
-      MayDay::Error("Child timer still running on function exit");
-#  endif
-    m_timer->stop(m_mutex);
-  }
+ 
 
 
 inline void TraceTimer::leafStart()
@@ -488,7 +416,7 @@ inline void TraceTimer::leafStop()
   m_last_WCtime_stamp=0;
 }
 // Pruning options
-#endif
+//#endif
 #endif // CH_NTIMER 
 #include "BaseNamespaceFooter.H"
 

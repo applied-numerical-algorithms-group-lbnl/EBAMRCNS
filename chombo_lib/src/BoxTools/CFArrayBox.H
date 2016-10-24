@@ -71,12 +71,12 @@ public:
      inititialized. a_ncomp is the number of components (variables) at each
      data point in the Box.
   */
-  virtual void define(const Box& a_box,
-                      int        a_ncomp,
-                      Complex*      a_alias = NULL)
-  {
-    resize(a_box, a_ncomp, a_alias);
-  }
+  // virtual void define(const Box& a_box,
+  //                      int        a_ncomp,
+  //                      Complex*      a_alias = NULL)
+  //  {
+  //   BaseFab<Complex>::resize(a_box, a_ncomp, a_alias);
+  // }
 
   ///
   /**

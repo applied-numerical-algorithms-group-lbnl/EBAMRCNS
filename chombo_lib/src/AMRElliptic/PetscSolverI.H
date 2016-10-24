@@ -287,12 +287,20 @@ int PetscSolver<T>::setup_solver( const T& a_phi )
 #else
 	strcat (str,"pc_gamg_square_graph true");
 #endif
+#if PETSC_VERSION_GE(3,7,0)
+	ierr = PetscOptionsInsertString(PETSC_NULL,str);CHKERRQ(ierr);
+#else
 	ierr = PetscOptionsInsertString(str);CHKERRQ(ierr);
+#endif
       }
 
       // create solvers
       PetscBool ism = PETSC_FALSE;
+#if PETSC_VERSION_GE(3,7,0)
+      PetscOptionsGetBool(PETSC_NULL,m_prestring,"-ksp_monitor",&ism,PETSC_NULL);
+#else 
       PetscOptionsGetBool(m_prestring,"-ksp_monitor",&ism,PETSC_NULL);
+#endif
       if ( m_function && !m_snes )
         {
           ierr = SNESCreate( wcomm, &m_snes );                                       CHKERRQ(ierr);
@@ -606,7 +614,12 @@ int PetscSolver<T>::solve_mfree_private( T& a_phi,
     }
   ierr = KSPSetFromOptions( ksp );CHKERRQ(ierr);
   PetscBool ism;
+#if PETSC_VERSION_GE(3,7,0)
+  PetscOptionsGetBool(PETSC_NULL,m_prestring,"-ksp_monitor",&ism,PETSC_NULL);
+#else
   PetscOptionsGetBool(m_prestring,"-ksp_monitor",&ism,PETSC_NULL);
+#endif
+  
   if (ism)
     {
       ierr = KSPMonitorSet(ksp,ksp_monitor_pout,PETSC_NULL,PETSC_NULL); CHKERRQ(ierr);
@@ -726,7 +739,7 @@ PetscErrorCode PetscSolver<T>::putChomboInPetsc( Vec out, const T& a_phi )
             {
               PetscScalar v = phiFab(iv,mm);
               v += addBCrhsValue(iv,a_phi,dit,idx2);
-              if (isnan(v)) v = 0;
+              if (std::isnan(v)) v = 0;
               ierr = VecSetValues(out,1,&ki,&v,INSERT_VALUES);
             }
         }

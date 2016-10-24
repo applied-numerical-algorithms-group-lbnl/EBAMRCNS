@@ -1506,7 +1506,7 @@ relaxGSRBFast(LevelData<EBCellFAB>&       a_phi,
           int hasLo[SpaceDim],hasHi[SpaceDim];
 
           {
-            CH_TIME("EBConductivityOp::levelGSRB::applyDomainFlux");
+ //           CH_TIME("EBConductivityOp::levelGSRB::applyDomainFlux");
             applyDomainFlux(loBox, hiBox, hasLo, hasHi,
                             dblBox, nComps, phiFAB,
                             true, dit[mybox]);
@@ -1521,13 +1521,13 @@ relaxGSRBFast(LevelData<EBCellFAB>&       a_phi,
       // pout() << "my thread " << id << endl;
       for (int redBlack =0; redBlack <= 1; redBlack++)
         {
-          CH_TIME("EBConductivityOp::levelGSRB::Compute");
+//          CH_TIME("EBConductivityOp::levelGSRB::Compute");
             
           a_phi.exchange();
             
           if (m_hasCoar)
             {
-              CH_TIME("EBConductivityOp::levelGSRB::homogeneousCFInterp");
+//              CH_TIME("EBConductivityOp::levelGSRB::homogeneousCFInterp");
               applyCFBCs(a_phi, NULL, true);
             }
           ibox = 0;

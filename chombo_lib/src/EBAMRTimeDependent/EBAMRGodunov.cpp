@@ -556,7 +556,7 @@ void EBAMRGodunov::tagCells(IntVectSet& a_tags)
           Interval intervDensity(densityIndex, densityIndex);
           EBCellFactory factory(m_ebisl);
           int nCons = m_ebPatchGodunov->numConserved();
-          LevelData<EBCellFAB> consTemp(m_grids, nCons, IntVect::Unit, factory);
+          LevelData<EBCellFAB> consTemp(m_grids, nCons, m_nGhost*IntVect::Unit, factory);
           Interval consInterv(0, nCons-1);
           m_stateNew.copyTo(consInterv, consTemp, consInterv);
           if (m_hasCoarser)

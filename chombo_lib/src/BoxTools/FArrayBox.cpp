@@ -30,6 +30,7 @@ using std::sqrt;
 #include "CH_Timer.H"
 #include "NamespaceHeader.H"
 
+
 FArrayBox::FArrayBox()
   :
   BaseFab<Real>()
@@ -45,8 +46,17 @@ FArrayBox::FArrayBox(const Box& a_box,
   // Note: All work is done in BaseFab<Real> constructor
 }
 
+FArrayBox::FArrayBox(const Box& a_box,
+                     int        a_n)
+  :
+  BaseFab<Real>(a_box,a_n)
+{
+
+}
+
 FArrayBox::~FArrayBox()
 {
+
 }
 
 Real FArrayBox::norm(const Box& a_subbox,
@@ -523,7 +533,7 @@ int FArrayBox::maskLT(BaseFab<int>& a_mask,
                       Real          a_val,
                       int           a_comp) const
 {
-  a_mask.resize(m_domain,1);
+  a_mask.define(m_domain,1);
   a_mask.setVal(0);
 
   int *mptr = a_mask.dataPtr();
@@ -551,7 +561,7 @@ int FArrayBox::maskLE(BaseFab<int>& a_mask,
                       Real          a_val,
                       int           a_comp) const
 {
-  a_mask.resize(m_domain,1);
+  a_mask.define(m_domain,1);
   a_mask.setVal(0);
 
   int *mptr = a_mask.dataPtr();
@@ -579,7 +589,7 @@ int FArrayBox::maskEQ(BaseFab<int>& a_mask,
                       Real          a_val,
                       int           a_comp) const
 {
-  a_mask.resize(m_domain,1);
+  a_mask.define(m_domain,1);
   a_mask.setVal(0);
 
   int *mptr = a_mask.dataPtr();
@@ -607,7 +617,7 @@ int FArrayBox::maskGT(BaseFab<int>& a_mask,
                       Real          a_val,
                       int           a_comp) const
 {
-  a_mask.resize(m_domain,1);
+  a_mask.define(m_domain,1);
   a_mask.setVal(0);
 
   int *mptr = a_mask.dataPtr();
@@ -636,7 +646,7 @@ int FArrayBox::maskGE(BaseFab<int>& a_mask,
                       Real          a_val,
                       int           a_comp) const
 {
-  a_mask.resize(m_domain,1);
+  a_mask.define(m_domain,1);
   a_mask.setVal(0);
 
   int *mptr = a_mask.dataPtr();

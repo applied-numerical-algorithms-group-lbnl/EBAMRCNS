@@ -575,7 +575,7 @@ Real LevelGodunov::computeUpdate(LevelData<FArrayBox>&       a_dU,
 	// The fluxes computed for this grid - used for refluxing and returning
 	// other face centered quantities
 	FluxBox flux;
-	flux.resize(curBox,m_numFluxes);
+	flux.define(curBox,m_numFluxes);
 	flux.setVal(0.0);
 
       // The current grid of conserved variables

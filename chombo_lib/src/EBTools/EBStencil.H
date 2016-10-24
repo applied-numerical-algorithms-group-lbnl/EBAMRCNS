@@ -121,8 +121,8 @@ public:
   void
   relax(EBCellFAB& a_phi,
         const EBCellFAB& a_rhs,
-        const BaseIVFAB<Real>& a_alphaDiagWeight,
-        const BaseIVFAB<Real>&  a_betaDiagWeight,
+        const BaseIVFAB<Real>& a_alphaWeight,
+        const BaseIVFAB<Real>&  a_betaWeight,
         Real a_alpha, Real a_beta, Real a_safety) const;
 
   ///

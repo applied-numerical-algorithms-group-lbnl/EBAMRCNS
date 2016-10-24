@@ -11,6 +11,8 @@
 
 #include "VCAggStencil.H"
 
+#include "NamespaceHeader.H"
+
 /**************/
 VCAggStencil::
 VCAggStencil(const Vector<RefCountedPtr<BaseIndex>   > & a_dstVoFs,
@@ -239,3 +241,4 @@ apply(EBCellFAB              & a_lph,
   ch_flops()+=m_ebstencil.size()*6;
 }
 
+#include "NamespaceFooter.H"

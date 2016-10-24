@@ -148,8 +148,6 @@ system := $(patsubst CYGWIN%,CYGWIN,$(system))
 
 # Apple Mac running Mac OS X
 ifeq ($(system),Darwin)
-  # stupid place to put a standard header file
-  cxxcppflags += -I/usr/include/malloc
   # didnt work when I tried it, so turn it off <dbs>
   USE_MT=FALSE
   # have to get at the system cpp directly because "g77 -E" doesn't work

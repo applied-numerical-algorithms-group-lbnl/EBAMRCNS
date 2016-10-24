@@ -863,8 +863,7 @@ void NWOViscousTensorOp::getFlux(FArrayBox&       a_flux,
   Real dx(a_dx);
 
   dx /= a_ref;
-  CH_assert(a_data.nComp() == SpaceDim);
-  //  a_flux.resize(a_faceBox, a_data.nComp());
+  a_flux.define(a_faceBox, a_data.nComp());
 
   //for some reason lost in the mists of time, this has to be
   //multiplied by beta

@@ -88,8 +88,12 @@ public:
               const int&        a_nvarin);
 
 
-
-
+  ///
+  void copy(const Box& a_fromBox,
+            const Interval& a_dstInterval,
+            const Box& a_toBox,
+            const MiniIVFAB<T>& a_src,
+            const Interval& a_srcInterval);
   ///
   int size(const Box& R, const Interval& comps) const ;
 

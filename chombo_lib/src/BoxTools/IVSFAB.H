@@ -49,12 +49,6 @@ public:
 
   ///
   /**
-  */
-  void define(const IntVectSet& a_region,
-              const int&        a_nvarin);
-
-  ///
-  /**
      Set a value at every data location.
   */
   void setVal(const T& value);
@@ -91,8 +85,9 @@ public:
      You must call {\bf define} again in order
      to use it.
   */
+private:
   void clear();
-
+public:
   ///
   /**
 

@@ -80,6 +80,36 @@ MiniIVFAB<T>::define(const IntVectSet& a_ivsin,
 }
 
 
+template <class T> inline
+void
+MiniIVFAB<T>::copy(const Box& a_fromBox,
+                   const Interval& a_dstInterval,
+                   const Box& a_toBox,
+                   const MiniIVFAB<T>& a_src,
+                   const Interval& a_srcInterval)
+{
+  T* to=NULL;
+  if(m_vofs.size()>0)
+  {
+    to = getIndex(m_vofs[0],a_dstInterval.begin());
+  }
+  for(unsigned int i=0; i<m_vofs.size(); i++, to++)
+    {
+      const VolIndex& vof = m_vofs[i];
+      if(a_fromBox.contains(vof.gridIndex()))
+        {
+          const T* from= a_src.getIndex(vof,a_srcInterval.begin());
+          //T* to  = getIndex(vof,a_dstInterval.begin());
+          for(unsigned int c=0; c<a_srcInterval.size(); c++)
+            {
+              to[c*this->m_nVoFs]=from[c*a_src.m_nVoFs];
+            }
+        }
+    }
+}
+
+  
+  ///
 /******************/
 template <class T> inline
 int MiniIVFAB<T>::size(const Box& a_region,
@@ -89,7 +119,7 @@ int MiniIVFAB<T>::size(const Box& a_region,
   int count = 0;
   T tmp;
   //create set of cells in fab that are also in the input region
-  for (int i=0; i<m_vofs.size(); i++)
+  for (unsigned int i=0; i<m_vofs.size(); i++)
     {
       if (a_region.contains(m_vofs[i].gridIndex())) count++;
     }
@@ -112,7 +142,7 @@ void MiniIVFAB<T>::linearOut(void* a_buf,
   if (m_vofs.size()>0)
     {
       const T* ptr = &(this->m_data[0]);
-      for (int i=0; i<m_vofs.size(); i++, ptr++)
+      for (unsigned int i=0; i<m_vofs.size(); i++, ptr++)
         {
           const VolIndex& v = m_vofs[i];
           if (a_region.contains(v.gridIndex()))
@@ -163,7 +193,7 @@ MiniIVFAB<T>::getIndex(const VolIndex& a_vof, const int& a_comp) const
   CH_assert((a_comp >= 0) && (a_comp < this->m_nComp));
 
   T* dataPtr =  (T*)&(this->m_data[0]);
-  for (int i=0; i<m_vofs.size(); ++i)
+  for (unsigned int i=0; i<m_vofs.size(); ++i)
     {
       if (a_vof == m_vofs[i]) break;
       dataPtr++;

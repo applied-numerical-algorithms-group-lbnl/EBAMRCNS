@@ -1822,6 +1822,9 @@ void AMR::writeCheckpointFile() const
       pout() << "checkpoint file name = " << iter_str << endl;
     }
 
+#ifdef CH_MPI
+  MPI_Barrier(Chombo_MPI::comm);
+#endif
   HDF5Handle handle;
   {
     CH_TIME("AMR::writeCheckpointFile.openFile");
@@ -1865,6 +1868,10 @@ void AMR::writeCheckpointFile() const
     {
       m_amrlevels[level]->writeCheckpointLevel(handle);
     }
+
+#ifdef CH_MPI
+  MPI_Barrier(Chombo_MPI::comm);
+#endif
   {
     CH_TIME("AMR::closeCheckpoint");
     handle.close();

@@ -1885,7 +1885,11 @@ relax(LevelData<EBCellFAB>&       a_e,
   CH_assert(a_e.nComp() == 1);
   CH_assert(a_residual.nComp() == 1);
 
-  if (m_relaxType == 1)
+  if (m_relaxType == 0)
+    {
+      levelJacobi(a_e,a_residual,a_iterations);
+    }
+  else  if (m_relaxType == 1)
     {
       for (int i = 0; i < a_iterations; i++)
         {
@@ -2072,9 +2076,9 @@ applyHomogeneousCFBCs(EBCellFAB&            a_phi,
   CH_assert((a_hiorlo == Side::Lo )||(a_hiorlo == Side::Hi ));
   CH_assert(a_phi.nComp() == 1);
   int ivar = 0;
-
+      
   const CFIVS* cfivsPtr = NULL;
-
+      
   if (a_hiorlo == Side::Lo)
     {
       cfivsPtr = &m_loCFIVS[a_idir][a_datInd];
@@ -2083,7 +2087,7 @@ applyHomogeneousCFBCs(EBCellFAB&            a_phi,
     {
       cfivsPtr = &m_hiCFIVS[a_idir][a_datInd];
     }
-
+      
   const IntVectSet& interpIVS = cfivsPtr->getFineIVS();
   if (cfivsPtr->isPacked() )
     {
@@ -2095,7 +2099,7 @@ applyHomogeneousCFBCs(EBCellFAB&            a_phi,
                       CHF_CONST_REAL(m_dxCoar[a_idir]),
                       CHF_CONST_INT(a_idir),
                       CHF_CONST_INT(ihiorlo));
-
+          
       CH_STOP(t1);
     }
   else
@@ -2110,17 +2114,17 @@ applyHomogeneousCFBCs(EBCellFAB&            a_phi,
           Real xf = halfdxcoar + 3*halfdxfine;
           Real hf = m_dx[a_idir];
           Real denom = xf*xc*hf;
-
+              
           const EBISBox&  ebisBox = m_eblg.getEBISL()[a_datInd];
           const EBGraph&  ebgraph = m_eblg.getEBISL()[a_datInd].getEBGraph();
           for (VoFIterator vofit(interpIVS, ebgraph); vofit.ok(); ++vofit)
             {
               const VolIndex& VoFGhost = vofit();
-
+                  
               IntVect ivGhost  = VoFGhost.gridIndex();
               IntVect ivClose =  ivGhost;
               IntVect ivFar   =  ivGhost;
-
+                  
               Vector<VolIndex> farVoFs;
               Vector<VolIndex> closeVoFs = ebisBox.getVoFs(VoFGhost,
                                                            a_idir,
@@ -2139,7 +2143,7 @@ applyHomogeneousCFBCs(EBCellFAB&            a_phi,
                       phic += a_phi(vofClose,0);
                     }
                   phic /= Real(numClose);
-
+                      
                   farVoFs = ebisBox.getVoFs(VoFGhost,
                                             a_idir,
                                             flip(a_hiorlo),
@@ -2156,14 +2160,14 @@ applyHomogeneousCFBCs(EBCellFAB&            a_phi,
                       phif /= Real(numFar);
                     }
                 }
-
+                  
               Real phiGhost;
               if (hasClose && hasFar)
                 {
                   // quadratic interpolation  phi = ax^2 + bx + c
                   Real A = (phif*xc - phic*xf)/denom;
                   Real B = (phic*hf*xf - phif*xc*xc + phic*xf*xc)/denom;
-
+                      
                   phiGhost = A*xg*xg + B*xg;
                 }
               else if (hasClose)
@@ -3084,6 +3088,57 @@ AMRUpdateResidual(LevelData<EBCellFAB>&       a_residual,
   incr(a_residual, lcorr, -1);
 }
 
+void EBAMRPoissonOp::
+levelJacobi(LevelData<EBCellFAB>&       a_phi,
+            const LevelData<EBCellFAB>& a_rhs,
+            int                         a_iterations)
+{
+  CH_TIME("EBAMRPoissonOp::levelJacobi");
+
+  CH_assert(a_phi.nComp() == 1);
+  CH_assert(a_rhs.nComp() == 1);
+
+  LevelData<EBCellFAB> relCoef;
+  Real safety = 0.5;
+  create(relCoef, a_rhs);
+  const DisjointBoxLayout& dbl = a_phi.disjointBoxLayout();
+  Real weight = m_alpha;
+  for (int idir = 0; idir < SpaceDim; idir++)
+    {
+      weight += -2.0 * m_beta * m_invDx2[idir];
+    }
+  for (DataIterator dit = dbl.dataIterator(); dit.ok(); ++dit)
+    {
+      //set relaxation coeff to the regular value and fix
+      // it up at irregular cells
+      relCoef[dit()].setVal(safety/weight);
+    }
+
+  LevelData<EBCellFAB> lphi;
+  create(lphi, a_rhs);
+  for (int whichIter =0; whichIter < a_iterations; whichIter++)
+    {
+      applyHomogeneousCFBCs(a_phi);
+
+      //after this lphi = L(phi)
+      //this call contains bcs and exchange
+      applyOp(  lphi,  a_phi, true);
+
+      DataIterator dit = m_eblg.getDBL().dataIterator(); 
+      int nbox = dit.size();
+#pragma omp parallel for
+      for(int mybox=0; mybox<nbox; mybox++)
+        {
+
+          lphi[dit[mybox]] -=     a_rhs[dit[mybox]];
+          lphi[dit[mybox]] *= relCoef[dit[mybox]];
+          //this is a safety factor because pt jacobi needs a smaller
+          //relaxation param
+          lphi[dit[mybox]] *= -0.5;
+          a_phi[dit[mybox]] += lphi[dit[mybox]];
+        }
+    }
+}
 void EBAMRPoissonOp::
 levelMultiColorGS(LevelData<EBCellFAB>&       a_phi,
                   const LevelData<EBCellFAB>& a_rhs)

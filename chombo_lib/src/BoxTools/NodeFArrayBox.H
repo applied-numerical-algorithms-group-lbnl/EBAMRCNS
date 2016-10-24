@@ -161,8 +161,9 @@ public:
      components.  If a_alias is not NULL, it is used as the data memory
      (and is assumed to be large enough).
   */
+  /*
   void resize(const Box& a_bx, int a_nComp=1, Real* a_alias=NULL);
-
+  */
   /*@}*/
 
   /**

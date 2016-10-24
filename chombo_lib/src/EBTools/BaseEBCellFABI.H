@@ -24,6 +24,7 @@ BaseEBCellFAB<T>::setCoveredCellVal(const T&    a_val,
                                     const int&  a_comp,
                                     const bool& a_doMulti)
 {
+  CH_TIME("BaseEBCellFAB::setCoveredCellVal");
   CH_assert(a_comp >= 0);
   CH_assert(a_comp < m_nComp);
 
@@ -149,6 +150,7 @@ template <class T>
 int
 BaseEBCellFAB<T>::size(const Box& R, const Interval& comps) const
 {
+  CH_TIME("BaseEBCellFAB::size");
   int retval =  m_regFAB.size(R, comps);
   retval += m_irrFAB.size(R, comps);
   return retval;
@@ -160,6 +162,7 @@ void
 BaseEBCellFAB<T>::linearOut(void* buf, const Box& R, const Interval& comps)
   const
 {
+  CH_TIME("BaseEBCellFAB::linearOut");
   unsigned char* buffer = (unsigned char*)buf;
   m_regFAB.linearOut(buffer, R, comps);
   buffer+= m_regFAB.size(R, comps);
@@ -171,6 +174,7 @@ template <class T>
 void
 BaseEBCellFAB<T>::linearIn(void* buf, const Box& R, const Interval& comps)
 {
+  CH_TIME("BaseEBCellFAB::linearIn");
   unsigned char* buffer = (unsigned char*)buf;
   m_regFAB.linearIn(buffer, R, comps);
   buffer+= m_regFAB.size(R, comps);
@@ -212,6 +216,7 @@ void
 BaseEBCellFAB<T>::define(const EBISBox& a_ebisBox,
                          const Box& a_region, int a_nVar)
 {
+  CH_TIME("BaseEBCellFAB::define");
   clear();
   m_isDefined = true;
   CH_assert(a_region.cellCentered());
@@ -465,6 +470,7 @@ template <class T>
 void
 BaseEBCellFAB<T>::fill(T* array, const VolIndex& a_ndin, const Interval& a_comps) const
 {
+  CH_TIME("BaseEBCellFAB::fill");
   CH_assert(isDefined());
   CH_assert(m_region.contains(a_ndin.gridIndex()));
   CH_assert(!m_ebisBox.isCovered(a_ndin.gridIndex()));
@@ -497,6 +503,7 @@ BaseEBCellFAB<T>::assign(const T* array,
                          const VolIndex& a_ndin,
                          const Interval& a_comps)
 {
+  CH_TIME("BaseEBCellFAB::assign");
   CH_assert(isDefined());
   CH_assert(m_region.contains(a_ndin.gridIndex()));
   CH_assert(!m_ebisBox.isCovered(a_ndin.gridIndex()));

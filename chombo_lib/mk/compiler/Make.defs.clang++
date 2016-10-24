@@ -15,8 +15,17 @@
 
 makefiles+=local/Make.defs.clang++
 
-defcxxdbgflags = -g -Wall -Wno-overloaded-virtual
-defcxxoptflags = -O3 -march=native 
+defcxxdbgflags = -std=c++11 -g -Wall -Wno-overloaded-virtual -Wno-sign-compare
+defcxxoptflags = -std=c++11 -O3 -march=native  -Wno-sign-compare
+
+ifeq ($(OPENMPCC),TRUE)
+  defcxxdbgflags+= -fopenmp
+  defcxxoptflags+= -fopenmp
+else
+  defcxxdbgflags+= -Wno-unknown-pragmas
+  defcxxoptflags+= -Wno-unknown-pragmas
+endif
+
 
 CH_CPP = cpp -E -P -C 
 
