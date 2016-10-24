@@ -307,9 +307,20 @@ private:
   // that only change their size during grow() operations.  Keep them
   // around so that we don't have to create and destroy them on every function
   // call
-  static std::vector<int> index, bufferOffset;
-  static std::vector<TreeNode*> parents;
-  static std::vector<Box> boxes;
+//  static Vector<int> index, otherIndex;
+//  static Vector<TreeNode*> parents, P1;
+//  static Vector<const TreeNode*> otherParents, P2;
+//  static Vector<Box> boxes, otherBoxes;
+  static int index[24], otherIndex[24];
+  static TreeNode* parents[24];
+  static TreeNode*  P1[24];
+  static const TreeNode* otherParents[24];
+  static const TreeNode* P2[24];
+  static Box boxes[24], otherBoxes[24];
+#pragma omp threadprivate(boxes,otherBoxes)
+#pragma omp threadprivate(parents,otherParents,P1,P2)
+#pragma omp threadprivate(index, otherIndex)
+
 
   // xlC wasn't like this
   // so instead of a nice const static integer, we have a MACRO TIVS_NODESIZE
@@ -368,7 +379,7 @@ inline
 void TreeIntVectSetIterator::define(const TreeIntVectSet& ivs)
 {
   m_ivs = &ivs;
-  int max = ivs.index.size();
+  int max = 24;
   //  if (max==10) printf("max=10 \n");
   if (boxes.size() < max)
     {

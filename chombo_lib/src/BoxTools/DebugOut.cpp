@@ -205,7 +205,7 @@ void dumpFAB2DSlicePretty(const FArrayBox *const a_fabPtr,
   a_out.precision(oldPrec);
 }
 
-void dumpMaxMinLDF(const LevelData<FArrayBox>* a_ldfabPtr)
+void dumpMaxMin(const LevelData<FArrayBox>* a_ldfabPtr)
 {
   for (int icomp = 0; icomp < a_ldfabPtr->nComp(); icomp++)
     {
@@ -218,24 +218,6 @@ void dumpMaxMinLDF(const LevelData<FArrayBox>* a_ldfabPtr)
           glomax = Max(glomax, locmax);
           glomin = Min(glomin, locmin);
         }
-      pout() << setprecision(4) 
-             << setiosflags(ios::showpoint) 
-             << setiosflags(ios::scientific)
-             << "for component " << icomp 
-             << ", max = " << glomax 
-             << ", min = " << glomin << endl;
-    }
-}
-void dumpMaxMinFAB(const FArrayBox* a_ldfabPtr)
-{
-  for (int icomp = 0; icomp < a_ldfabPtr->nComp(); icomp++)
-    {
-      Real glomax = -1.0e20;
-      Real glomin = 1.0e20;
-      Real locmax = (*a_ldfabPtr).max(icomp);
-      Real locmin = (*a_ldfabPtr).min(icomp);
-      glomax = Max(glomax, locmax);
-      glomin = Min(glomin, locmin);
       pout() << setprecision(4) 
              << setiosflags(ios::showpoint) 
              << setiosflags(ios::scientific)
@@ -297,27 +279,6 @@ void dumpLDFLoc(const LevelData<FArrayBox>* a_ldfabPtr)
   for (dit.reset(); dit.ok(); ++dit)
   {
     const FArrayBox& fab = locLDF[dit()];
-    BoxIterator bit(fab.box());
-    for (bit.reset(); bit.ok(); ++bit)
-    {
-      pout() << "\t" << bit() ;
-      for (int ivar = 0; ivar < fab.nComp(); ivar++)
-        {
-          pout() << "\t" << fab(bit(),ivar);
-        }
-      pout() << endl;
-    }
-  }
-}
-void dumpLevelBFI(const LevelData<BaseFab<int> >* a_ldfabPtr)
-{
-  const LevelData<BaseFab<int> >& locLDF = *a_ldfabPtr;
-
-  DataIterator dit = locLDF.dataIterator();
-
-  for (dit.reset(); dit.ok(); ++dit)
-  {
-    const BaseFab<int>& fab = locLDF[dit()];
     BoxIterator bit(fab.box());
     for (bit.reset(); bit.ok(); ++bit)
     {

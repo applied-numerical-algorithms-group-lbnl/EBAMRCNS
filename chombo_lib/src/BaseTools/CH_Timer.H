@@ -328,8 +328,7 @@ extern std::fstream LBFILE;
 
   };
 
-/*
-//#ifdef _OPENMP
+#ifdef _OPENMP
   class AutoStartLeaf
   {
   public:
@@ -423,7 +422,7 @@ inline void TraceTimer::leafStop()
 }
 // Pruning options
 #else
-*/
+
   class AutoStartLeaf
   {
   public:
@@ -489,7 +488,7 @@ inline void TraceTimer::leafStop()
   m_last_WCtime_stamp=0;
 }
 // Pruning options
-//#endif
+#endif
 #endif // CH_NTIMER 
 #include "BaseNamespaceFooter.H"
 

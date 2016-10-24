@@ -119,6 +119,77 @@ writeEBHDF5(const string& a_filename,
             const bool& a_replaceCovered,
             const Vector<Real>& a_coveredValues,
             IntVect a_ghostVect= IntVect::Zero);
+
+//non-uniform mesh spacing
+void
+writeEBHDF5(const string& filename,
+            const Vector<DisjointBoxLayout>& a_vectGrids,
+            const Vector<LevelData<EBCellFAB>* > & a_vectData,
+            const Vector<string>& a_vectNames,
+            const ProblemDomain& a_domain,
+            const RealVect& a_vectDx,
+            const Real& a_dt,
+            const Real& a_time,
+            const Vector<IntVect>& a_vectRatios,
+            const int& a_numLevels,
+            const bool& a_replaceCovered,
+            const Vector<Real>& a_coveredValues,
+            IntVect a_ghostVect= IntVect::Zero);
+
+/**
+    Two phases (each a Vector<LevelData<EBCellFAB>>) : most general case.
+*/
+void
+writeEBHDF5(const string& filename,
+            const Vector<DisjointBoxLayout>& a_vectGrids,
+            const Vector<LevelData<EBCellFAB>* > * a_phase1,
+            const Vector<LevelData<EBCellFAB>* > * a_phase2,
+            const Vector<LevelData<FArrayBox>* > * a_levelSet,
+            const Vector<string>& a_vectNames,
+            const ProblemDomain& a_domain,
+            const RealVect& a_vectDx,
+            const Real& a_dt,
+            const Real& a_time,
+            const Vector<IntVect>& a_vectRatios,
+            const int& a_numLevels,
+            const bool& a_replaceCovered,
+            const Vector<Real>& a_coveredValues,
+            IntVect a_ghostVect= IntVect::Zero);
+
+///
+/**
+    Write a single LevelData<EBCellFAB>.
+ */
+void
+writeEBHDF5(const string& a_filename,
+            const DisjointBoxLayout& a_grids,
+            const LevelData<EBCellFAB>& a_data,
+            const Vector<string>& a_vectNames,
+            const ProblemDomain& a_domain,
+            const RealVect& a_vectDx,
+            const Real& a_dt,
+            const Real& a_time,
+            const bool& a_replaceCovered,
+            const Vector<Real>& a_coveredValues,
+            IntVect a_ghostVect= IntVect::Zero);
+///
+/**
+    Write a single EBCellFAB.
+ */
+void
+writeEBHDF5(const string& a_filename,
+            const Box& a_grid,
+            const EBCellFAB& a_data,
+            const Vector<string>& a_vectNames,
+            const ProblemDomain& a_domain,
+            const RealVect& a_vectDx,
+            const Real& a_dt,
+            const Real& a_time,
+            const bool& a_replaceCovered,
+            const Vector<Real>& a_coveredValues,
+            IntVect a_ghostVect= IntVect::Zero);
+
+
 ///
 /** Writes a plotfile using the same format as writeEBHDF5, but
     for a EBCellFAB.  This is useful for debugging.  *a_dataPtr is written

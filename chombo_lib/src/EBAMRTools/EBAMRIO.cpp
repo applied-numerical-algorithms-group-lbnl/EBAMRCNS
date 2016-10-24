@@ -346,7 +346,7 @@ writeEBHDF5(const string& a_filename,
                       currentFab(iv,indexDist) = -dist;
                     }
                 }
-            }
+	    }
           if (a_phase2 != NULL)
             {
               const LevelData<EBCellFAB>& ebcfData2 = *(*a_phase2)[ilev];
@@ -2168,5 +2168,448 @@ Real getCoveredCellValue()
 {
   return g_whichCellIndex;
 }
+
+//adding non-uniform mesh spacing output
+
+void
+writeEBHDF5(const string& a_filename,
+            const Vector<DisjointBoxLayout>& a_vectGrids,
+            const Vector<LevelData<EBCellFAB>* > & a_vectData,
+            const Vector<string>& a_vectNames,
+            const ProblemDomain& a_domain,
+            const RealVect& a_vectDx,
+            const Real& a_dt,
+            const Real& a_time,
+            const Vector<IntVect>& a_vectRatios,
+            const int& a_numLevels,
+            const bool& a_replaceCovered,
+            const Vector<Real>& a_coveredValues,
+            IntVect a_ghostVect)
+{
+  writeEBHDF5(a_filename, a_vectGrids, &a_vectData, NULL, NULL,
+              a_vectNames, a_domain, a_vectDx,  a_dt,  a_time,
+              a_vectRatios, a_numLevels,a_replaceCovered,  a_coveredValues,
+              a_ghostVect);
+}
+
+
+void
+writeEBHDF5(const string& a_filename,
+            const Vector<DisjointBoxLayout>& a_vectGrids,
+            const Vector<LevelData<EBCellFAB>* > * a_phase1,
+            const Vector<LevelData<EBCellFAB>* > * a_phase2,
+            const Vector<LevelData<FArrayBox>* > * a_levelset,
+            const Vector<string>& a_vectNames,
+            const ProblemDomain& a_domain,
+            const RealVect& a_vectDx,
+            const Real& a_dt,
+            const Real& a_time,
+            const Vector<IntVect>& a_vectRatios,
+            const int& a_numLevels,
+            const bool& a_replaceCovered,
+            const Vector<Real>& a_coveredValues,
+            IntVect a_ghostVect)
+{
+  CH_TIME("EBAMRIO::writeEBHDF5");
+  CH_assert(a_numLevels > 0);
+  CH_assert(a_phase1->size() >= a_numLevels);
+  CH_assert(a_vectRatios.size() >= a_numLevels-1);
+
+  IntVect ghostIV = a_ghostVect;
+  Vector<LevelData<FArrayBox>* > chomboData(a_numLevels, NULL);
+
+  int ncomp = (*(*a_phase1)[0]).nComp();
+  int ncomp2 = 0;
+
+  int nnames = a_vectNames.size();
+
+  RealVect vectDx = a_vectDx;
+
+  int indexVolFrac = ncomp;
+
+  if (a_phase2 != NULL)
+  {
+    ncomp2 = (*(*a_phase2)[0]).nComp();
+  }
+
+  indexVolFrac += ncomp2;
+  int indexBoundaryArea = indexVolFrac+1;
+  int indexAreaFrac = indexBoundaryArea+1;
+  int indexNormal = indexAreaFrac+2*SpaceDim;
+  int indexDist = indexNormal+SpaceDim;
+  int indexLevelSet = indexDist;// + 1;
+
+  int ncompTotal = indexDist;// + 1;
+
+  if (a_phase2 != NULL)
+  {
+    ncompTotal = indexLevelSet+1;
+  }
+
+
+  CH_assert(nnames >= ncomp);
+
+  Vector<string> names(ncompTotal);
+
+  for (int i = 0; i < a_vectNames.size(); i++)
+    {
+      names[i] = a_vectNames[i];
+    }
+
+  string volFracName("fraction-0");
+  string boundaryAreaName("boundaryArea-0");
+
+  Vector<string> areaName(6);
+  areaName[0] = "xAreafractionLo-0";
+  areaName[1] = "xAreafractionHi-0";
+  areaName[2] = "yAreafractionLo-0";
+  areaName[3] = "yAreafractionHi-0";
+  areaName[4] = "zAreafractionLo-0";
+  areaName[5] = "zAreafractionHi-0";
+
+  Vector<string> normName(3);
+  normName[0] = "xnormal-0";
+  normName[1] = "ynormal-0";
+  normName[2] = "znormal-0";
+
+//needs some changes for non-uniform mesh sizes - switching off for now
+//  string distName("distance-0");
+
+  names[indexVolFrac] = volFracName;
+  names[indexBoundaryArea] = boundaryAreaName;
+
+  for (int i = 0; i < 2*SpaceDim; i++)
+    {
+      names[indexAreaFrac+i] = areaName[i];
+    }
+
+  for (int i = 0; i < SpaceDim; i++)
+    {
+      names[indexNormal+i] = normName[i];
+    }
+
+//  names[indexDist] = distName;
+
+  if (a_phase2 != NULL)
+    {
+      names[indexLevelSet] = "LevelSet";
+
+    }
+
+  // set things up for each level
+  for (int ilev = 0; ilev < a_numLevels; ilev++)
+    {
+      const DisjointBoxLayout& grids = a_vectGrids[ilev];
+      const LevelData<EBCellFAB>& ebcfData1 = *(*a_phase1)[ilev];
+
+
+
+      if (a_replaceCovered)
+        {
+          CH_assert(a_coveredValues.size() == ncomp);
+        }
+
+      //copy data into something writeAMRHierarchy can grok
+      chomboData[ilev] =
+        new LevelData<FArrayBox>(grids, ncompTotal, ghostIV);
+      LevelData<FArrayBox>& fabData = *chomboData[ilev];
+
+      int ibox = 0;
+      // go through all the grids on this level
+      for (DataIterator dit = grids.dataIterator(); dit.ok(); ++dit)
+        {
+          //const EBCellFAB& ebcellfab1 = ebcfData1[dit()];
+          const EBCellFAB& ebcf = ebcfData1[dit()];
+          EBISBox ebisBox1 = ebcf.getEBISBox();
+          EBCellFAB ebcellfab1(ebisBox1, ebcf.getRegion(), ebcf.nComp());
+          ebcellfab1.copy(ebcf);
+
+          for (int icomp = 0; icomp < ebcellfab1.nComp(); icomp++)
+            {
+              ebcellfab1.setInvalidData(0.0, icomp);
+            }
+          const EBISBox& ebisbox = ebcellfab1.getEBISBox();
+          FArrayBox& currentFab = fabData[dit()];
+          currentFab.setVal(0.);
+          // copy regular data
+          currentFab.copy(ebcellfab1.getSingleValuedFAB(),0,0,ncomp);
+
+          // copy the multicell data
+          {
+            IntVectSet ivsMulti = ebisBox1.getMultiCells(currentFab.box());
+
+            for (VoFIterator vofit(ivsMulti, ebisBox1.getEBGraph()); vofit.ok(); ++vofit)
+              {
+                if (vofit().cellIndex() == g_whichCellIndex)
+                  {
+                    IntVect iv = vofit().gridIndex();
+                    for (int ivar = 0; ivar < ncomp; ++ivar)
+                      {
+                        currentFab(iv,ivar) = ebcellfab1(vofit(),ivar);
+                      }
+                  }
+              }
+          }
+
+          // set default volume fraction
+          currentFab.setVal(1.0,indexVolFrac);
+
+          // set default boundary area
+          currentFab.setVal(0.0,indexBoundaryArea);
+
+          // set default area fractions
+          for (int i = 0; i < 2*SpaceDim; i++)
+            {
+              currentFab.setVal(1.0,indexAreaFrac+i);
+            }
+
+          // set default normal
+          for (int i = 0; i < SpaceDim; i++)
+            {
+              currentFab.setVal(0.0,indexNormal+i);
+            }
+
+          // set default distance of EB from corner
+//          currentFab.setVal(0.0,indexDist);
+
+          // set special values
+          // iterate through the current grid
+          // NOTE:  this is probably an inefficient way to do this!
+          //can be diff than ebcellfab because of ghost
+          //Box bregion = ebcellfab.getRegion();
+          Box bregion = currentFab.box();
+          bregion &= ebisbox.getDomain();
+          for (BoxIterator bit(bregion); bit.ok(); ++bit)
+            {
+              const IntVect& iv = bit();
+
+              // set special values for covered cells
+              if (ebisbox.isCovered(iv))
+                {
+                  // replace regular data if flagged
+                  if (a_replaceCovered)
+                    {
+                      for (int icomp = 0; icomp < ncomp; icomp++)
+                        {
+                          Real cval = a_coveredValues[icomp];
+
+                          currentFab(iv,icomp) = cval;
+                        }
+                    }
+
+                  // volume fraction is zero
+                  currentFab(iv,indexVolFrac) = 0.0;
+
+                  // boundary area is zero
+                  currentFab(iv,indexBoundaryArea) = 0.0;
+
+                  // area fractions are zero
+                  for (int i = 0; i < 2*SpaceDim; i++)
+                    {
+                      currentFab(iv,indexAreaFrac+i) = 0.0;
+                    }
+                }
+
+              // set special values for irregular cells
+              if (ebisbox.isIrregular(iv))
+                {
+                  Vector<VolIndex> vofs = ebisbox.getVoFs(iv);
+
+                  //it is the last vof that ends up in the data
+                  //we put the corresponding volfrac with it
+                  //
+                  const VolIndex& vofSpec = vofs[vofs.size()-1];
+                  Real volFrac = ebisbox.volFrac(vofSpec);
+                  RealVect normal = ebisbox.normal(vofSpec);
+                  Real bndryArea = ebisbox.bndryArea(vofSpec);
+
+                  if (bndryArea == 0.0)
+                    {
+                      if (volFrac > 0.5)
+                        {
+                          volFrac = 1.0;
+                        }
+                      else
+                        {
+                          volFrac = 0.0;
+                        }
+
+                      normal = RealVect::Zero;
+                    }
+
+                  // set volume fraction
+                  currentFab(iv,indexVolFrac) = volFrac;
+
+                  // set boundary area
+                  currentFab(iv,indexBoundaryArea) = bndryArea;
+
+                  // set area fractions
+                  for (int i = 0; i < SpaceDim; i++)
+                    {
+                      Vector<FaceIndex> faces;
+
+                      faces = ebisbox.getFaces(vofSpec,i,Side::Lo);
+                      if (faces.size() == 0)
+                        {
+                          currentFab(iv,indexAreaFrac+2*i) = 0.0;
+                        }
+                      else
+                        {
+                          currentFab(iv,indexAreaFrac+2*i) = ebisbox.areaFrac(faces[0]);
+                        }
+
+                      faces = ebisbox.getFaces(vofSpec,i,Side::Hi);
+                      if (faces.size() == 0)
+                        {
+                          currentFab(iv,indexAreaFrac+2*i+1) = 0.0;
+                        }
+                      else
+                        {
+                          currentFab(iv,indexAreaFrac+2*i+1) = ebisbox.areaFrac(faces[0]);
+                        }
+                    }
+
+                  // set normal
+                  for (int i = 0; i < SpaceDim; i++)
+                    {
+                      currentFab(iv,indexNormal+i) = normal[i];
+                    }
+
+                  // set distance unless the length of the normal is zero
+                  // Real length = PolyGeom::dot(normal,normal);
+
+                  // if (length > 0)
+                  //   {
+                  //     Real dist = PolyGeom::computeAlpha(volFrac,normal) * dx;
+                  //     currentFab(iv,indexDist) = -dist;
+                  //   }
+                }
+	    }
+          if (a_phase2 != NULL)
+            {
+              const LevelData<EBCellFAB>& ebcfData2 = *(*a_phase2)[ilev];
+              const EBCellFAB& ebcellfab2 = ebcfData2[dit()];
+              const EBISBox& ebisbox2 = ebcellfab2.getEBISBox();
+              const LevelData<FArrayBox>& lls = *(*a_levelset)[ilev];
+              const FArrayBox& ls = lls[dit()];
+
+              // copy regular data
+              currentFab.copy(ebcellfab2.getSingleValuedFAB(),0, ncomp, ncomp2);
+
+              // copy the multicell data
+              EBISBox ebisBox2 = ebcellfab2.getEBISBox();
+              {
+                IntVectSet ivsMulti = ebisBox2.getMultiCells(currentFab.box());
+
+                for (VoFIterator vofit(ivsMulti, ebisBox2.getEBGraph()); vofit.ok(); ++vofit)
+                  {
+                    if (vofit().cellIndex() == g_whichCellIndex)
+                      {
+                        IntVect iv = vofit().gridIndex();
+                        for (int ivar = 0; ivar < ncomp2; ++ivar)
+                          {
+                            currentFab(iv,ivar+ncomp) = ebcellfab2(vofit(),ivar);
+                          }
+                      }
+                  }
+              }
+
+              currentFab.copy(ls, 0, indexLevelSet, 1);
+
+              if (a_replaceCovered)
+              {
+                Box bregion = currentFab.box();
+                bregion &= ebisbox2.getDomain();
+                for (BoxIterator bit(bregion); bit.ok(); ++bit)
+                  {
+                    const IntVect& iv = bit();
+
+                    // set special values for covered cells
+                    if (ebisbox2.isCovered(iv))
+                      {
+                        // replace regular data if flagged
+
+                        for (int icomp = 0; icomp < ncomp2; icomp++)
+                          {
+                            Real cval = a_coveredValues[icomp];
+
+                            currentFab(iv,icomp+ncomp) = cval;
+                          }
+
+                      }
+                  }
+              }
+            }
+          ibox ++;
+        }//end loop over boxes
+      //i got sick of infs in ghost cells.
+      //fabData.exchange(Interval(0, fabData.nComp()-1));
+
+      // Only require a_numLevels-1 refine ratios - this is all that are
+      // needed
+      if (ilev < a_numLevels-1)
+      {
+	  for (int i = 0; i < SpaceDim; i++)
+	  {
+	      vectDx[i] /= a_vectRatios[ilev][i];
+	  }
+	
+      }
+    } //end loop over levels
+
+  // write the data
+  WriteAnisotropicAMRHierarchyHDF5(a_filename,
+                        a_vectGrids,
+                        chomboData,
+                        names,
+                        a_domain.domainBox(),
+                        a_vectDx,
+                        a_dt,
+                        a_time,
+                        a_vectRatios,
+                        a_numLevels);
+
+  //clean up memory
+  for (int ilev = 0; ilev < a_numLevels; ilev++)
+    {
+      delete chomboData[ilev];
+    }
+}
+
+void
+writeEBHDF5(const string& a_filename,
+            const DisjointBoxLayout& a_grids,
+            const LevelData<EBCellFAB>& a_data,
+            const Vector<string>& a_vectNames,
+            const ProblemDomain& a_domain,
+            const RealVect& a_vectDx,
+            const Real& a_dt,
+            const Real& a_time,
+            const bool& a_replaceCovered,
+            const Vector<Real>& a_coveredValues,
+            IntVect a_ghostVect)
+{
+  int numLevels = 1;
+  Vector<LevelData<EBCellFAB>* > vectData(numLevels,
+                                          (LevelData<EBCellFAB>*)&a_data);
+  Vector<DisjointBoxLayout> vectGrids(numLevels, a_grids);
+  Vector<IntVect> refRat(numLevels,2*IntVect::Unit);
+
+  writeEBHDF5(a_filename,
+              vectGrids,
+              vectData,
+              a_vectNames,
+              a_domain,
+              a_vectDx,
+              a_dt,
+              a_time,
+              refRat,
+              numLevels,
+              a_replaceCovered,
+              a_coveredValues,
+              a_ghostVect);
+}
+
+
 #endif   // CH_USE_HDF5
 #include "NamespaceFooter.H"

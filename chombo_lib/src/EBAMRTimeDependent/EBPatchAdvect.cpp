@@ -2114,7 +2114,7 @@ averageVelToCC(EBCellFAB&                        a_normalVel,
       //treat every cell as regular
       BaseFab<Real>&       regCellVel = a_normalVel.getSingleValuedFAB();
       const BaseFab<Real>& regFaceVel = faceNormVel.getSingleValuedFAB();
-      FORT_AVEFACETOCELL(CHF_FRA(regCellVel),
+      FORT_EBAVEFACETOCELL(CHF_FRA(regCellVel),
                          CHF_CONST_FRA1(regFaceVel,0),
                          CHF_CONST_INT(faceDir),
                          CHF_BOX(a_box));

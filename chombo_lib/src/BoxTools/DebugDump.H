@@ -16,9 +16,7 @@
 
 void DontYouDareCallMe()
 {
-  dumpLevelBFI(NULL);
-  dumpMaxMinFAB(NULL);
-  dumpMaxMinLDF(NULL);
+  dumpMaxMin(NULL);
   dumpIVS(NULL);
   dumpIVSFAB(NULL);
   dumpBL(NULL);

@@ -27,6 +27,7 @@ namespace BLfacade
 
 #include "NamespaceHeader.H"
 
+
 //template<typename T, int n>
 //class IndexTM;
 
@@ -659,6 +660,8 @@ public:
 
   /*@}*/
 
+  static size_t io_offset;
+
 protected:
   //
   // Box is a friend of ours.
@@ -679,20 +682,26 @@ protected:
      Number of bytes of storage used by this IntVect.
   */
   static const size_t IntVectSize;
-
-public:
-  static size_t io_offset;
-
 };
+#include "NamespaceFooter.H"
+
+#include "BaseNamespaceHeader.H"
+
+#include "NamespaceVar.H"
 
 ///functions for linearization
-int linearSize(const IntVect& a_iv);
+int linearSize(const CH_XDIR::IntVect& a_iv);
 
 ///functions for linearization
-void linearOut(void* a_outBuf, const IntVect& a_iv);
+void linearOut(void* a_outBuf, const CH_XDIR::IntVect& a_iv);
 
 ///functions for linearization
-void linearIn(IntVect& a_iv, const void* a_inBuf);
+void linearIn(CH_XDIR::IntVect& a_iv, const void* a_inBuf);
+
+#include "BaseNamespaceFooter.H"
+
+#include "NamespaceHeader.H"
+
 
 //
 // Static initialization.  Gotta make sure there are no static object

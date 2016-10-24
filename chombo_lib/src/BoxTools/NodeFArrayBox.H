@@ -36,14 +36,14 @@
     the right, the nodes marked "2" are shared by two grids, and
     those marked "3" are shared by three grids.
     <pre>
-    +-----+                     YYYY--+
-    |     |                     |     |
-    |     |                     |     |
-    |     |                     |     |
-    +---+--+--+---+             +---2223222---+
-    |      |      |             |      2      |
-    |      |      |             |      2      |
-    |      |      |             |      2      |
+            +-----+                     YYYY--+
+            |     |                     |     |
+            |     |                     |     |
+            |     |                     |     |
+        +---+--+--+---+             +---2223222---+
+        |      |      |             |      2      |
+        |      |      |             |      2      |
+        |      |      |             |      2      |
     +---+------+------+         X---22222223------X
     |          |                |          |
     |          |                |          |
@@ -77,12 +77,35 @@
     (marked "=") are NOT copied, because the underlying CELL-centered
     DisjointBoxLayouts of the LevelDatas do not intersect.
 
-    So whenever we want to use src.copyTo(dest), unless we are sure
-    that src and dest have the same layout, we do the following:
-    - define BoxLayoutData<NodeFArrayBox> destExpanded on the BoxLayout of
-    dest with each box expanded by one in each dimension;
-    - do src.copyTo(destExpanded);
-    - box by box, copy destExpanded to dest.
+    In general, doing src.copyTo(dest):
+    if LevelData<NodeFArrayBox> src and LevelData<NodeFArrayBox> dest
+    do NOT have identical underlying boxes in their layouts,
+    then src.copyTo(dest) will NOT copy the interface nodes.
+
+    Here are 2 different ways to make sure the interface nodes are copied:
+    1. Do copyTo to a BoxLayoutData<NodeFArrayBox> defined on
+    the BoxLayout of dest with each box expanded by 1 in each dimension.
+    That is:
+    BoxLayout destExpandedLayout;
+    destExpandedLayout.deepCopy(dest.disjointBoxLayout());
+    destExpandedLayout.grow(1);
+    destExpandedLayout.closeNoSort();
+    src.copyTo(destExpanded);
+    for (DataIterator dit = dest.dataIterator(); dit.ok(); ++dit)
+      {
+        dest[dit].copy(destExpanded[dit]);
+      }
+    2. Define src with ghost vector IntVect::Unit, and in copyTo,
+    use a Copier with ghost vector IntVect::Unit.
+    That is:
+    Copier myCopier;
+    myCopier.ghostDefine(src.disjointBoxLayout(),
+                         dest.disjointBoxLayout(),
+                         src.disjointBoxLayout().physDomain(),
+                         IntVect::Unit);
+    src.copyTo(dest, myCopier);
+    For this to work, src must have been defined with ghost vector
+    IntVect::Unit (at least).
 */
 class NodeFArrayBox
 {

@@ -35,11 +35,7 @@
    */
   void dumpLDFLoc(const LevelData<FArrayBox>* a_ldfabPtr);
 
-  void dumpLevelBFI(const LevelData< BaseFab<int> >* a_ldfabPtr);
-
-  void dumpMaxMinLDF(const LevelData<FArrayBox>* a_ldfabPtr);
-
-  void dumpMaxMinFAB(const FArrayBox* a_ldfabPtr);
+  void dumpMaxMin(const LevelData<FArrayBox>* a_ldfabPtr);
 
   /// does a copy first
   void dumpLDFPar(const LevelData<FArrayBox>* a_ldfabPtr);

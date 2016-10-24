@@ -68,6 +68,12 @@ WriteAMRHierarchyHDF5(const string& filename,
   CH_TIMER("WriteFile",writeFile);
   CH_TIMER("CloseFile",closeFile);
 
+#ifdef CH_MPI
+  {
+    CH_TIME("Barrier");
+    MPI_Barrier(Chombo_MPI::comm);
+  }
+#endif
   CH_START(createFile);
   HDF5Handle handle(filename.c_str(),  HDF5Handle::CREATE);
   CH_STOP(createFile);
@@ -78,9 +84,11 @@ WriteAMRHierarchyHDF5(const string& filename,
   CH_STOP(writeFile);
 
 #ifdef CH_MPI
-  MPI_Barrier(Chombo_MPI::comm);
+  {
+    CH_TIME("Barrier");
+    MPI_Barrier(Chombo_MPI::comm);
+  }
 #endif
-
   CH_START(closeFile);
   handle.close();
   CH_STOP(closeFile);
@@ -279,7 +287,10 @@ WriteAMRHierarchyHDF5(const string& filename,
                         a_domain, a_refRatio, a_numLevels);
 
 #ifdef CH_MPI
-  MPI_Barrier(Chombo_MPI::comm);
+  { 
+    CH_TIME("Barrier");
+    MPI_Barrier(Chombo_MPI::comm);
+  }
 #endif
   handle.close();
 }
