@@ -22,17 +22,16 @@ endif
 
 while ($procs <= $maxProcs)
  echo "number of threads = $procs"
- set command = "setenv OMP_NUM_THREADS $procs"
- echo $command
- $command
+ echo "setenv OMP_NUM_THREADS $procs"
+ setenv OMP_NUM_THREADS $procs
  set outfile = "screen.out"
 if (-e $outfile) then
     rm $outfile
 endif
- set command = "$exec $inputs > $outfile"
+ set command = "$exec $inputs"
  #set command = "cp $inputs $outfile"
  echo $command 
- $command
+ $command | tee $outfile
  set pprocs = `echo $procs | awk '{printf("%06d",$1);}'`    
 set outdir  = $timedir/amrg.time.$pprocs.thread
 if (! -e $outdir) then
