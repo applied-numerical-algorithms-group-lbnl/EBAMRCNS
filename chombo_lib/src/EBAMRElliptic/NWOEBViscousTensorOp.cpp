@@ -1886,9 +1886,12 @@ NWOEBViscousTensorOp::
 fillVelGhost(const LevelData<EBCellFAB>& a_phi) const
 {
   CH_TIME("nwoebvto::fillghostLD");
-  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+  DataIterator dit = m_eblg.getDBL().dataIterator();
+  int nbox=dit.size();
+#pragma omp parallel for
+  for (int mybox=0;mybox<nbox; mybox++)
     {
-      fillVelGhost(a_phi[dit()], dit());
+      fillVelGhost(a_phi[dit[mybox]], dit[mybox]);
     }
 }
 void
@@ -2099,6 +2102,7 @@ applyOp(LevelData<EBCellFAB>             & a_lhs,
     CH_TIME("applying op without bcs");
     DataIterator dit = m_eblg.getDBL().dataIterator();
     int nbox=dit.size();
+#pragma omp for
     for (int mybox=0;mybox<nbox; mybox++)
       {
 

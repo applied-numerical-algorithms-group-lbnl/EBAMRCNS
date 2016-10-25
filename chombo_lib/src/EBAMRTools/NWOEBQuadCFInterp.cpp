@@ -129,11 +129,14 @@ coarseFineInterp(LevelData<EBCellFAB>&       a_phif,
 {
   Interval interv(0, m_nvar-1);
   a_phic.copyTo(interv, m_bufferCoFi, interv);
-  for(DataIterator dit= m_gridsFine.dataIterator(); dit.ok(); ++dit)
+  DataIterator dit = m_gridsFine.dataIterator();
+  int nbox = dit.size();
+#pragma omp parallel
+  for(int ibox = 0; ibox < nbox; ibox++)
     {
       //false is for increment only
-      m_stencil[dit()]->apply(a_phif[dit()],
-                              m_bufferCoFi[dit()],
+      m_stencil[dit()]->apply(a_phif[dit[ibox]],
+                              m_bufferCoFi[dit[ibox]],
                               isrc, idst, inco, false);
     }
 }
@@ -145,11 +148,14 @@ coarseFineInterpH(LevelData<EBCellFAB>&       a_phif,
                   int isrc, int idst, int inco)
 {
   EBLevelDataOps::setVal(m_bufferCoFi, 0.0);
-  for(DataIterator dit= m_gridsFine.dataIterator(); dit.ok(); ++dit)
+  DataIterator dit = m_gridsFine.dataIterator();
+  int nbox = dit.size();
+#pragma omp parallel
+  for(int ibox = 0; ibox < nbox; ibox++)
     {
       //false is for increment only
-      m_stencil[dit()]->apply(a_phif[dit()],
-                              m_bufferCoFi[dit()],
+      m_stencil[dit()]->apply(a_phif[dit[ibox]],
+                              m_bufferCoFi[dit[ibox]],
                               isrc, idst, inco, false);
     }
 
