@@ -131,7 +131,7 @@ coarseFineInterp(LevelData<EBCellFAB>&       a_phif,
   a_phic.copyTo(interv, m_bufferCoFi, interv);
   DataIterator dit = m_gridsFine.dataIterator();
   int nbox = dit.size();
-#pragma omp parallel
+#pragma omp parallel for
   for(int ibox = 0; ibox < nbox; ibox++)
     {
       //false is for increment only
@@ -150,7 +150,7 @@ coarseFineInterpH(LevelData<EBCellFAB>&       a_phif,
   EBLevelDataOps::setVal(m_bufferCoFi, 0.0);
   DataIterator dit = m_gridsFine.dataIterator();
   int nbox = dit.size();
-#pragma omp parallel
+#pragma omp parallel for
   for(int ibox = 0; ibox < nbox; ibox++)
     {
       //false is for increment only

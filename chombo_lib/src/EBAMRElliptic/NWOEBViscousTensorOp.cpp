@@ -426,9 +426,8 @@ getCCSigma(LevelData<EBCellFAB>      & a_sigma,
   //cofficients with gradients to get sigma
   DataIterator dit = m_eblg.getDBL().dataIterator();
   int nbox=dit.size();
-#pragma omp parallel
   {
-#pragma omp for
+#pragma omp parallel for
     for (int mybox=0;mybox<nbox; mybox++)
       {
         const Box& grid = m_eblg.getDBL()[dit[mybox]];
@@ -503,11 +502,10 @@ averageToCells(LevelData<EBCellFAB>&      a_cellCoef,
   CH_TIME("nwoebvto::averageToCells");
   DataIterator dit = m_eblg.getDBL().dataIterator();
   int nbox=dit.size();
-#pragma omp parallel 
   {
     //    int id=omp_get_thread_num();
     // pout() << "my thread "<< id << endl;
-#pragma omp for
+#pragma omp parallel for
     for (int mybox=0;mybox<nbox; mybox++)
       {
         a_cellCoef[dit[mybox]].setVal(0.); //necessary because we are doing increments
@@ -577,11 +575,10 @@ getShearStressDotGradU(LevelData<EBCellFAB>      & a_shearStressDotGradUU,
   //take the dot product of the gradient and the stress
   DataIterator dit = m_eblg.getDBL().dataIterator();
   int nbox=dit.size();
-#pragma omp parallel 
   {
     //    int id=omp_get_thread_num();
     //pout() << "my thread "<< id << endl;
-#pragma omp for
+#pragma omp parallel for
     for (int mybox=0;mybox<nbox; mybox++)
       {
         const Box& grid = m_eblg.getDBL()[dit[mybox]];
@@ -1537,11 +1534,10 @@ gsrbColor(LevelData<EBCellFAB>&       a_phi,
   const DisjointBoxLayout& dbl = a_phi.disjointBoxLayout();
   DataIterator dit = m_eblg.getDBL().dataIterator();
   int nbox=dit.size();
-#pragma omp parallel
   {
     // int id=omp_get_thread_num();
     // pout() << "my thread "<< id << endl;
-#pragma omp for
+#pragma omp parallel for
     for (int mybox=0;mybox<nbox; mybox++)
       {
         //first do the the regular stuff
@@ -2102,7 +2098,7 @@ applyOp(LevelData<EBCellFAB>             & a_lhs,
     CH_TIME("applying op without bcs");
     DataIterator dit = m_eblg.getDBL().dataIterator();
     int nbox=dit.size();
-#pragma omp for
+#pragma omp parallel for
     for (int mybox=0;mybox<nbox; mybox++)
       {
 
