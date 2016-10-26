@@ -135,9 +135,9 @@ coarseFineInterp(LevelData<EBCellFAB>&       a_phif,
   for(int ibox = 0; ibox < nbox; ibox++)
     {
       //false is for increment only
-      m_stencil[dit()]->apply(a_phif[dit[ibox]],
-                              m_bufferCoFi[dit[ibox]],
-                              isrc, idst, inco, false);
+      m_stencil[dit[ibox]]->apply(a_phif[dit[ibox]],
+                                  m_bufferCoFi[dit[ibox]],
+                                  isrc, idst, inco, false);
     }
 }
 
@@ -154,9 +154,9 @@ coarseFineInterpH(LevelData<EBCellFAB>&       a_phif,
   for(int ibox = 0; ibox < nbox; ibox++)
     {
       //false is for increment only
-      m_stencil[dit()]->apply(a_phif[dit[ibox]],
-                              m_bufferCoFi[dit[ibox]],
-                              isrc, idst, inco, false);
+      m_stencil[dit[ibox]]->apply(a_phif[dit[ibox]],
+                                  m_bufferCoFi[dit[ibox]],
+                                  isrc, idst, inco, false);
     }
 
 }
