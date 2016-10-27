@@ -294,7 +294,11 @@ create(const ProblemDomain& a_domain,
        const RealVect&      a_dx)
 {
   DirichletViscousTensorDomainBC* newBC = new DirichletViscousTensorDomainBC();
-  if (m_isFunctional)
+  if(m_onlyHomogeneous)
+    {
+      newBC->setValue(0.);
+    }
+  else if (m_isFunctional)
     {
       newBC->setFunction(m_func);
     }

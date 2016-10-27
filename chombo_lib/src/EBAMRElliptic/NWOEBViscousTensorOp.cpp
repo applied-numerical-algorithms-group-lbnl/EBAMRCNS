@@ -26,7 +26,7 @@
 #include "DebugOut.H"
 #include "NWOEBQuadCFInterp.H"
 #include "NamespaceHeader.H"
-bool NWOEBViscousTensorOp::s_doLazyRelax = false;
+bool NWOEBViscousTensorOp::s_doLazyRelax = true;
                                          
 int NWOEBViscousTensorOp::s_whichLev = -1;
 int NWOEBViscousTensorOp::s_step = -1;
@@ -55,11 +55,9 @@ NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblgFi
                   const RefCountedPtr<ViscousBaseDomainBC>&          a_domainBC,
                   const RefCountedPtr<ViscousBaseEBBC>&              a_ebBC,
                   const bool&                                        a_hasMGObjects,
-                  const IntVect&                                     a_ghostCellsPhi,
-                  const IntVect&                                     a_ghostCellsRHS):
+                  const IntVect&                                     a_ghostPhi,
+                  const IntVect&                                     a_ghostRHS):
   LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB>(false), // is time-independent
-  m_ghostPhi(a_ghostCellsPhi),
-  m_ghostRHS(a_ghostCellsRHS),
   m_eblgFine(a_eblgFine),
   m_eblg(a_eblg),
   m_eblgCoar(a_eblgCoar),
@@ -81,8 +79,8 @@ NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblgFi
   m_refToFine(a_refToFine),
   m_refToCoar(a_refToCoar),
   m_hasMGObjects(a_hasMGObjects),
-  m_ghostCellsPhi(a_ghostCellsPhi),
-  m_ghostCellsRHS(a_ghostCellsRHS),
+  m_ghostPhi(a_ghostPhi),
+  m_ghostRHS(a_ghostRHS),
   m_opEBStencil(),
   m_relCoef(),
   m_vofIterIrreg(),
@@ -132,11 +130,11 @@ NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblgFi
           m_ebInterp.define( m_eblg.getDBL(),     m_eblgCoar.getDBL(),
                              m_eblg.getEBISL(), m_eblgCoar.getEBISL(),
                              domainCoarsenedFine, m_refToCoar, SpaceDim,
-                             m_eblg.getEBIS(),     a_ghostCellsPhi, true, true);
+                             m_eblg.getEBIS(),     a_ghostPhi, true, true);
           m_ebAverage.define(m_eblg.getDBL(),   eblgCoarsenedFine.getDBL(),
                              m_eblg.getEBISL(), eblgCoarsenedFine.getEBISL(),
                              domainCoarsenedFine, m_refToCoar, SpaceDim,
-                             m_eblg.getEBIS(), a_ghostCellsRHS);
+                             m_eblg.getEBIS(), a_ghostRHS);
 
         }
     }
@@ -148,11 +146,11 @@ NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblgFi
       m_ebInterpMG.define( m_eblg.getDBL(),   m_eblgCoarMG.getDBL(),
                            m_eblg.getEBISL(), m_eblgCoarMG.getEBISL(),
                            m_eblgCoarMG.getDomain(), mgRef, SpaceDim,
-                           m_eblg.getEBIS(),   a_ghostCellsPhi, true, true);
+                           m_eblg.getEBIS(),   a_ghostPhi, true, true);
       m_ebAverageMG.define(m_eblg.getDBL(),   m_eblgCoarMG.getDBL(),
                            m_eblg.getEBISL(), m_eblgCoarMG.getEBISL(),
                            m_eblgCoarMG.getDomain() , mgRef, SpaceDim,
-                           m_eblg.getEBIS(),   a_ghostCellsRHS);
+                           m_eblg.getEBIS(),   a_ghostRHS);
 
     }
   /**/
@@ -175,7 +173,7 @@ NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblgFi
   }
   /**/
 
-  m_exchangeCopier.define(m_eblg.getDBL(), m_eblg.getDBL(), m_ghostCellsPhi,  true);
+  m_exchangeCopier.define(m_eblg.getDBL(), m_eblg.getDBL(), m_ghostPhi,  true);
   
   defineStencils();
 }
@@ -1159,8 +1157,8 @@ AMRResidualNC(LevelData<EBCellFAB>&       a_residual,
 {
   CH_TIME("nwoebvto::amrresNC");
   //dummy. there is no coarse when this is called
-  CH_assert(a_residual.ghostVect() == m_ghostCellsRHS);
-  CH_assert(a_rhs.ghostVect() == m_ghostCellsRHS);
+  CH_assert(a_residual.ghostVect() == m_ghostRHS);
+  CH_assert(a_rhs.ghostVect() == m_ghostRHS);
   LevelData<EBCellFAB> phiC;
   AMRResidual(a_residual, a_phiFine, a_phi, phiC, a_rhs, a_homogeneousBC, a_finerOp);
 }
@@ -1175,7 +1173,7 @@ AMROperatorNC(LevelData<EBCellFAB>&       a_LofPhi,
 {
   CH_TIME("nwoebvto::amropNC");
   //dummy. there is no coarse when this is called
-  CH_assert(a_LofPhi.ghostVect() == m_ghostCellsRHS);
+  CH_assert(a_LofPhi.ghostVect() == m_ghostRHS);
   LevelData<EBCellFAB> phiC;
   AMROperator(a_LofPhi, a_phiFine, a_phi, phiC,
               a_homogeneousBC, a_finerOp);
@@ -1191,8 +1189,8 @@ residual(LevelData<EBCellFAB>&       a_residual,
   //this is a multigrid operator so only homogeneous CF BC
   //and null coar level
   CH_TIME("nwoebvto::residual");
-  CH_assert(a_residual.ghostVect() == m_ghostCellsRHS);
-  CH_assert(a_phi.ghostVect() == m_ghostCellsPhi);
+  CH_assert(a_residual.ghostVect() == m_ghostRHS);
+  CH_assert(a_phi.ghostVect() == m_ghostPhi);
   applyOp(a_residual,a_phi, a_homogeneousBC);
 //  incr(a_residual, a_rhs, -1.0);
 //  scale(a_residual, -1.0);
@@ -1572,11 +1570,9 @@ gsrbColor(LevelData<EBCellFAB>&       a_phi,
                 loIV[idir]++;
               }
           }
-        
-        for(int ivar = 0; ivar < SpaceDim; ivar++)
-          {
-            m_opEBStencil[ivar][datInd]->cachePhi(a_phi[datInd]);
-          }
+        //only has to cached once (though any of the aggstencils could do it)
+        m_opEBStencil[0][datInd]->cachePhi(a_phi[datInd]);
+
         if (loIV <= hiIV)
           {
             Box coloredBox(loIV, hiIV);
@@ -1595,10 +1591,10 @@ gsrbColor(LevelData<EBCellFAB>&       a_phi,
                                CHF_CONST_REAL(m_beta),
                                CHF_BOX(coloredBox));
           }
-        for(int ivar = 0; ivar < SpaceDim; ivar++)
-          {
-            m_opEBStencil[ivar][datInd]->uncachePhi(a_phi[datInd]);
-          }
+
+
+        m_opEBStencil[0][datInd]->uncachePhi(a_phi[datInd]);
+
         for(int ivar = 0; ivar < SpaceDim; ivar++)
           {
             m_opEBStencil[ivar][datInd]->relax(a_phi[datInd], a_rhs[datInd], 

@@ -13,7 +13,7 @@
 
 #include "RefCountedPtr.H"
 #include "BCFunc.H"
-#include "BaseDomainBC.H"
+#include "ViscousBaseDomainBC.H"
 #include "BaseBCFuncEval.H"
 #include "NamespaceHeader.H"
 

@@ -14,6 +14,7 @@
 #include "RefCountedPtr.H"
 #include "BaseDomainBC.H"
 #include "BaseBCFuncEval.H"
+#include "ViscousBaseDomainBC.H"
 #include "NamespaceHeader.H"
 
 ///

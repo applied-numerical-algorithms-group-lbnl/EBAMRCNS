@@ -111,6 +111,86 @@ c     bc has also been shifted
         return
         end
 
+      subroutine applyopebcondnobcs(
+     &     chf_fra1[opphidir],
+     &     chf_const_fra1[phi],
+     &     chf_const_fra1[aco],
+     &     chf_const_fra1[b0],
+     &     chf_const_fra1[b1],
+     &     chf_const_fra1[b2],
+     &     chf_const_real[dx],
+     &     chf_const_real[alpha],
+     &     chf_const_real[beta],
+     &     chf_box[box])
+
+      integer chf_ddecl[i;j;k]
+      real_t laplphi, dxinvsq
+
+      dxinvsq = one/(dx * dx)
+
+      chf_multido[box;i;j;k]
+
+      laplphi = CHF_DTERM[
+     &      (b0(CHF_IX[i+1;j  ;k  ])*(phi(chf_ix[i+1;j  ;k  ]) - phi(chf_ix[i  ;j  ;k  ]))
+     &     - b0(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i-1;j  ;k  ])))*dxinvsq;
+     &     +(b1(CHF_IX[i  ;j+1;k  ])*(phi(chf_ix[i  ;j+1;k  ]) - phi(chf_ix[i  ;j  ;k  ]))
+     &     - b1(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i  ;j-1;k  ])))*dxinvsq;
+     &     +(b2(CHF_IX[i  ;j  ;k+1])*(phi(chf_ix[i  ;j  ;k+1]) - phi(chf_ix[i  ;j  ;k  ]))
+     &     - b2(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i  ;j  ;k-1])))*dxinvsq]
+
+      opphidir(chf_ix[i;j;k]) = alpha*aco(chf_ix[i;j;k])*phi(chf_ix[i;j;k]) + beta*laplphi
+
+      chf_enddo
+
+      ch_flops=ch_flops+CHF_POINTS[box]*(4 + 6*CH_SPACEDIM)
+
+      return
+      end
+
+
+      subroutine gscolorebcondop(
+     &     chf_fra1[phi],
+     &     chf_const_fra1[rhs],
+     &     chf_const_fra1[relco],
+     &     chf_const_fra1[aco],
+     &     chf_const_fra1[b0],
+     &     chf_const_fra1[b1],
+     &     chf_const_fra1[b2],
+     &     chf_const_real[dx],
+     &     chf_const_real[alpha],
+     &     chf_const_real[beta],
+     &     chf_box[box])
+
+      integer chf_ddecl[i;j;k],ncolors
+      real_t laplphi, dxinvsq, opphi
+
+      dxinvsq = one/(dx * dx)
+
+      chf_multido[box;i;j;k,2]
+
+      laplphi = CHF_DTERM[
+     &      (b0(CHF_IX[i+1;j  ;k  ])*(phi(chf_ix[i+1;j  ;k  ]) - phi(chf_ix[i  ;j  ;k  ]))
+     &     - b0(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i-1;j  ;k  ])))*dxinvsq;
+     &     +(b1(CHF_IX[i  ;j+1;k  ])*(phi(chf_ix[i  ;j+1;k  ]) - phi(chf_ix[i  ;j  ;k  ]))
+     &     - b1(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i  ;j-1;k  ])))*dxinvsq;
+     &     +(b2(CHF_IX[i  ;j  ;k+1])*(phi(chf_ix[i  ;j  ;k+1]) - phi(chf_ix[i  ;j  ;k  ]))
+     &     - b2(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i  ;j  ;k-1])))*dxinvsq]
+
+      opphi  = alpha*aco(chf_ix[i;j;k])*phi(chf_ix[i;j;k]) + beta*laplphi
+
+
+      phi(chf_ix[i;j;k]) = phi(chf_ix[i;j;k]) + relco(chf_ix[i;j;k])*(relco(chf_ix[i;j;k]) - opphi)
+
+      chf_enddo
+
+      ncolors = CHF_DTERM[2; *2; *2]
+      ch_flops=ch_flops+CHF_POINTS[box]*(4 + 6*CH_SPACEDIM)
+
+      return
+      end
+
+
+
       subroutine conductivityinplace(
      &     chf_fra1[opphidir],
      &     chf_const_fra1[phi],

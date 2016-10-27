@@ -40,6 +40,7 @@
 #include "AMRTGA.H"
 #include "AMRPoissonOp.H"
 #include "CFRegion.H"
+#include "ConductivityBaseDomainBC.H"
 #include "NamespaceHeader.H"
 
 

@@ -12,7 +12,7 @@
 #define _NEUMANNCONDUCTIVITYDOMAINBC_H_
 
 #include "RefCountedPtr.H"
-
+#include "ConductivityBaseDomainBC.H"
 #include "NeumannPoissonDomainBC.H"
 #include "BaseBCValue.H"
 #include "NamespaceHeader.H"
@@ -24,12 +24,9 @@ public:
 
   virtual ~NeumannConductivityDomainBC();
 
-  virtual void setValue(Real a_value);
-
   virtual int whichBC(int                  a_idir,
                       Side::LoHiSide       a_side);
 
-  virtual void setFunction(RefCountedPtr<BaseBCValue> a_flux);
 
   virtual void getFaceFlux(BaseFab<Real>&        a_faceFlux,
                            const BaseFab<Real>&  a_phi,
@@ -77,12 +74,41 @@ public:
                           const Real&           a_time,
                           const Side::LoHiSide& a_side);
 
+  virtual void 
+  fillPhiGhost(FArrayBox&     a_phi,
+               const Box&     a_valid,
+               const Box&     a_domain,
+               Real           a_dx,
+               bool           a_homogeneous)
+  {
+    Box valid = a_valid;
+    for (int idir=0; idir<CH_SPACEDIM; ++idir)
+      {
+        for(SideIterator sit; sit.ok(); ++sit)
+          {
+            Box toRegion = adjCellBox(valid, idir, sit(), 1);
+
+            for (BoxIterator bit(toRegion); bit.ok(); ++bit)
+              {
+                const IntVect& iv = bit();
+                //fake vof just to get the location
+                VolIndex vof(iv, 0);
+                RealVect loc = EBArith::getVoFLocation(vof, a_dx, RealVect::Zero);
+                int isign = sign(sit());
+                IntVect ivneigh = iv - isign*BASISV(idir);
+                Real value = bcvaluefunc(loc, idir, sit());
+                if(a_homogeneous) value = 0;
+                a_phi(iv, 0) = a_phi(ivneigh, 0)  + a_dx*value;
+              }
+          } 
+        //grow valid box so we hit corners
+        valid.grow(idir, 1);
+      }//end loop over directions
+  }
 private:
-  bool m_onlyHomogeneous;
-  bool m_isFunction;
 
   Real m_value;
-  RefCountedPtr<BaseBCValue> m_flux;
+
 };
 
 class NeumannConductivityDomainBCFactory: public BaseDomainBCFactory
@@ -94,7 +120,7 @@ public:
 
   virtual void setValue(Real a_value);
 
-  virtual void setFunction(RefCountedPtr<BaseBCValue> a_flux);
+  virtual void setFunction(RefCountedPtr<BaseBCFuncEval> a_flux);
 
   virtual NeumannConductivityDomainBC* create(const ProblemDomain& a_domain,
                                               const EBISLayout&    a_layout,
@@ -105,7 +131,8 @@ private:
   bool m_isFunction;
 
   Real m_value;
-  RefCountedPtr<BaseBCValue> m_flux;
+  RefCountedPtr<BaseBCFuncEval> m_flux;
+
 };
 
 #include "NamespaceFooter.H"

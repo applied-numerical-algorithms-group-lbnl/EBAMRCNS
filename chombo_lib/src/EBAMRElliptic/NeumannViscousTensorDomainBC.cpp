@@ -205,7 +205,11 @@ NeumannViscousTensorDomainBCFactory::create(const ProblemDomain& a_domain,
                                             const RealVect&      a_dx)
 {
   NeumannViscousTensorDomainBC* newBC = new NeumannViscousTensorDomainBC();
-  if (m_isFunction)
+  if(m_onlyHomogeneous)
+    {
+      newBC->setValue(0.);
+    }
+  else if (m_isFunction)
     {
       newBC->setFunction(m_flux);
     }

@@ -23,16 +23,6 @@ DirichletConductivityDomainBC::
 {
 }
 
-/*****/
-void
-DirichletConductivityDomainBC::
-setValue(Real a_value)
-{
-   m_onlyHomogeneous = false;
-   m_isFunctional = false;
-   m_value = a_value;
-   m_func = RefCountedPtr<BaseBCValue>();
-}
 
 /*****/
 int
@@ -43,17 +33,6 @@ whichBC(int                  a_idir,
   return 0;
 }
 
-/*****/
-void
-DirichletConductivityDomainBC::
-setFunction(RefCountedPtr<BaseBCValue> a_func)
-{
-  m_value = 12345.6789;
-  m_func = a_func;
-
-  m_onlyHomogeneous = false;
-  m_isFunctional = true;
-}
 
 /*****/
 void
@@ -97,7 +76,7 @@ getFaceFlux(BaseFab<Real>&        a_faceFlux,
         }
       else
         {
-          if (m_isFunctional)
+          if (m_isFunction)
             {
               Real ihdx;
 
@@ -115,7 +94,7 @@ getFaceFlux(BaseFab<Real>&        a_faceFlux,
                   const FaceIndex face = FaceIndex(vof,vofNeigh,a_idir);
                   const RealVect  point = EBArith::getFaceLocation(face,a_dx,a_probLo);
                   const RealVect normal = EBArith::getDomainNormal(a_idir,a_side);
-                  Real value = m_func->value(face,a_side,a_dit,point,normal,a_time,comp);
+                  Real value = bcvaluefunc(point, a_idir, a_side);
                   Real phiVal = a_phi(iv,comp);
                   a_faceFlux(iv,comp) = iside * ihdx * (phiVal - value);
                 }
@@ -251,19 +230,21 @@ getFaceGradPhi(Real&                 a_faceFlux,
     {
       value = 0.0;
     }
-  else if (m_isFunctional)
+  else if (m_isFunction)
     {
-      const RealVect normal = EBArith::getDomainNormal(a_idir,a_side);
       RealVect point = EBArith::getFaceLocation(a_face,a_dx,a_probLo);
-      value = m_func->value(a_face,a_side,a_dit,point,normal,a_time,a_comp);
+      value = bcvaluefunc(point, a_idir, a_side);
     }
   else
     {
       if (m_onlyHomogeneous)
         {
-          MayDay::Error("DirichletPoissonDomainBC::getFaceFlux called with undefined inhomogeneous BC");
+          value = 0;
         }
-      value = m_value;
+      else
+        {
+          value = m_value;
+        }
     }
 
   const VolIndex& vof = a_face.getVoF(flip(a_side));
@@ -304,7 +285,7 @@ getFaceVel(Real&                 a_faceFlux,
 {
   CH_assert(a_idir == a_face.direction());
   Real value;
-  if (m_isFunctional)
+  if (m_isFunction)
     {
       RealVect pt;
       IntVect iv = a_face.gridIndex(Side::Hi);
@@ -320,9 +301,8 @@ getFaceVel(Real&                 a_faceFlux,
               pt[idir] = a_dx[a_idir]*(Real(iv[idir]));
             }
         }
-      RealVect normal = EBArith::getDomainNormal(a_idir, a_side);
 
-      value = m_func->value(pt, normal, a_time,a_icomp);
+      value = bcvaluefunc(pt, a_idir, a_side);
 
     }
   else
@@ -336,7 +316,7 @@ DirichletConductivityDomainBCFactory::
 DirichletConductivityDomainBCFactory()
 {
   m_value = 12345.6789;
-  m_flux = RefCountedPtr<BaseBCValue>();
+  m_flux = RefCountedPtr<BaseBCFuncEval>();
 
   m_onlyHomogeneous = true;
   m_isFunction = false;
@@ -353,7 +333,7 @@ DirichletConductivityDomainBCFactory::
 setValue(Real a_value)
 {
   m_value = a_value;
-  m_flux = RefCountedPtr<BaseBCValue>();
+  m_flux = RefCountedPtr<BaseBCFuncEval>();
 
   m_onlyHomogeneous = false;
   m_isFunction = false;
@@ -361,7 +341,7 @@ setValue(Real a_value)
 /******/
 void
 DirichletConductivityDomainBCFactory::
-setFunction(RefCountedPtr<BaseBCValue> a_flux)
+setFunction(RefCountedPtr<BaseBCFuncEval> a_flux)
 {
   m_value = 12345.6789;
   m_flux = a_flux;

@@ -38,6 +38,7 @@
 #include "NWOEBQuadCFInterp.H"
 #include "EBLevelGrid.H"
 #include "EBAMRIO.H"
+#include "ViscousBaseDomainBC.H"
 #include "VCAggStencil.H"
 #include "DivergenceStencil.H"
 
@@ -80,8 +81,8 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
                     const RefCountedPtr<ViscousBaseDomainBC>&          a_domainBC,
                     const RefCountedPtr<ViscousBaseEBBC>&              a_ebBC,
                     const bool&                                        a_hasMGObjects,
-                    const IntVect&                                     a_ghostCellsPhi,
-                    const IntVect&                                     a_ghostCellsRHS);
+                    const IntVect&                                     a_ghostPhi,
+                    const IntVect&                                     a_ghostRHS);
 
 
   //! Destructor.
@@ -563,7 +564,6 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
   LayoutData<RefCountedPtr<DivergenceStencil> >     m_divergenceStencil;
 
 
-  IntVect m_ghostPhi, m_ghostRHS;
   //grid information
   EBLevelGrid                                  m_eblgFine;
   EBLevelGrid                                  m_eblg;
@@ -607,8 +607,8 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
   int                                          m_refToCoar;
   bool                                         m_hasMGObjects;
 
-  IntVect                                      m_ghostCellsPhi;
-  IntVect                                      m_ghostCellsRHS;
+  IntVect                                      m_ghostPhi;
+  IntVect                                      m_ghostRHS;
 
   //stencil to apply irregular operator and do irregular relaxation
   LayoutData<RefCountedPtr<VCAggStencil> >     m_opEBStencil[CH_SPACEDIM];

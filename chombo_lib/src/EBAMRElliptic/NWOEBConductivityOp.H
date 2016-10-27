@@ -8,8 +8,8 @@
  */
 #endif
 
-#ifndef _SLOWEBCO_H_
-#define _SLOWEBCO_H_
+#ifndef _NWOEBCONDUCTIVITYOP_H_
+#define _NWOEBCONDUCTIVITYOP_H_
 
 #include "REAL.H"
 #include "Box.H"
@@ -19,11 +19,12 @@
 #include "RefCountedPtr.H"
 
 #include "AMRMultiGrid.H"
+#include "EBAMRPoissonOp.H"
 
 #include "EBIndexSpace.H"
 #include "EBCellFAB.H"
 #include "EBCellFactory.H"
-#include "EBStencil.H"
+#include "VCAggStencil.H"
 
 #include "EBLevelDataOps.H"
 #include "BaseEBBC.H"
@@ -34,7 +35,7 @@
 #include "EBMGAverage.H"
 #include "EBMGInterp.H"
 #include "PolyGeom.H"
-#include "EBQuadCFInterp.H"
+#include "NWOEBQuadCFInterp.H"
 #include "EBLevelGrid.H"
 #include "AMRTGA.H"
 #include "AMRPoissonOp.H"
@@ -43,103 +44,45 @@
 #include "NamespaceHeader.H"
 
 
-///
-/**
-   Operator to solve (alpha a + beta div (b grad) )phi = rhs.   This follows the AMRLevelOp interface.
-*/
-class slowEBCO: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
+
+//! \class NWOEBConductivityOp
+//! This class implements an operator that solves the equation
+//! (alpha a + beta div (b grad) )phi = rhs
+//! using the AMRLevelOp interface.
+class NWOEBConductivityOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
 {
-public:
+  public:
 
-  Real getSafety();
-
-  //for tga to reset stuff
-  virtual void setAlphaAndBeta(const Real& a_alpha,
-                               const Real& a_beta);
-
-  //another tgaism
-  virtual void diagonalScale(LevelData<EBCellFAB> & a_rhs,
-                             bool a_kappaWeighted);
-  virtual void divideByIdentityCoef(LevelData<EBCellFAB> & a_rhs);
-
-  ///a leveltgaism
-  virtual void fillGrad(const LevelData<EBCellFAB>& a_phi)
-  {;}
-
-  ///a leveltgaism
-  virtual void getFlux(EBFluxFAB&                    a_flux,
-                       const LevelData<EBCellFAB>&   a_data,
-                       const Box&                    a_grid,
-                       const DataIndex&              a_dit,
-                       Real                          a_scale);
-
-  void getFlux(EBFaceFAB&                    a_fluxCentroid,
-               const EBCellFAB&              a_phi,
-               const Box&                    a_ghostedBox,
-               const Box&                    a_fabBox,
-               const ProblemDomain&          a_domain,
-               const EBISBox&                a_ebisBox,
-               const Real&                   a_dx,
-               const DataIndex&              a_datInd,
-               const int&                    a_idir);
-
-  ///
-  virtual ~slowEBCO()
-  {;}
-
-  ///
-  slowEBCO()
-  {;}
-
-  ///
-  /** a_residual = a_rhs - L(a_phiFine, a_phi)   no coaser AMR level*/
-  void AMRResidualNC(LevelData<EBCellFAB>&       a_residual,
-                     const LevelData<EBCellFAB>& a_phiFine,
-                     const LevelData<EBCellFAB>& a_phi,
-                     const LevelData<EBCellFAB>& a_rhs,
-                     bool a_homogeneousBC,
-                     AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp);
-
-
-  ///
-  /** apply AMR operator   no coaser AMR level*/
-  void AMROperatorNC(LevelData<EBCellFAB>&       a_LofPhi,
-                     const LevelData<EBCellFAB>& a_phiFine,
-                     const LevelData<EBCellFAB>& a_phi,
-                     bool a_homogeneousBC,
-                     AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp);
-
-  ///
-  /**
-     If you are approaching this operator from this interface, consider backing away and using
-     slowEBCOFactory to generate these objects.   Really.
-     a_eblgFine,    : grid at finer  level \\
-     a_eblg,        : grid at this  level \\
-     a_eblgCoar,    : grid at coarser level \\
-     a_eblgCoarMG,  : grid at intermediate multigrid level \\
-     a_domainBC,    : domain boundary conditions at this level   \\
-     a_ebBC:          eb boundary conditions at this level   \\
-     a_dx:            grid spacing at this level \\
-     a_origin:        offset to lowest corner of the domain \\
-     a_refToFine:     refinement ratio to finer level \\
-     a_refToCoar:     refinement ratio to coarser level \\
-     a_hasFiner:      true if there is a finer AMR level, false otherwise. \\
-     a_hasCoarser:    true  if there is a coarser AMR level. \\
-     a_hasCoarserMG:    true  if there is a coarser MultiGrid level. \\
-     a_preCondIters:  number of iterations to do for pre-conditioning \\
-     a_relaxType:     0 means point Jacobi, 1 is Gauss-Seidel. \\
-     a_acoef:         coefficent of identity \\
-     a_bcoef:          coefficient of gradient.\\
-     a_ghostCellsPhi:  Number of ghost cells in phi, correction\\
-     a_ghostCellsRhs:  Number of ghost cells in RHS, residual, lphi\\
-     Ghost cell arguments are there for caching reasons.  Once you set them, an error is thrown if
-     you send in data that does not match.
-  */
-  slowEBCO(const EBLevelGrid &                                  a_eblgFine,
+  //! Constructs a conductivity operator using the given data. This
+  //! constructor is for time-independent a and b coefficients.
+  //! If you are approaching this operator from this interface, consider backing away and using
+  //! NWOEBConductivityOpFactory to generate these objects. Really.
+  //! Ghost cell arguments are there for caching reasons. Once you set them,
+  //! an error is thrown if you send in data that does not match.
+  //! \param a_eblgFine grid at finer  level
+  //! \param a_eblg grid at this  level
+  //! \param a_eblgCoar grid at coarser level
+  //! \param a_eblgCoarMG grid at intermediate multigrid level
+  //! \param a_domainBC domain boundary conditions at this level
+  //! \param a_ebBC eb boundary conditions at this level
+  //! \param a_dx grid spacing at this level
+  //! \param a_origin offset to lowest corner of the domain
+  //! \param a_refToFine refinement ratio to finer level
+  //! \param a_refToCoar refinement ratio to coarser level
+  //! \param a_hasFiner true if there is a finer AMR level, false otherwise.
+  //! \param a_hasCoarser true if there is a coarser AMR level.
+  //! \param a_hasCoarserMG true if there is a coarser MultiGrid level.
+  //! \param a_preCondIters number of iterations to do for pre-conditioning
+  //! \param a_relaxType 0 means point Jacobi, 1 is Gauss-Seidel.
+  //! \param a_acoef coefficent of identity
+  //! \param a_bcoef coefficient of gradient.
+  //! \param a_ghostCellsPhi Number of ghost cells in phi, correction
+  //! \param a_ghostCellsRhs Number of ghost cells in RHS, residual, lphi
+  NWOEBConductivityOp(const EBLevelGrid &                               a_eblgFine,
                    const EBLevelGrid &                                  a_eblg,
                    const EBLevelGrid &                                  a_eblgCoar,
                    const EBLevelGrid &                                  a_eblgCoarMG,
-                   const RefCountedPtr<EBQuadCFInterp>&                 a_quadCFI,
+                   const RefCountedPtr<NWOEBQuadCFInterp>&              a_quadCFI,
                    const RefCountedPtr<ConductivityBaseDomainBC>&       a_domainBC,
                    const RefCountedPtr<ConductivityBaseEBBC>&           a_ebBC,
                    const Real    &                                      a_dx,
@@ -159,7 +102,82 @@ public:
                    const IntVect&                                       a_ghostCellsRHS,
                    const int&                                           a_relaxType);
 
-  //MGOp operations.  no finer or coarser
+
+  ~NWOEBConductivityOp()
+  {
+  }
+
+
+  ///
+  /**
+     This sets the data storage for the a coefficient to a different
+     object and recalculates the stuff it depends on. Use this only if you know what you're doing.
+  */
+  virtual void resetACoefficient(RefCountedPtr<LevelData<EBCellFAB> >& a_acoef)
+  {
+
+    m_acoef = a_acoef;
+    calculateAlphaWeight();
+    calculateRelaxationCoefficient();
+  }
+
+  //only weights by kappa.  time and tga have their demands.
+  virtual void kappaScale(LevelData<EBCellFAB> & a_rhs);
+
+  ///
+  /** a_residual = a_rhs - L(a_phiFine, a_phi)   no coaser AMR level*/
+  void AMRResidualNC(LevelData<EBCellFAB>&       a_residual,
+                     const LevelData<EBCellFAB>& a_phiFine,
+                     const LevelData<EBCellFAB>& a_phi,
+                     const LevelData<EBCellFAB>& a_rhs,
+                     bool a_homogeneousBC,
+                     AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp);
+
+
+  ///
+  /** apply AMR operator   no coaser AMR level*/
+  void AMROperatorNC(LevelData<EBCellFAB>&       a_LofPhi,
+                     const LevelData<EBCellFAB>& a_phiFine,
+                     const LevelData<EBCellFAB>& a_phi,
+                     bool a_homogeneousBC,
+                     AMRLevelOp<LevelData<EBCellFAB> >* a_finerOp);
+
+  //------------------------------------
+  // Overridden methods for base classes
+  //------------------------------------
+
+  void setAlphaAndBeta(const Real& a_alpha,
+                       const Real& a_beta);
+
+  void diagonalScale(LevelData<EBCellFAB> & a_rhs,
+                     bool a_kappaWeighted);
+
+  void divideByIdentityCoef(LevelData<EBCellFAB> & a_rhs);
+
+  //a loathesome artifact of old implementations of other operators.
+  void fillGrad(const LevelData<EBCellFAB>& a_phi)
+  {
+  }
+
+  void fillPhiGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const;
+  void fillPhiGhost(const LevelData<EBCellFAB>& a_phi) const;
+
+  void getFlux(EBFluxFAB&                    a_flux,
+               const LevelData<EBCellFAB>&   a_data,
+               const Box&                    a_grid,
+               const DataIndex&              a_dit,
+               Real                          a_scale);
+
+  void getFlux(EBFaceFAB&                    a_fluxCentroid,
+               const EBCellFAB&              a_phi,
+               const Box&                    a_ghostedBox,
+               const Box&                    a_fabBox,
+               const ProblemDomain&          a_domain,
+               const EBISBox&                a_ebisBox,
+               const Real&                   a_dx,
+               const DataIndex&              a_datInd,
+               const int&                    a_idir);
+
 
   ///
   /**
@@ -188,15 +206,33 @@ public:
 
   /// virtual function called by LevelTGA
   virtual void applyOpNoBoundary(LevelData<EBCellFAB>&        a_opPhi,
-                                 const LevelData<EBCellFAB>&  a_phi);
+                                 const LevelData<EBCellFAB>&  a_phi)
+  {
+    s_turnOffBCs = true;
+    applyOp(a_opPhi, a_phi, true);
+    s_turnOffBCs = false;
+  }
+
+  void
+  applyOpIrregular(EBCellFAB&             a_lhs,
+                   const EBCellFAB&       a_phi,
+                   const bool&            a_homogeneous,
+                   const DataIndex&       a_datInd);
+
+  void
+  applyOpRegular(EBCellFAB&             a_lhs,
+                 const EBCellFAB&       a_phi,
+                 const bool&            a_homogeneous,
+                 const DataIndex&       a_datInd);
+
 
   ///
   /**
      this is the linearop function.  CFBC is set to homogeneous.  phic is null
   */
-  virtual void applyOp(LevelData<EBCellFAB>&             a_opPhi,
-                       const LevelData<EBCellFAB>&       a_phi,
-                       bool                              a_homogeneousPhysBC);
+  virtual void applyOp(LevelData<EBCellFAB>       &        a_opPhi,
+                       const LevelData<EBCellFAB> &        a_phi,
+                       bool    a_homogeneousPhysBC = false);
 
   ///
   /**
@@ -255,6 +291,7 @@ public:
   virtual Real norm(const LevelData<EBCellFAB>& a_rhs,
                     int                         a_ord);
 
+  virtual Real localMaxNorm(const LevelData<EBCellFAB>& a_rhs);
   ///
   /**
    */
@@ -278,15 +315,6 @@ public:
   virtual void relax(LevelData<EBCellFAB>&       a_e,
                      const LevelData<EBCellFAB>& a_residual,
                      int                         a_iterations);
-
-
-  virtual void relaxGauSai(LevelData<EBCellFAB>&       a_e,
-                          const LevelData<EBCellFAB>& a_residual,
-                          int                         a_iterations);
-
-  virtual void relaxPoiJac(LevelData<EBCellFAB>&       a_e,
-                           const LevelData<EBCellFAB>& a_residual,
-                           int                         a_iterations);
 
   ///
   /**
@@ -369,6 +397,11 @@ public:
                                  const LevelData<EBCellFAB>& a_correction,
                                  const LevelData<EBCellFAB>& a_coarseCorrection);
 
+  void
+  gsrbColor(LevelData<EBCellFAB>&       a_phi,
+            const LevelData<EBCellFAB>& a_rhs,
+            const IntVect&              a_color);
+
   void reflux(LevelData<EBCellFAB>& a_residual,
               const LevelData<EBCellFAB>& a_phiFine,
               const LevelData<EBCellFAB>& a_phi,
@@ -391,24 +424,92 @@ public:
                                   const FaceIndex& a_face,
                                   const DataIndex& a_dit);
 
-  void incrOpRegularDir(EBCellFAB&             a_lhs,
-                        const EBCellFAB&       a_phi,
-                        const bool&            a_homogeneous,
-                        const int&             a_dir,
-                        const DataIndex&       a_datInd);
-  void applyOpIrregular(EBCellFAB&             a_lhs,
-                        const EBCellFAB&       a_phi,
-                        const bool&            a_homogeneous,
-                        const DataIndex&       a_datInd);
+  void homogeneousCFInterp(LevelData<EBCellFAB>&   a_phif);
+
+  //this is needed to do wacky things like reset the a coefficient.
+  //not for the faint of heart
+  //but none but the brave deserve the fair
+  const EBLevelGrid& getEBLG() const
+  {
+    return m_eblg;
+  }
+  static void setForceNoEBCF(bool a_forceNoEBCF)
+  {
+    s_forceNoEBCF = a_forceNoEBCF;
+  }
+  ///
+  static void doLazyRelax(bool a_doLazyRelax)
+  {
+    s_doLazyRelax = a_doLazyRelax;
+  }
+  ///do not call this one unless you really know what you are doing
+  void defineStencils();
 protected:
 
-  static bool                     s_turnOffBCs;
-  void defineStencils();
-  int                             m_relaxType;
-  const IntVect                   m_ghostCellsPhi;
-  const IntVect                   m_ghostCellsRHS;
+  //relaxation coeffcient safety factor
+  Real getSafety();
 
-  RefCountedPtr<EBQuadCFInterp>   m_quadCFIWithCoar;
+  void incrOpRegularAllDirs(Box * a_loBox,
+                            Box * a_hiBox,
+                            int * a_hasLo,
+                            int * a_hasHi,
+                            Box & a_curDblBox,
+                            Box & a_curPhiBox,
+                            int a_nComps,
+                            BaseFab<Real> & a_curOpPhiFAB,
+                            const BaseFab<Real> & a_curPhiFAB,
+                            bool a_homogeneousPhysBC,
+                            const DataIndex& a_dit);
+
+  void applyDomainFlux(Box * a_loBox,
+                       Box * a_hiBox,
+                       int * a_hasLo,
+                       int * a_hasHi,
+                       Box & a_dblBox,
+                       int a_nComps,
+                       BaseFab<Real> & a_phiFAB,
+                       bool a_homogeneousPhysBC,
+                       const DataIndex& a_dit);
+
+  void GSColorAllIrregular(EBCellFAB&                        a_phi,
+                           const EBCellFAB&                  a_rhs,
+                           const int&                        a_icolor,
+                           const DataIndex&                  a_dit);
+
+  static bool                     s_turnOffBCs;
+  static bool                     s_forceNoEBCF;
+  static bool s_doLazyRelax;
+  
+
+  virtual void calculateAlphaWeight();
+  virtual void calculateRelaxationCoefficient();
+
+  //EBCF gymnastics
+  void defineEBCFStencils();
+  void getFluxEBCF(EBFaceFAB&                    a_flux,
+                   const EBCellFAB&              a_phi,
+                   const Box&                    a_ghostedBox,
+                   Vector<FaceIndex>&            a_faceitEBCF,
+                   Vector<VoFStencil>&           a_stenEBCF);
+
+  void getFluxRegOnly(EBFaceFAB&                    a_fluxCentroid,
+                      const EBCellFAB&              a_phi,
+                      const Box&                    a_ghostedBox,
+                      const Real&                   a_dx,
+                      const DataIndex&              a_datInd,
+                      const int&                    a_idir);
+
+  //stuff to make EBCF go faster
+  LayoutData< Vector<FaceIndex>  >   m_faceitCoar[2*SpaceDim];
+  LayoutData< Vector<VoFStencil> >  m_stencilCoar[2*SpaceDim];
+
+
+
+  int                             m_relaxType;
+  const IntVect                   m_ghostPhi;
+  const IntVect                   m_ghostRHS;
+
+  RefCountedPtr<NWOEBQuadCFInterp>  m_interpWithCoarser;
 
   EBLevelGrid                     m_eblg;
   EBLevelGrid                     m_eblgFine;
@@ -422,6 +523,7 @@ protected:
   Real                            m_dxFine;
   Real                            m_dx;
   Real                            m_dxCoar;
+
   RefCountedPtr<LevelData<EBCellFAB> >          m_acoef;
   RefCountedPtr<LevelData<EBFluxFAB> >          m_bcoef;
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >   m_bcoIrreg;
@@ -434,6 +536,7 @@ protected:
   LayoutData<BaseIVFAB<Real> >       m_betaDiagWeight;
   int                             m_refToFine;
   int                             m_refToCoar;
+  bool                            m_hasEBCF;
   bool                            m_hasFine;
   bool                            m_hasInterpAve;
   bool                            m_hasCoar;
@@ -444,8 +547,10 @@ protected:
   EBMGInterp                     m_ebInterp;
 
   //stencils for operator evaluation
-  LayoutData<RefCountedPtr<EBStencil> >  m_opEBStencil;
+  LayoutData<RefCountedPtr<VCAggStencil> >  m_opEBStencil;
   //stencils for operator evaluation on gauss-seidel colors
+
+  //! Multigrid relaxation coefficient
   LevelData<EBCellFAB>       m_relCoef;
 
   //cache the vofiterators
@@ -456,7 +561,6 @@ protected:
   LayoutData<VoFIterator >                     m_vofIterDomLo[CH_SPACEDIM];
   LayoutData<VoFIterator >                     m_vofIterDomHi[CH_SPACEDIM];
 
-  void calculateRelaxationCoefficient();
 
   // Coarse-fine stencils for homogeneous CFInterp
   LayoutData<CFIVS> m_loCFIVS[SpaceDim];
@@ -464,7 +568,6 @@ protected:
 
   //flux register with finer level
   EBFastFR       m_fastFR;
-
   //special mg objects for when we do not have
   //a coarser level or when the refinement to coarse
   //is greater than two
@@ -479,6 +582,7 @@ protected:
   ProblemDomain               m_domainCoarMG;
 
   Vector<IntVect> m_colors;
+  Copier                          m_exchangeCopier;
 
 private:
 
@@ -499,10 +603,6 @@ private:
                const DataIndex&              a_datInd);
 
 
-
-  void applyCFBCs(LevelData<EBCellFAB>&             a_phi,
-                  const LevelData<EBCellFAB>* const a_phiCoarse,
-                  bool a_homogeneousCFBC);
 
   void getOpVoFStencil(VoFStencil&     a_stencil,
                        const EBISBox&  a_ebisbox,
@@ -525,23 +625,18 @@ private:
                         const FaceIndex&        a_face,
                         const bool&             a_lowOrder);
 
-  void levelJacobi(LevelData<EBCellFAB>&       a_phi,
-                   const LevelData<EBCellFAB>& a_rhs);
-
-  void applyHomogeneousCFBCs(LevelData<EBCellFAB>&   a_phi);
-
-  void applyHomogeneousCFBCs(EBCellFAB&            a_phi,
-                             const DataIndex&      a_datInd,
-                             int                   a_idir,
-                             Side::LoHiSide        a_hiorlo);
 private:
+
+  //! Default constructor. Creates an undefined conductivity operator.
+  NWOEBConductivityOp();
+
   //copy constructor and operator= disallowed for all the usual reasons
-  slowEBCO(const slowEBCO& a_opin)
+  NWOEBConductivityOp(const NWOEBConductivityOp& a_opin)
   {
     MayDay::Error("invalid operator");
   }
 
-  void operator=(const slowEBCO& a_opin)
+  void operator=(const NWOEBConductivityOp& a_opin)
   {
     MayDay::Error("invalid operator");
   }

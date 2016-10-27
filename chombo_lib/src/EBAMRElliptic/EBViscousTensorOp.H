@@ -37,6 +37,7 @@
 #include "PolyGeom.H"
 #include "EBQuadCFInterp.H"
 #include "EBLevelGrid.H"
+#include "ViscousBaseDomainBC.H"
 #include "EBAMRIO.H"
 #include "DivergenceStencil.H"
 
