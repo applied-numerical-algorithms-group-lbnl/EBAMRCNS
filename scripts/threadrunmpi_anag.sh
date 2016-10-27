@@ -35,13 +35,18 @@ while ($threads <= $maxThread)
  echo $command
  $command
 
- set command = "mpirun -np $procs -machinefile $machfile $exec $inputs"
+ set command = "mpirun -np $procs $exec $inputs"
  echo $command
  $command
 
- set procfile = `echo $procs | awk '{printf("%06d",$1);}'`    
+ set pprocs = `echo $procs | awk '{printf("%06d",$1);}'`    
+ set pthreads = `echo $threads | awk '{printf("%06d",$1);}'`    
+set outdir  = $timedir/amrg.time.$pprocs.procs.$pthreads.thread
+if (! -e $outdir) then
+   mkdir $outdir
+endif 
  
- set command =  "mv time.table.0 $timedir/amrg.time.$threads.threads.$procs.procs"
+ set command =  "mv time.table.* pout.* $outdir"
  echo $command
  $command
 
