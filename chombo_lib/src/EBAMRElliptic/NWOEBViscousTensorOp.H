@@ -530,9 +530,9 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
                  const IntVect&              a_color);
 
   void
-  fillVelGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const;
+  fillVelGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd, bool a_homog) const;
   void
-  fillVelGhost(const LevelData<EBCellFAB>& a_phi) const;
+  fillVelGhost(const LevelData<EBCellFAB>& a_phi, bool a_homog) const;
   void getFaceCenteredFluxStencil(VoFStencil&      a_fluxStencil,
                                   const FaceIndex& a_face,
                                   const DataIndex& a_dit,

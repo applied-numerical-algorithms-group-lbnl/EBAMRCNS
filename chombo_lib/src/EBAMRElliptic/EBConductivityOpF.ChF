@@ -125,6 +125,13 @@ c     bc has also been shifted
 
       integer chf_ddecl[i;j;k]
       real_t laplphi, dxinvsq
+c      real_t bhi(0:CH_SPACEDIM-1)
+c      real_t blo(0:CH_SPACEDIM-1)
+c      real_t phihi(0:CH_SPACEDIM-1)
+c      real_t philo(0:CH_SPACEDIM-1)
+c      real_t dx0, phipt, laplphitwo
+c
+c      dx0 = beta/(dx * dx)
 
       dxinvsq = one/(dx * dx)
 
@@ -137,6 +144,30 @@ c     bc has also been shifted
      &     - b1(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i  ;j-1;k  ])))*dxinvsq;
      &     +(b2(CHF_IX[i  ;j  ;k+1])*(phi(chf_ix[i  ;j  ;k+1]) - phi(chf_ix[i  ;j  ;k  ]))
      &     - b2(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i  ;j  ;k-1])))*dxinvsq]
+
+c      phipt = phi(chf_ix[i  ;j  ;k  ])
+c      CHF_DTERM[
+c      bhi(0) = b0(CHF_IX[i+1;j  ;k  ]);
+c      bhi(1) = b1(CHF_IX[i  ;j+1;k  ]);
+c      bhi(2) = b2(CHF_IX[i  ;j  ;k+1])]
+c      CHF_DTERM[
+c      blo(0) = b0(CHF_IX[i  ;j  ;k  ]);
+c      blo(1) = b1(CHF_IX[i  ;j  ;k  ]);
+c      blo(2) = b2(CHF_IX[i  ;j  ;k  ])]
+c      CHF_DTERM[
+c      phihi(0) = phi(CHF_IX[i+1;j  ;k  ]);
+c      phihi(1) = phi(CHF_IX[i  ;j+1;k  ]);
+c      phihi(2) = phi(CHF_IX[i  ;j  ;k+1])]
+c      CHF_DTERM[
+c      philo(0) = phi(CHF_IX[i-1;j  ;k  ]);
+c      philo(1) = phi(CHF_IX[i  ;j-1;k  ]);
+c      philo(2) = phi(CHF_IX[i  ;j  ;k-1])]
+c
+c
+c      laplphitwo = CHF_DTERM[
+c     $      (bhi(0)*(phihi(0)- phipt   ) -  blo(0)*(phipt   - philo(0)))*dx0;+
+c     $      (bhi(1)*(phihi(1)- phipt   ) -  blo(1)*(phipt   - philo(1)))*dx0;+
+c     $      (bhi(2)*(phihi(2)- phipt   ) -  blo(2)*(phipt   - philo(2)))*dx0]
 
       opphidir(chf_ix[i;j;k]) = alpha*aco(chf_ix[i;j;k])*phi(chf_ix[i;j;k]) + beta*laplphi
 
@@ -162,11 +193,11 @@ c     bc has also been shifted
      &     chf_box[box])
 
       integer chf_ddecl[i;j;k],ncolors
-      real_t laplphi, dxinvsq, opphi
+      real_t laplphi, dxinvsq, opphipt, rhspt, relcopt, phipt
 
       dxinvsq = one/(dx * dx)
 
-      chf_multido[box;i;j;k,2]
+      chf_multido[box;i;j;k;2]
 
       laplphi = CHF_DTERM[
      &      (b0(CHF_IX[i+1;j  ;k  ])*(phi(chf_ix[i+1;j  ;k  ]) - phi(chf_ix[i  ;j  ;k  ]))
@@ -176,10 +207,12 @@ c     bc has also been shifted
      &     +(b2(CHF_IX[i  ;j  ;k+1])*(phi(chf_ix[i  ;j  ;k+1]) - phi(chf_ix[i  ;j  ;k  ]))
      &     - b2(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i  ;j  ;k-1])))*dxinvsq]
 
-      opphi  = alpha*aco(chf_ix[i;j;k])*phi(chf_ix[i;j;k]) + beta*laplphi
+      opphipt = alpha*aco(chf_ix[i;j;k])*phi(chf_ix[i;j;k]) + beta*laplphi
+      phipt   =   phi(chf_ix[i;j;k])
+      rhspt   =   rhs(chf_ix[i;j;k])
+      relcopt = relco(chf_ix[i;j;k])
 
-
-      phi(chf_ix[i;j;k]) = phi(chf_ix[i;j;k]) + relco(chf_ix[i;j;k])*(relco(chf_ix[i;j;k]) - opphi)
+      phi(chf_ix[i;j;k]) = phipt + relcopt*(rhspt - opphipt)
 
       chf_enddo
 
@@ -203,6 +236,11 @@ c     bc has also been shifted
 
       integer chf_ddecl[i;j;k]
       real_t laplphi, dx0
+c      real_t bhi(0:CH_SPACEDIM-1)
+c      real_t blo(0:CH_SPACEDIM-1)
+c      real_t phihi(0:CH_SPACEDIM-1)
+c      real_t philo(0:CH_SPACEDIM-1)
+c      real_t  phipt, laplphitwo
 
       dx0 = beta/(dx * dx)
 
@@ -216,6 +254,30 @@ c     bc has also been shifted
      &     +(b2(CHF_IX[i  ;j  ;k+1])*(phi(chf_ix[i  ;j  ;k+1]) - phi(chf_ix[i  ;j  ;k  ]))
      &     - b2(CHF_IX[i  ;j  ;k  ])*(phi(chf_ix[i  ;j  ;k  ]) - phi(chf_ix[i  ;j  ;k-1])))*dx0]
 
+c      phipt = phi(chf_ix[i  ;j  ;k  ])
+c      CHF_DTERM[
+c      bhi(0) = b0(CHF_IX[i+1;j  ;k  ]);
+c      bhi(1) = b1(CHF_IX[i  ;j+1;k  ]);
+c      bhi(2) = b2(CHF_IX[i  ;j  ;k+1])]
+c      CHF_DTERM[
+c      blo(0) = b0(CHF_IX[i  ;j  ;k  ]);
+c      blo(1) = b1(CHF_IX[i  ;j  ;k  ]);
+c      blo(2) = b2(CHF_IX[i  ;j  ;k  ])]
+c      CHF_DTERM[
+c      phihi(0) = phi(CHF_IX[i+1;j  ;k  ]);
+c      phihi(1) = phi(CHF_IX[i  ;j+1;k  ]);
+c      phihi(2) = phi(CHF_IX[i  ;j  ;k+1])]
+c      CHF_DTERM[
+c      philo(0) = phi(CHF_IX[i-1;j  ;k  ]);
+c      philo(1) = phi(CHF_IX[i  ;j-1;k  ]);
+c      philo(2) = phi(CHF_IX[i  ;j  ;k-1])]
+c
+c
+c      laplphitwo = CHF_DTERM[
+c     $      (bhi(0)*(phihi(0)- phipt   ) -  blo(0)*(phipt   - philo(0)))*dx0;+
+c     $      (bhi(1)*(phihi(1)- phipt   ) -  blo(1)*(phipt   - philo(1)))*dx0;+
+c     $      (bhi(2)*(phihi(2)- phipt   ) -  blo(2)*(phipt   - philo(2)))*dx0]
+      
 c     opphidir comes in holding alpha*phi
       opphidir(chf_ix[i;j;k]) = opphidir(chf_ix[i;j;k]) + laplphi
 

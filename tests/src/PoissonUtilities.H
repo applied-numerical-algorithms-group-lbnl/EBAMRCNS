@@ -34,8 +34,8 @@ using std::cerr;
 #include "TrigBCFlux.H"
 #include    "EBAMRPoissonOpFactory.H"
 #include "EBViscousTensorOpFactory.H"
-#include "NWOEBViscousTensorOpFactory.H"
 #include  "EBConductivityOpFactory.H"
+#include  "NWOEBConductivityOpFactory.H"
 
 #ifndef _POISSONUTILITIES_H_
 #define _POISSONUTILITIES_H_
@@ -47,7 +47,7 @@ using std::cerr;
    here is a central repository of the stuff required to
    do an ebamrpoisson problem.  The single-level stuff was
    done earlier and will be left alone.
- */
+*/
 
 class PoissonParameters
 {
@@ -87,20 +87,6 @@ defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&                  
                           Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&   etaIrreg,
                           Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&   lambdaIrreg,
                           RefCountedPtr<EBViscousTensorOpFactory>&                a_opFactory);
-
-
-extern void
-defineNWOViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&                    a_solver,
-                             const Vector<DisjointBoxLayout>&                        a_grids,
-                             const Vector<EBISLayout>&                               a_ebisl,
-                             LinearSolver<LevelData<EBCellFAB> >&                    a_bottomSolver,
-                             const PoissonParameters&                                a_params,
-                             Vector<RefCountedPtr<LevelData<EBCellFAB> > >       &   a_aco,
-                             Vector<RefCountedPtr<LevelData<EBFluxFAB> > >       &   a_eta,
-                             Vector<RefCountedPtr<LevelData<EBFluxFAB> > >       &   a_lambda,
-                             Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&   a_etaIrreg,
-                             Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&   a_lambdaIrreg,
-                             RefCountedPtr<NWOEBViscousTensorOpFactory>          &   a_opFactory);
 
 
 
@@ -143,7 +129,6 @@ defineGrids(Vector< DisjointBoxLayout     >& a_grids,
 extern int getOrderEB();
 
 extern RealVect getTrigRV();
-extern RealVect getSphericalHarmonicRV();
 
 ///get stuff from input file
 extern void getPoissonParameters (      PoissonParameters&  a_params,
@@ -156,7 +141,7 @@ extern void definePoissonGeometry(const PoissonParameters&  a_params);
 ///define the tga ubersolver.
 /**
    Memory for solver gets allocated in this routine.  must be deleted later
- */
+*/
 extern RefCountedPtr<AMRTGA<LevelData<EBCellFAB> > > newTGASolver(const Vector<DisjointBoxLayout>&       a_grids,
                                                                   const Vector<EBISLayout>&              a_ebisl,
                                                                   const PoissonParameters&               a_params,
@@ -171,14 +156,14 @@ extern RefCountedPtr<AMRTGA<LevelData<EBCellFAB> > > newTGASolver(const Vector<D
 /**
    Define layouts that in which all irregular cells are refined.
    No other refinement criteria are used.
- */
+*/
 extern void getAllIrregRefinedLayouts(Vector<DisjointBoxLayout>& a_grids,
                                       Vector<EBISLayout>&        a_ebisl,
                                       const PoissonParameters&   a_params);
 
 ///
 /**
-*/
+ */
 extern void compareError(const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
                          const Vector< LevelData<EBCellFAB>* >&   a_errorCoar,
                          const Vector< DisjointBoxLayout >&       a_gridsFine,
@@ -190,7 +175,7 @@ extern void compareError(const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
 
 ///
 /**
-*/
+ */
 extern void getCoarseLayoutsFromFine(Vector<DisjointBoxLayout>&       a_gridsCoar,
                                      Vector< EBISLayout >&            a_ebislCoar,
                                      const Vector<DisjointBoxLayout>& a_gridsFine,
@@ -202,7 +187,7 @@ extern void getBCFactories(RefCountedPtr<BaseDomainBCFactory>& a_baseDomainBCFac
 
 ///
 /**
-*/
+ */
 /**************/
 extern void
 getEBAMRPFactory(RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >&  a_levelOpFactory,
@@ -238,7 +223,7 @@ defineMGBCGSolver(BiCGStabSolver<Vector<LevelData<EBCellFAB>* > >& a_solver,
                   Real                                             a_beta);
 ///
 /**
-*/
+ */
 extern void setTrigPhi(LevelData<EBCellFAB>&     a_phi,
                        const  RealVect&          a_dx,
                        const  PoissonParameters& a_params,
@@ -319,13 +304,6 @@ defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
                           LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
                           const PoissonParameters&                     a_params);
 
-extern void
-defineNWOViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
-                             const Vector<DisjointBoxLayout>&             a_grids,
-                             const Vector<EBISLayout>&                    a_ebisl,
-                             LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
-                             const PoissonParameters&                     a_params);
-
 
 extern void
 defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
@@ -334,14 +312,6 @@ defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
                           const Vector<EBISLayout>&                    a_ebisl,
                           LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
                           const PoissonParameters&                     a_params);
-
-extern void
-defineNWOViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
-                             RefCountedPtr<NWOEBViscousTensorOpFactory>&  a_factory,
-                             const Vector<DisjointBoxLayout>&             a_grids,
-                             const Vector<EBISLayout>&                    a_ebisl,
-                             LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
-                             const PoissonParameters&                     a_params);
 
 extern void
 getEBVTOFactory(RefCountedPtr<EBViscousTensorOpFactory>&                       a_factory,
@@ -353,17 +323,6 @@ getEBVTOFactory(RefCountedPtr<EBViscousTensorOpFactory>&                       a
                 const Vector<DisjointBoxLayout>&                               a_grids,
                 const Vector<EBISLayout>&                                      a_ebisl,
                 const PoissonParameters&                                       a_params);
-
-extern void
-getNWOEBVTOFactory(RefCountedPtr<NWOEBViscousTensorOpFactory>&                    a_factory,
-                   const Vector<RefCountedPtr<LevelData<EBCellFAB > > >&          a_acoeffi,
-                   const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           a_eta,
-                   const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           a_lambda,
-                   const Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    a_etaIrreg,
-                   const Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    a_lambdaIrreg,
-                   const Vector<DisjointBoxLayout>&                               a_grids,
-                   const Vector<EBISLayout>&                                      a_ebisl,
-                   const PoissonParameters&                                       a_params);
 
 ///
 extern
@@ -405,6 +364,18 @@ defineConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&                  
                           Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    a_bcoIrreg,
                           RefCountedPtr<EBConductivityOpFactory>&                  a_opFactory);
 
+
+extern void
+defineNWOConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&                     a_solver,
+                             const Vector<DisjointBoxLayout>&                         a_grids,
+                             const Vector<EBISLayout>&                                a_ebisl,
+                             LinearSolver<LevelData<EBCellFAB> >&                     a_bottomSolver,
+                             const PoissonParameters&                                 a_params,
+                             Vector<RefCountedPtr<LevelData<EBCellFAB> > >&           a_aco,
+                             Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           a_bco,
+                             Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    a_bcoIrreg,
+                             RefCountedPtr<NWOEBConductivityOpFactory>&               a_opFactory);
+
 extern void
 defineSlowConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&                     a_solver,
                               const Vector<DisjointBoxLayout>&                         a_grids,
@@ -442,6 +413,16 @@ getConductivityFactory(RefCountedPtr<EBConductivityOpFactory>&                  
 
 
 extern void
+getNWOConductivityFactory(RefCountedPtr<NWOEBConductivityOpFactory>&                        a_factory,
+                          const Vector<RefCountedPtr<LevelData<EBCellFAB > > >&          a_acoeffi,
+                          const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           a_bcoeffi,
+                          const Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    a_bcoIrreg,
+                          const Vector<DisjointBoxLayout>&                               a_grids,
+                          const Vector<EBISLayout>&                                      a_ebisl,
+                          const PoissonParameters&                                       a_params);
+
+
+extern void
 getSlowConductivityFactory(RefCountedPtr<slowEBCOFactory>&                                a_factory,
                            const Vector<RefCountedPtr<LevelData<EBCellFAB > > >&          a_acoeffi,
                            const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           a_bcoeffi,
@@ -456,6 +437,20 @@ defineConductivitySolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
                          const Vector<EBISLayout>&                    a_ebisl,
                          LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
                          const PoissonParameters&                     a_params);
+
+extern void
+defineNWOConductivitySolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
+                            const Vector<DisjointBoxLayout>&             a_grids,
+                            const Vector<EBISLayout>&                    a_ebisl,
+                            LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
+                            const PoissonParameters&                     a_params);
+
+extern void
+defineSlowConductivitySolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
+                             const Vector<DisjointBoxLayout>&             a_grids,
+                             const Vector<EBISLayout>&                    a_ebisl,
+                             LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
+                             const PoissonParameters&                     a_params);
 
 extern
 void getConductivityBCFactories(RefCountedPtr<BaseDomainBCFactory>&                     a_domBC,

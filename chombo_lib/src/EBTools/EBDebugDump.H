@@ -27,6 +27,7 @@ void EBDontYouDareCallMe()
   dumpVFace(NULL);
   dumpVoFSten(NULL);
   dumpFaceSten(NULL);
+  dumpEBLevelGhost(NULL);
   dumpEBLDDBL(NULL);
   dumpLDEBCF(NULL);
   getMaxEBLevel(NULL);

@@ -146,9 +146,9 @@ void DirichletPoissonDomainBC::getHigherOrderFaceFlux(BaseFab<Real>&        a_fa
       {
         if (m_isFunctional)
           {
-            //Real ihdx;
+            Real ihdx;
 
-            //ihdx = 2.0 / a_dx[a_idir];
+            ihdx = 2.0 / a_dx[a_idir];
 
             BoxIterator bit(box);
 

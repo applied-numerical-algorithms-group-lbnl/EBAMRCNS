@@ -88,17 +88,20 @@ public:
           {
             Box toRegion = adjCellBox(valid, idir, sit(), 1);
 
-            for (BoxIterator bit(toRegion); bit.ok(); ++bit)
+            if(!a_domain.contains(toRegion))
               {
-                const IntVect& iv = bit();
-                //fake vof just to get the location
-                VolIndex vof(iv, 0);
-                RealVect loc = EBArith::getVoFLocation(vof, a_dx, RealVect::Zero);
-                int isign = sign(sit());
-                IntVect ivneigh = iv - isign*BASISV(idir);
-                Real value = bcvaluefunc(loc, idir, sit());
-                if(a_homogeneous) value = 0;
-                a_phi(iv, 0) = a_phi(ivneigh, 0)  + a_dx*value;
+                for (BoxIterator bit(toRegion); bit.ok(); ++bit)
+                  {
+                    const IntVect& iv = bit();
+                    //fake vof just to get the location
+                    VolIndex vof(iv, 0);
+                    RealVect loc = EBArith::getVoFLocation(vof, a_dx, RealVect::Zero);
+                    int isign = sign(sit());
+                    IntVect ivneigh = iv - isign*BASISV(idir);
+                    Real value = bcvaluefunc(loc, idir, sit());
+                    if(a_homogeneous) value = 0;
+                    a_phi(iv, 0) = a_phi(ivneigh, 0)  + a_dx*value;
+                  }
               }
           } 
         //grow valid box so we hit corners

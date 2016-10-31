@@ -40,6 +40,8 @@ class EBFluxFAB;
 //{
 ///
 ///
+void dumpEBLevelGhost(const LevelData<EBCellFAB>* a_level);
+
 void printMaxMinEBFlux(EBFluxFAB* a_data);
 
 void printMaxMinEBFace(EBFaceFAB* a_data);

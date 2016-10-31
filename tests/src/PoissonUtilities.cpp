@@ -47,8 +47,6 @@
 #include "CH_Attach.H"
 #include "EBViscousTensorOp.H"
 #include "EBViscousTensorOpFactory.H"
-#include "NWOEBViscousTensorOp.H"
-#include "NWOEBViscousTensorOpFactory.H"
 #include "DirichletPoissonEBBC.H"
 #include   "NeumannPoissonEBBC.H"
 #include "DirichletPoissonDomainBC.H"
@@ -65,6 +63,40 @@
 #include "memusage.H"
 #include "memtrack.H"
 
+BaseIF* makeChamber(const Real& radius,
+                    const Real& thick,
+                    const Real& offset,
+                    const Real& height);
+
+BaseIF* makePlate(const Real& height,
+                  const Real& thick,
+                  const Real& radius,
+                  const int&  doHoles,
+                  const Real& holeRadius,
+                  const Real& holeSpace);
+
+BaseIF* makeVanes(const int&      num,
+                  const Real&     thick,
+                  const RealVect& normal,
+                  const Real&     innerRadius,
+                  const Real&     outerRadius,
+                  const Real&     offset,
+                  const Real&     height);
+
+// BaseIF* makeVane(const Real&     thick,
+//                  const RealVect& normal,
+//                  const Real&     innerRadius,
+//                  const Real&     outerRadius,
+//                  const Real&     offset,
+//                  const Real&     height);
+
+BaseIF* makeVane(const Real&     thick,
+                 const RealVect& normal,
+                 const Real&     innerRadius,
+                 const Real&     outerRadius,
+                 const Real&     offset,
+                 const Real&     height,
+                 const Real&     angle);
 
 /*****/
 /*****/
@@ -167,37 +199,6 @@ void getConductivityBCFactories(RefCountedPtr<BaseDomainBCFactory>&             
 
       a_domBC = RefCountedPtr<BaseDomainBCFactory>(domainBCFactory);
     }
-  else if (a_params.domBcType == 2)
-    {
-      pout() << "Neumann trig bcs on domain" << endl;
-      RealVect     trig = getTrigRV();
-
-      TrigBCFlux* trigFluxPtr = new TrigBCFlux();
-
-      trigFluxPtr->define(trig);
-
-      RefCountedPtr<BaseBCValue> baseTrigFluxPtr = RefCountedPtr<BaseBCValue>(trigFluxPtr);
-
-      NeumannConductivityDomainBCFactory* domainBCFactory = new NeumannConductivityDomainBCFactory();
-      domainBCFactory->setFunction(baseTrigFluxPtr);
-
-      a_domBC = RefCountedPtr<BaseDomainBCFactory>(domainBCFactory);
-    }
-  else if (a_params.domBcType == 3)
-    {
-      pout() << "Dirichlet trig bcs on domain" << endl;
-      RealVect     trig = getTrigRV();
-
-      TrigBCValue* trigValuePtr = new TrigBCValue();
-      trigValuePtr->define(trig);
-
-      RefCountedPtr<BaseBCValue> baseTrigValuePtr = RefCountedPtr<BaseBCValue>(trigValuePtr);
-
-      DirichletConductivityDomainBCFactory* domainBCFactory = new DirichletConductivityDomainBCFactory();
-      domainBCFactory->setFunction(baseTrigValuePtr);
-
-      a_domBC = RefCountedPtr<BaseDomainBCFactory>(domainBCFactory);
-    }
   else
     {
       MayDay::Error("Unknown domain BC type");
@@ -240,28 +241,27 @@ void getConductivityBCFactories(RefCountedPtr<BaseDomainBCFactory>&             
 
       a_ebBC = RefCountedPtr<BaseEBBCFactory>(ebBC);
     }
-  else if (a_params.ebBcType == 3)
-    {
-      pout() << "Dirichlet trig bcs on EB" << endl;
-      RealVect     trig = getTrigRV();
-      RefCountedPtr<BaseBCValue> baseTrigValuePtr;
-      DirichletConductivityEBBCFactory* ebBC;
-      TrigBCValue* trigValuePtr = new TrigBCValue();
-      trigValuePtr->define(trig);
-      baseTrigValuePtr =  RefCountedPtr<BaseBCValue>(trigValuePtr);
-      ebBC = new DirichletConductivityEBBCFactory();
-
-      int orderEB = getOrderEB();
-      ebBC->setOrder(orderEB);
-      ebBC->setFunction(baseTrigValuePtr);
-
-      a_ebBC = RefCountedPtr<BaseEBBCFactory>(ebBC);
-    }
   else
     {
       MayDay::Error("Unknown EB BC type");
     }
 }
+/**/
+void
+defineNWOConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
+                             const Vector<DisjointBoxLayout>&             a_grids,
+                             const Vector<EBISLayout>&                    a_ebisl,
+                             LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
+                             const PoissonParameters&                     a_params)
+{
+  Vector<RefCountedPtr<LevelData<EBCellFAB> > >           aco;
+  Vector<RefCountedPtr<LevelData<EBFluxFAB> > >           bco;
+  Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >    bcoIrreg;
+  RefCountedPtr<NWOEBConductivityOpFactory> opFactory;
+  defineNWOConductivitySolver(a_solver, a_grids, a_ebisl, a_bottomSolver, a_params,
+                              aco, bco, bcoIrreg, opFactory);
+}
+
 /**/
 void
 defineConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
@@ -275,6 +275,20 @@ defineConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
   Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >    bcoIrreg;
   RefCountedPtr<EBConductivityOpFactory> opFactory;
   defineConductivitySolver(a_solver, a_grids, a_ebisl, a_bottomSolver, a_params,
+                           aco, bco, bcoIrreg, opFactory);
+}
+void
+defineSlowConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
+                              const Vector<DisjointBoxLayout>&             a_grids,
+                              const Vector<EBISLayout>&                    a_ebisl,
+                              LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
+                              const PoissonParameters&                     a_params)
+{
+  Vector<RefCountedPtr<LevelData<EBCellFAB> > >           aco;
+  Vector<RefCountedPtr<LevelData<EBFluxFAB> > >           bco;
+  Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >    bcoIrreg;
+  RefCountedPtr<slowEBCOFactory> opFactory;
+  defineSlowConductivitySolver(a_solver, a_grids, a_ebisl, a_bottomSolver, a_params,
                            aco, bco, bcoIrreg, opFactory);
 }
 
@@ -291,6 +305,42 @@ defineConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&                  
 {
   defineConductivityCoef(           aco, bco, bcoIrreg, a_grids, a_ebisl, a_params);
   getConductivityFactory(opFactory, aco, bco, bcoIrreg, a_grids, a_ebisl, a_params);
+
+  ProblemDomain coarsestDomain(a_params.coarsestDomain);
+  a_solver.define(coarsestDomain, *opFactory,  &a_bottomSolver, a_params.numLevels);
+
+  int numSmooth, numMG, maxIter;
+  Real eps, hang;
+  ParmParse pp2;
+  pp2.get("num_smooth", numSmooth);
+  pp2.get("num_mg",     numMG);
+  pp2.get("max_iterations", maxIter);
+  pp2.get("tolerance", eps);
+#ifdef CH_USE_FLOAT
+  eps = sqrt(eps);
+#endif
+  pp2.get("hang",      hang);
+  Real normThresh = 1.0e-30;
+  a_solver.setSolverParameters(numSmooth, numSmooth, numSmooth,
+                               numMG, maxIter, eps, hang, normThresh);
+  a_solver.m_verbosity = 5;
+
+}
+
+
+void
+defineNWOConductivitySolver( AMRMultiGrid<LevelData<EBCellFAB> >&                     a_solver,
+                             const Vector<DisjointBoxLayout>&                         a_grids,
+                             const Vector<EBISLayout>&                                a_ebisl,
+                             LinearSolver<LevelData<EBCellFAB> >&                     a_bottomSolver,
+                             const PoissonParameters&                                 a_params,
+                             Vector<RefCountedPtr<LevelData<EBCellFAB> > >&           aco,
+                             Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           bco,
+                             Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    bcoIrreg,
+                             RefCountedPtr<NWOEBConductivityOpFactory>&               opFactory)
+{
+  defineConductivityCoef(           aco, bco, bcoIrreg, a_grids, a_ebisl, a_params);
+  getNWOConductivityFactory(opFactory, aco, bco, bcoIrreg, a_grids, a_ebisl, a_params);
 
   ProblemDomain coarsestDomain(a_params.coarsestDomain);
   a_solver.define(coarsestDomain, *opFactory,  &a_bottomSolver, a_params.numLevels);
@@ -384,6 +434,43 @@ void setConductivityCoefs(LevelData<EBCellFAB>          &    a_aco,
           a_bco     [dit()].setVal(bcoVal);
           a_bcoIrreg[dit()].setVal(bcoVal);
         }
+    }
+  else if ((whichAco == 1 )  && (whichBco == 0))
+    {
+      Real acoVal, bcoVal;
+      pp.get("acoef_value", acoVal);
+      pp.get("bcoef_value", bcoVal);
+      pout() << "constant bcoef = " << bcoVal << ", acoef varies with dist from cylinder axis "  << endl;
+      RealVect cylinderAxis;
+      vector<Real>  cylinderAxisVect(SpaceDim);
+      pp.getarr("cylinder_axis",cylinderAxisVect, 0, SpaceDim);
+      for (int idir = 0; idir < SpaceDim; idir++)
+        {
+          cylinderAxis[idir] = cylinderAxisVect[idir];
+        }
+      Real cylinderRadius;
+      pp.get("cylinder_radius",cylinderRadius);
+
+      for (DataIterator dit = a_aco.dataIterator(); dit.ok(); ++dit)
+        {
+          a_bco     [dit()].setVal(bcoVal);
+          a_bcoIrreg[dit()].setVal(bcoVal);
+
+          const EBISBox& ebisBox = a_aco[dit()].getEBISBox();
+          IntVectSet ivstot(a_aco[dit()].getRegion());
+          for (VoFIterator vofit(ivstot, ebisBox.getEBGraph()); vofit.ok(); ++vofit)
+            {
+
+              RealVect centroid = ebisBox.centroid(vofit());
+              centroid *= a_dx;
+              RealVect vectDx = a_dx*(RealVect::Unit);
+              RealVect vofloc = EBArith::getVofLocation(vofit(), vectDx, centroid);
+              Real dist = getDistanceFromAxis(vofloc, cylinderAxis, RealVect::Zero);
+              dist /= cylinderRadius;
+              a_aco[dit()](vofit(), 0) = Abs(acoVal*(1.0-dist*dist));
+            }
+        }
+
     }
   else
     {
@@ -502,6 +589,79 @@ getConductivityFactory(RefCountedPtr<EBConductivityOpFactory>   &               
                                  a_params.ghostPhi, a_params.ghostRHS, relaxType));
 }
 
+
+void
+getNWOConductivityFactory(RefCountedPtr<NWOEBConductivityOpFactory>   &                     a_factory,
+                          const Vector<RefCountedPtr<LevelData<EBCellFAB> > >&           a_aco,
+                          const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           a_bco,
+                          const Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    a_bcoIrreg,
+                          const Vector<DisjointBoxLayout>&                               a_grids,
+                          const Vector<EBISLayout>&                                      a_ebisl,
+                          const PoissonParameters&                                       a_params)
+{
+  CH_TIME("PoissonUtilities::getEBVTOFactory");
+  ParmParse pp2;
+  Real alpha, beta;
+  pp2.get("alpha", alpha);
+  pp2.get("beta", beta);
+
+  Vector<RefCountedPtr<NWOEBQuadCFInterp> > quadCFI(a_grids.size());
+  ProblemDomain levDom =  a_params.coarsestDomain;
+  ProblemDomain coarDom;
+  Vector<EBLevelGrid> eblg(a_grids.size());
+  ProblemDomain domLev = a_params.coarsestDomain;
+  for (int ilev = 0; ilev < a_grids.size(); ilev++)
+    {
+      eblg[ilev] = EBLevelGrid(a_grids[ilev], a_ebisl[ilev], domLev);
+      domLev.refine(a_params.refRatio[ilev]);
+    }
+  Real fineDx = a_params.coarsestDx[0];
+  for (int ilev = 0; ilev < a_grids.size(); ilev++)
+    {
+      if (ilev > 0)
+        {
+          int nref = a_params.refRatio[ilev-1];
+          fineDx *= nref;
+          int nvar = 1;
+          quadCFI[ilev] = RefCountedPtr<NWOEBQuadCFInterp>(new NWOEBQuadCFInterp(a_grids[ilev],
+                                                                                 a_grids[ilev-1],
+                                                                                 a_ebisl[ilev],
+                                                                                 a_ebisl[ilev-1],
+                                                                                 coarDom,
+                                                                                 nref, nvar, 
+                                                                                 fineDx,a_params.ghostPhi,
+                                                                                 *eblg[ilev].getCFIVS()));
+          coarDom.refine(a_params.refRatio[ilev]);
+        }
+      coarDom = levDom;
+      levDom.refine(a_params.refRatio[ilev]);
+    }
+
+  RefCountedPtr<BaseDomainBCFactory>      domBC;
+  RefCountedPtr<BaseEBBCFactory>          ebBC;
+  getConductivityBCFactories(domBC, ebBC, a_bco, a_grids, a_ebisl, a_params);
+
+  int relaxType = 1;
+  ParmParse pp;
+  pp.query("relax_type", relaxType);
+  if (relaxType == 1)
+    {
+      pout() << "using multicolor gauss-seidel relaxation" << endl;
+    }
+  else if (relaxType == 2)
+    {
+      pout() << "using gauss-seidel relaxation with red-black ordering" << endl;
+    }
+  else
+    {
+      MayDay::Error("invalid relaxation type");
+    }
+  a_factory = RefCountedPtr<NWOEBConductivityOpFactory>
+    (new NWOEBConductivityOpFactory(eblg, quadCFI, alpha, beta, a_aco, a_bco, a_bcoIrreg,
+                                    a_params.coarsestDx[0],  a_params.refRatio, domBC, ebBC,
+                                    a_params.ghostPhi, a_params.ghostRHS, relaxType));
+}
+
 /**/
 void
 getSlowConductivityFactory(RefCountedPtr<slowEBCOFactory>           &                     a_factory,
@@ -551,9 +711,9 @@ getSlowConductivityFactory(RefCountedPtr<slowEBCOFactory>           &           
   RefCountedPtr<BaseEBBCFactory>          ebBC;
   getConductivityBCFactories(domBC, ebBC, a_bco, a_grids, a_ebisl, a_params);
 
-  int relaxType;
+  int relaxType=1;
   ParmParse pp;
-  pp.get("mg_relax_type", relaxType);
+  pp.query("mg_relax_type", relaxType);
   a_factory = RefCountedPtr<slowEBCOFactory>
     (new slowEBCOFactory(eblg, quadCFI, alpha, beta, a_aco, a_bco, a_bcoIrreg,
                          a_params.coarsestDx[0],  a_params.refRatio, domBC, ebBC,
@@ -590,51 +750,10 @@ getEBVTOFactory(RefCountedPtr<EBViscousTensorOpFactory>&                       a
   RefCountedPtr<BaseEBBCFactory>          ebBC;
   getViscousBCFactories(domBC, ebBC, a_eta, a_lambda,  a_grids, a_ebisl, a_params);
 
-  bool turnOffMG = false;
-  pp2.query("turn_off_mg", turnOffMG);
   a_factory = RefCountedPtr<EBViscousTensorOpFactory>
     (new EBViscousTensorOpFactory(eblg, alpha, beta, a_aco, a_eta, a_lambda, a_etaIrreg, a_lambdaIrreg,
                                   a_params.coarsestDx[0],  a_params.refRatio, domBC, ebBC,
-                                  a_params.ghostPhi, a_params.ghostRHS, -1, turnOffMG));
-}
-
-/**/
-void
-getNWOEBVTOFactory(RefCountedPtr<NWOEBViscousTensorOpFactory>&                    a_factory,
-                   const Vector<RefCountedPtr<LevelData<EBCellFAB> > >&           a_aco,
-                   const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           a_eta,
-                   const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&           a_lambda,
-                   const Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    a_etaIrreg,
-                   const Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&    a_lambdaIrreg,
-                   const Vector<DisjointBoxLayout>&                               a_grids,
-                   const Vector<EBISLayout>&                                      a_ebisl,
-                   const PoissonParameters&                                       a_params)
-{
-  CH_TIME("PoissonUtilities::getEBVTOFactory");
-  ParmParse pp2;
-  Real alpha, beta;
-  pp2.get("alpha", alpha);
-  pp2.get("beta", beta);
-
-  Vector<EBLevelGrid> eblg(a_grids.size());
-  ProblemDomain domLev = a_params.coarsestDomain;
-  for (int ilev = 0; ilev < a_grids.size(); ilev++)
-    {
-
-      eblg[ilev] = EBLevelGrid(a_grids[ilev], a_ebisl[ilev], domLev);
-      domLev.refine(a_params.refRatio[ilev]);
-    }
-
-  RefCountedPtr<BaseDomainBCFactory>      domBC;
-  RefCountedPtr<BaseEBBCFactory>          ebBC;
-  getViscousBCFactories(domBC, ebBC, a_eta, a_lambda,  a_grids, a_ebisl, a_params);
-
-  bool turnOffMG = false;
-  pp2.query("turn_off_mg", turnOffMG);
-  a_factory = RefCountedPtr<NWOEBViscousTensorOpFactory>
-    (new NWOEBViscousTensorOpFactory(eblg, alpha, beta, a_aco, a_eta, a_lambda, a_etaIrreg, a_lambdaIrreg,
-                                     a_params.coarsestDx[0],  a_params.refRatio, domBC, ebBC,
-                                     a_params.ghostPhi, a_params.ghostRHS, -1, turnOffMG));
+                                  a_params.ghostPhi, a_params.ghostRHS, -1, true));
 }
 /**/
 void
@@ -693,17 +812,6 @@ defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
  }
 
 void
-defineNWOViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
-                             const Vector<DisjointBoxLayout>&             a_grids,
-                             const Vector<EBISLayout>&                    a_ebisl,
-                             LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
-                             const PoissonParameters&                     a_params)
-{
-  RefCountedPtr<NWOEBViscousTensorOpFactory> opFactory;
-  defineNWOViscousTensorSolver(a_solver, opFactory, a_grids, a_ebisl, a_bottomSolver, a_params);
- }
-
-void
 defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
                           RefCountedPtr<EBViscousTensorOpFactory>&     a_opFactory,
                           const Vector<DisjointBoxLayout>&             a_grids,
@@ -731,34 +839,6 @@ defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
                             a_opFactory);
 }
 
-void
-defineNWOViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
-                             RefCountedPtr<NWOEBViscousTensorOpFactory>&  a_opFactory,
-                             const Vector<DisjointBoxLayout>&             a_grids,
-                             const Vector<EBISLayout>&                    a_ebisl,
-                             LinearSolver<LevelData<EBCellFAB> >&         a_bottomSolver,
-                             const PoissonParameters&                     a_params)
-{
-  CH_TIME("PoissonUtilities::defineViscousTensorSolver");
-  Vector<RefCountedPtr<LevelData<EBCellFAB> > >           aco;
-  Vector<RefCountedPtr<LevelData<EBFluxFAB> > >           eta;
-  Vector<RefCountedPtr<LevelData<EBFluxFAB> > >           lambda;
-  Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >    etaIrreg;
-  Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >    lambdaIrreg;
-
-  defineNWOViscousTensorSolver(a_solver,
-                               a_grids,
-                               a_ebisl,
-                               a_bottomSolver,
-                               a_params,
-                               aco,
-                               eta,
-                               lambda,
-                               etaIrreg,
-                               lambdaIrreg,
-                               a_opFactory);
-}
-
 
 void
 defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&                    a_solver,
@@ -779,47 +859,6 @@ defineViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&                  
   defineViscousTensorCoef(aco, eta, lambda, etaIrreg, lambdaIrreg,  a_grids, a_ebisl, a_params);
 
   getEBVTOFactory(a_opFactory, aco, eta, lambda, etaIrreg, lambdaIrreg, a_grids, a_ebisl, a_params);
-
-  ProblemDomain coarsestDomain(a_params.coarsestDomain);
-  a_solver.define(coarsestDomain, *a_opFactory,  &a_bottomSolver, a_params.numLevels);
-
-  int numSmooth, numMG, maxIter;
-  Real eps, hang;
-  ParmParse pp2;
-  pp2.get("num_smooth", numSmooth);
-  pp2.get("num_mg",     numMG);
-  pp2.get("max_iterations", maxIter);
-  pp2.get("tolerance", eps);
-#ifdef CH_USE_FLOAT
-  eps = sqrt(eps);
-#endif
-  pp2.get("hang",      hang);
-  Real normThresh = 1.0e-30;
-  a_solver.setSolverParameters(numSmooth, numSmooth, numSmooth,
-                               numMG, maxIter, eps, hang, normThresh);
-  a_solver.m_verbosity = 5;
-
-}
-
-void
-defineNWOViscousTensorSolver(AMRMultiGrid<LevelData<EBCellFAB> >&                    a_solver,
-                             const Vector<DisjointBoxLayout>&                        a_grids,
-                             const Vector<EBISLayout>&                               a_ebisl,
-                             LinearSolver<LevelData<EBCellFAB> >&                    a_bottomSolver,
-                             const PoissonParameters&                                a_params,
-                             Vector<RefCountedPtr<LevelData<EBCellFAB> > >       &   aco,
-                             Vector<RefCountedPtr<LevelData<EBFluxFAB> > >       &   eta,
-                             Vector<RefCountedPtr<LevelData<EBFluxFAB> > >       &   lambda,
-                             Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&   etaIrreg,
-                             Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >&   lambdaIrreg,
-                             RefCountedPtr<NWOEBViscousTensorOpFactory>&             a_opFactory)
-
-
-{
-
-  defineViscousTensorCoef(aco, eta, lambda, etaIrreg, lambdaIrreg,  a_grids, a_ebisl, a_params);
-
-  getNWOEBVTOFactory(a_opFactory, aco, eta, lambda, etaIrreg, lambdaIrreg, a_grids, a_ebisl, a_params);
 
   ProblemDomain coarsestDomain(a_params.coarsestDomain);
   a_solver.define(coarsestDomain, *a_opFactory,  &a_bottomSolver, a_params.numLevels);
@@ -1343,8 +1382,8 @@ defineSolver(AMRMultiGrid<LevelData<EBCellFAB> >&         a_solver,
   ParmParse pp;
   int numPreCondIters = 40;
   pp.get("num_pre_cond_iters",numPreCondIters);
-  int relaxtype;
-  pp.get("mg_relax_type", relaxtype);
+  int relaxtype=1;
+  pp.query("mg_relax_type", relaxtype);
   if (relaxtype == 0)
     {
       pout() << "Using levelJacobi" << endl;
@@ -1432,8 +1471,8 @@ defineMGBCGSolver(BiCGStabSolver<Vector<LevelData<EBCellFAB>* > >& a_solver,
   ParmParse pp;
   int numPreCondIters = 40;
   pp.get("num_pre_cond_iters",numPreCondIters);
-  int relaxtype;
-  pp.get("mg_relax_type", relaxtype);
+  int relaxtype =1;
+  pp.query("mg_relax_type", relaxtype);
   if (relaxtype == 0)
     {
       pout() << "Using levelJacobi" << endl;
@@ -1693,6 +1732,8 @@ void setTrigKappaLOfPhi(LevelData<EBCellFAB>&    a_kappaLOfPhi,
           const VolIndex& vof = vofit();
           const IntVect& iv = vof.gridIndex();
           RealVect x;
+          //the divergence of a flux lives at the centroid
+          RealVect centroid = curKappaLOfPhiEBISBox.centroid(vof);
 
           for (int idir = 0; idir < SpaceDim; idir++)
             {
@@ -2007,6 +2048,7 @@ void getBCFactories(RefCountedPtr<BaseDomainBCFactory>& a_baseDomainBCFactory,
 
       a_baseEBBCFactory = RefCountedPtr<BaseEBBCFactory>(ebBC);
     }
+
   else
     {
       MayDay::Error("Unknown EB BC type");
@@ -2038,6 +2080,23 @@ void compareError(const Vector< LevelData<EBCellFAB>* >&   a_errorFine,
                          refRat,
                          a_paramsCoar.coarsestDomain.domainBox(),
                          testverbosity);
+  //test accuracy
+  Vector<Real> expected_rate(3);
+  int ncomp = a_errorFine[0]->nComp();
+  if (pp.queryarr("expected_rate", expected_rate,0,3)!=0)
+    {
+      for (int inorm = 0; inorm <= 2; inorm++)
+        {
+          for (int icomp = 0; icomp < ncomp; icomp++)
+            {
+              int iindex = EBArith::orderScript(icomp,inorm,ncomp);
+              if (orders[iindex]<expected_rate[inorm])
+                {
+                  MayDay::Error("PoissonUtilities::Convergence rate is not better than the expected rate (see input file)");
+                }
+            }
+        }
+    }
 }
 /********/
 void getCoarseLayoutsFromFine(Vector<DisjointBoxLayout>&       a_gridsCoar,
@@ -2188,8 +2247,8 @@ RefCountedPtr<AMRTGA<LevelData<EBCellFAB> > > newTGASolver(const Vector<Disjoint
   ParmParse pp;
   int numPreCondIters = 40;
   pp.get("num_pre_cond_iters",numPreCondIters);
-  int relaxType;
-  pp.get("mg_relax_type", relaxType);
+  int relaxType =1;
+  pp.query("mg_relax_type", relaxType);
   if (relaxType == 0)
     {
       pout() << "Using levelJacobi" << endl;
@@ -2542,6 +2601,142 @@ void definePoissonGeometry(const PoissonParameters&  a_params)
           //this generates the new EBIS
           ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
         }
+      else if (whichgeom == 7)
+        {
+          pout() << "multiparabola geometry" << endl;
+          int numParabola;
+          pp.get("num_parabolas", numParabola);
+          int updir;
+          pp.get("parabola_updir", updir);
+          Vector<Real>     amp(numParabola);
+          Vector<RealVect> center(numParabola);
+          for (int iparabola = 0; iparabola < numParabola; iparabola++)
+            {
+              char ampString[80];
+              char centerString[80];
+              sprintf(ampString, "parabola_amplitude_%d", iparabola);
+              sprintf(centerString, "parabola_center_%d", iparabola);
+              vector<Real> parabola_center(SpaceDim);
+              Real parabolaAmp;
+              pp.get(ampString, parabolaAmp);
+              pp.getarr(centerString,parabola_center, 0, SpaceDim);
+              RealVect parabolaCenter;
+              for (int idir = 0; idir < SpaceDim; idir++)
+                {
+                  parabolaCenter[idir] = parabola_center[idir];
+                }
+              center[iparabola] = parabolaCenter;
+              amp[iparabola]    = parabolaAmp;
+            }
+
+          Vector<BaseIF*> parabolas;
+          for (int iparabola = 0; iparabola < numParabola; iparabola++)
+          {
+            Vector<PolyTerm> poly;
+
+            PolyTerm mono;
+            Real coef;
+            IntVect powers;
+
+            if (updir != 0)
+            {
+              // x^2 term
+              coef = amp[iparabola];
+              powers = IntVect::Zero;
+              powers[0] = 2;
+
+              mono.coef   = coef;
+              mono.powers = powers;
+
+              poly.push_back(mono);
+
+              // x term
+              coef = -2.0*amp[iparabola]*center[iparabola][0];
+              powers = IntVect::Zero;
+              powers[0] = 1;
+
+              mono.coef   = coef;
+              mono.powers = powers;
+
+              poly.push_back(mono);
+
+              // y or z term
+              coef = -1.0;
+              powers = IntVect::Zero;
+              powers[updir] = 1;
+
+              mono.coef   = coef;
+              mono.powers = powers;
+
+              poly.push_back(mono);
+
+              // constant
+              coef = amp[iparabola]*center[iparabola][0]*center[iparabola][0] + center[iparabola][updir];
+              powers = IntVect::Zero;
+
+              mono.coef   = coef;
+              mono.powers = powers;
+
+              poly.push_back(mono);
+            }
+            else
+            {
+              // y^2 term
+              coef = amp[iparabola];
+              powers = IntVect::Zero;
+              powers[1] = 2;
+
+              mono.coef   = coef;
+              mono.powers = powers;
+
+              poly.push_back(mono);
+
+              // y term
+              coef = -2.0*amp[iparabola]*center[iparabola][1];
+              powers = IntVect::Zero;
+              powers[1] = 1;
+
+              mono.coef   = coef;
+              mono.powers = powers;
+
+              poly.push_back(mono);
+
+              // x term
+              coef = -1.0;
+              powers = IntVect::Zero;
+              powers[updir] = 1;
+
+              mono.coef   = coef;
+              mono.powers = powers;
+
+              poly.push_back(mono);
+
+              // constant
+              coef = amp[iparabola]*center[iparabola][1]*center[iparabola][1] + center[iparabola][updir];
+              powers = IntVect::Zero;
+
+              mono.coef   = coef;
+              mono.powers = powers;
+
+              poly.push_back(mono);
+            }
+
+            if (amp[iparabola] < 0)
+            {
+              parabolas.push_back(new PolynomialIF(poly,true));
+            }
+            else
+            {
+              parabolas.push_back(new PolynomialIF(poly,false));
+            }
+          }
+
+          IntersectionIF allTogether(parabolas);
+
+          GeometryShop workshop(allTogether,verbosity,fineDx);
+          //this generates the new EBIS
+          ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+        }
       else if (whichgeom == 8)
         {
           pout() << "parabolic mirror geometry" << endl;
@@ -2742,6 +2937,47 @@ void definePoissonGeometry(const PoissonParameters&  a_params)
           GeometryShop workshop(channel,verbosity,fineDx);
           ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
         }
+      else if (whichgeom == 14)
+        {
+          pout() << "DEM geometry" << endl;
+          std::string demFile;
+          pp.get("DEM_file",demFile);
+          //DEM interpType
+          int interpType;
+          pp.get("DEMinterpType",interpType);
+          interpType = interpType;
+
+          //bottomBuffer is space added below the bathymetry,
+          //  (the distance from the deepest spot to the domain box)
+          Real bottomBuffer;
+          pp.get("bottomBuffer",bottomBuffer);
+          bottomBuffer = bottomBuffer;
+
+          //verticalScale is used for testing anisotropic vs isotropic geometry, if verticalScale=1.0 then this is the true geometry;
+          //   if verticalScale is 100 then all elevations are multiplied by 100...
+          Real verticalScale;
+          pp.get("verticalScale",verticalScale);
+          verticalScale = verticalScale;
+
+          //highGround is the elevation given for nodata points with all land neighbors
+          //  (useful for higher order interpolation)
+          Real highGround;
+          pp.get("highGround",highGround);
+          highGround = highGround;
+
+          IntVect ncell = finestDomain.size();
+          DEMIF implicit(ncell,
+                         interpType,
+                         fineDx,
+                         demFile,
+                         bottomBuffer,
+                         1.e99,
+                         highGround,
+                         verticalScale);
+
+          GeometryShop workshop(implicit,verbosity,fineDx);
+          ebisPtr->define(finestDomain,origin,fineDx[0],workshop, ebMaxSize, ebMaxCoarsen);
+        }
       else if (whichgeom == 16)
         {
           pout() << "sphere array" << endl;
@@ -2763,6 +2999,199 @@ void definePoissonGeometry(const PoissonParameters&  a_params)
 
           //this generates the new EBIS
           ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+        }
+      else if (whichgeom == 17)
+        {
+          pout() << "Implicit function from datafile Geometry" << endl;
+
+          Real levelSetValue1;
+          pp.get("level",levelSetValue1);
+          // Parm Parse doesn't get bools, so work-around with int
+          bool inside;
+          int intInsideRegular;
+          pp.get("insideRegular",intInsideRegular);
+
+          if (intInsideRegular != 0) inside = true;
+          if (intInsideRegular == 0) inside = false;
+
+          Vector<Real> prob_lo(SpaceDim, 1.0);
+          pp.getarr("origin",prob_lo,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              origin[idir] = prob_lo[idir];
+            }
+
+          DataFileIF* dataFile1;
+          if (pp.contains("input_file"))
+            {
+              std::string in_file;
+              pp.get("input_file",in_file);
+              dataFile1 = new DataFileIF(in_file.c_str(),DataFileIF::ASCII,levelSetValue1,inside);
+            }
+          else
+            {
+              dataFile1 = new DataFileIF(DataFileIF::ASCII,levelSetValue1,inside);
+            }
+
+          GeometryShop geometryShop(*dataFile1,verbosity,fineDx);
+          EBIndexSpace*  ebisPtr;
+          ebisPtr = Chombo_EBIS::instance();
+          ebisPtr->
+            define(finestDomain, origin, fineDx[0], geometryShop, ebMaxSize, ebMaxCoarsen);
+
+          delete dataFile1;
+        }
+      else if (whichgeom == 18)
+        {
+          pout() << "Low swirl burner geometry" << endl;
+
+          //need help resolving geometry because of issue when geometry scales ~ dx
+          int finestDomainRequired = 256;
+          int refineFactor = 1;
+          pp.query("finest_domain",finestDomainRequired);
+          if (fineDx[0] > 1/finestDomainRequired && finestDomain.size(0) < finestDomainRequired)
+            {
+              refineFactor = finestDomainRequired/finestDomain.size(0);
+              pout() << "additional refinement of finest domain by " << refineFactor << endl;
+              finestDomain.refine(refineFactor);
+              fineDx /= refineFactor;
+            }
+//               finestDomain.refine(4);
+//               fineDx /= 4;
+
+          Box domain;
+          RealVect origin;
+          Vector<int> n_cell(SpaceDim);
+          pp.getarr("n_cells",n_cell,0,SpaceDim);
+
+          CH_assert(n_cell.size() == SpaceDim);
+
+          IntVect lo = IntVect::Zero;
+          IntVect hi;
+
+          for (int ivec = 0; ivec < SpaceDim; ivec++)
+            {
+              if (n_cell[ivec] <= 0)
+                {
+                  pout() << "Bogus number of cells input = " << n_cell[ivec];
+                  exit(1);
+                }
+
+              hi[ivec] = n_cell[ivec] - 1;
+            }
+
+          domain.setSmall(lo);
+          domain.setBig(hi);
+
+          //origin for swirler is offset because of centering around x axis (y=0, z=0)
+          Vector<Real> prob_lo(SpaceDim,1.0);
+          pp.getarr("origin",prob_lo,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              origin[idir] = prob_lo[idir];
+            }
+
+          Real outerRadius;
+          pp.get("outer_radius",outerRadius);
+
+          Real outerThick;
+          pp.get("outer_thick",outerThick);
+
+          Real outerHeight;
+          pp.get("outer_height",outerHeight);
+
+          Real outerOffset;
+          pp.get("outer_offset",outerOffset);
+          outerOffset += prob_lo[0];
+
+          Real innerRadius;
+          pp.get("inner_radius",innerRadius);
+
+          Real innerThick;
+          pp.get("inner_thick",innerThick);
+
+          Real innerOffset = 0.0;
+          innerOffset += outerOffset;
+
+          Real innerHeight;
+          pp.get("inner_height",innerHeight);
+
+          Real plateHeight;
+          pp.get("plate_height",plateHeight);
+          plateHeight += outerOffset;
+
+          Real plateThick;
+          pp.get("plate_thick",plateThick);
+
+          int doHoles;
+          pp.get("do_holes",doHoles);
+
+          Real holeRadius;
+          pp.get("hole_radius",holeRadius);
+
+          Real holeSpace;
+          pp.get("hole_space",holeSpace);
+
+          int vaneNum;
+          pp.get("vane_num",vaneNum);
+
+          Real vaneThick;
+          pp.get("vane_thick",vaneThick);
+
+          RealVect vaneNorm;
+
+          Vector<Real> vectVaneNorm;
+          pp.getarr("vane_norm",vectVaneNorm,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              vaneNorm[idir] = vectVaneNorm[idir];
+            }
+
+          Real vaneOffset;
+          pp.get("vane_offset",vaneOffset);
+
+          innerOffset += vaneOffset;
+
+          Real vaneHeight = innerHeight - 0.5*vaneOffset;
+
+          vaneOffset += outerOffset;
+
+          // Make the outer chamber
+          BaseIF* outerChamber = makeChamber(outerRadius,outerThick,
+                                             outerOffset,outerHeight);
+
+          // Make the inner chamber
+          BaseIF* innerChamber = makeChamber(innerRadius,innerThick,
+                                             innerOffset,innerHeight);
+
+          // Make the inner plate with holes
+          BaseIF* holyPlate = makePlate(plateHeight,plateThick,innerRadius,
+                                        doHoles,holeRadius,holeSpace);
+
+          // Make the vanes
+          BaseIF* vanes = makeVanes(vaneNum,vaneThick,vaneNorm,innerRadius,outerRadius,
+                                    vaneOffset,vaneHeight);
+
+          // Union all the pieces together
+          Vector<BaseIF*> pieces;
+
+          pieces.push_back(outerChamber);
+          pieces.push_back(innerChamber);
+          pieces.push_back(holyPlate);
+          pieces.push_back(vanes);
+
+          UnionIF swirl(pieces);
+          ComplementIF outside(swirl,true);
+
+          GeometryShop workshop(outside,verbosity,fineDx);
+
+          // This generates the new EBIS
+          EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
+          ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+
         }
       else if (whichgeom == 19)
         {
@@ -2799,6 +3228,230 @@ void definePoissonGeometry(const PoissonParameters&  a_params)
 
           //this generates the new EBIS
           ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+        }
+      else if (whichgeom == 20)
+        {
+          pout() << "thin cylinder geometry" << endl;
+
+          //need help resolving geometry because of issue when geometry scales ~ dx
+          int finestDomainRequired = 32;
+          int refineFactor = 1;
+          pp.query("finest_domain",finestDomainRequired);
+          if (fineDx[0] > 1/finestDomainRequired && finestDomain.size(0) < finestDomainRequired)
+            {
+              refineFactor = finestDomainRequired/finestDomain.size(0);
+              pout() << "additional refinement of finest domain by " << refineFactor << endl;
+              finestDomain.refine(refineFactor);
+              fineDx /= refineFactor;
+            }
+//               finestDomain.refine(4);
+//               fineDx /= 4;
+
+          Box domain;
+          RealVect origin;
+          Vector<int> n_cell(SpaceDim);
+          pp.getarr("n_cells",n_cell,0,SpaceDim);
+
+          CH_assert(n_cell.size() == SpaceDim);
+
+          IntVect lo = IntVect::Zero;
+          IntVect hi;
+
+          for (int ivec = 0; ivec < SpaceDim; ivec++)
+            {
+              if (n_cell[ivec] <= 0)
+                {
+                  pout() << "Bogus number of cells input = " << n_cell[ivec];
+                  exit(1);
+                }
+
+              hi[ivec] = n_cell[ivec] - 1;
+            }
+
+          domain.setSmall(lo);
+          domain.setBig(hi);
+
+          Vector<Real> prob_lo(SpaceDim,1.0);
+          pp.getarr("origin",prob_lo,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              origin[idir] = prob_lo[idir];
+            }
+
+          Real outerRadius;
+          pp.get("outer_radius",outerRadius);
+
+          Real outerThick;
+          pp.get("outer_thick",outerThick);
+
+          Real outerHeight;
+          pp.get("outer_height",outerHeight);
+
+          Real outerOffset = prob_lo[0];
+
+          Real innerRadius;
+          pp.get("inner_radius",innerRadius);
+
+          Real innerThick;
+          pp.get("inner_thick",innerThick);
+
+          Real innerOffset = 0.0;
+          innerOffset += outerOffset;
+
+          Real innerHeight;
+          pp.get("inner_height",innerHeight);
+
+          Real vaneOffset;
+          pp.get("vane_offset",vaneOffset);
+
+          innerOffset += vaneOffset;
+
+          // Make the inner chamber
+          BaseIF* innerChamber = makeChamber(innerRadius,innerThick,
+                                             innerOffset,innerHeight);
+
+          // Union all the pieces together
+          Vector<BaseIF*> pieces;
+
+          pieces.push_back(innerChamber);
+
+          UnionIF swirl(pieces);
+          ComplementIF outside(swirl,true);
+
+          GeometryShop workshop(outside,verbosity,fineDx);
+
+          // This generates the new EBIS
+          EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
+          ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+
+        }
+      else if (whichgeom == 21)
+        {
+          pout() << "Concentric cylinders geometry" << endl;
+
+          Box domain;
+          RealVect origin;
+          Vector<int> n_cell(SpaceDim);
+          pp.getarr("n_cells",n_cell,0,SpaceDim);
+
+          CH_assert(n_cell.size() == SpaceDim);
+
+          IntVect lo = IntVect::Zero;
+          IntVect hi;
+
+          for (int ivec = 0; ivec < SpaceDim; ivec++)
+            {
+              if (n_cell[ivec] <= 0)
+                {
+                  pout() << "Bogus number of cells input = " << n_cell[ivec];
+                  exit(1);
+                }
+
+              hi[ivec] = n_cell[ivec] - 1;
+            }
+
+          domain.setSmall(lo);
+          domain.setBig(hi);
+
+          //origin for swirler is offset because of centering around x axis (y=0, z=0)
+          Vector<Real> prob_lo(SpaceDim,1.0);
+          pp.getarr("origin",prob_lo,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              origin[idir] = prob_lo[idir];
+            }
+
+          Real outerRadius;
+          pp.get("outer_radius",outerRadius);
+
+          Real outerThick;
+          pp.get("outer_thick",outerThick);
+
+          Real outerHeight;
+          pp.get("outer_height",outerHeight);
+
+          Real outerOffset;
+          pp.get("outer_offset",outerOffset);
+          outerOffset += prob_lo[0];
+
+          Real innerRadius;
+          pp.get("inner_radius",innerRadius);
+
+          Real innerThick;
+          pp.get("inner_thick",innerThick);
+
+          Real innerOffset = 0.0;
+          innerOffset += outerOffset;
+
+          Real innerHeight;
+          pp.get("inner_height",innerHeight);
+
+          Real plateHeight;
+          pp.get("plate_height",plateHeight);
+          plateHeight += outerOffset;
+
+          Real plateThick;
+          pp.get("plate_thick",plateThick);
+
+          int doHoles;
+          pp.get("do_holes",doHoles);
+
+          Real holeRadius;
+          pp.get("hole_radius",holeRadius);
+
+          Real holeSpace;
+          pp.get("hole_space",holeSpace);
+
+          int vaneNum;
+          pp.get("vane_num",vaneNum);
+
+          Real vaneThick;
+          pp.get("vane_thick",vaneThick);
+
+          RealVect vaneNorm;
+
+          Vector<Real> vectVaneNorm;
+          pp.getarr("vane_norm",vectVaneNorm,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              vaneNorm[idir] = vectVaneNorm[idir];
+            }
+
+          Real vaneOffset;
+          pp.get("vane_offset",vaneOffset);
+
+          innerOffset += vaneOffset;
+
+          //          Real vaneHeight = innerHeight - 0.5*vaneOffset;
+
+          vaneOffset += outerOffset;
+
+          // Make the outer chamber
+          BaseIF* outerChamber = makeChamber(outerRadius,outerThick,
+                                             outerOffset,outerHeight);
+
+          // Make the inner chamber
+          BaseIF* innerChamber = makeChamber(innerRadius,innerThick,
+                                             innerOffset,innerHeight);
+
+          // Union all the pieces together
+          Vector<BaseIF*> pieces;
+
+          pieces.push_back(outerChamber);
+          pieces.push_back(innerChamber);
+
+          UnionIF swirl(pieces);
+          ComplementIF outside(swirl,true);
+
+          GeometryShop workshop(outside,verbosity,fineDx);
+
+          // This generates the new EBIS
+          EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
+          ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+
         }
       else if (whichgeom == 88)
         {
@@ -2975,6 +3628,303 @@ void definePoissonGeometry(const PoissonParameters&  a_params)
           GeometryShop workshop(ends,verbosity,fineDx);
           ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
         }
+      else if (whichgeom == 22)
+        {
+          pout() << "Channel with Spheres" << endl;
+
+          RealVect cylDirection;
+          RealVect cylPoint;
+          Real cylRadius;
+          RealVect cylCenter;
+          RealVect cylAxis;
+          int      sphNumber;
+          Real     sphMinRadius;
+          Real     sphMaxRadius;
+          bool     insideRegular;
+
+          Vector<Real> vectorDirection;
+          pp.getarr("cylDirection",vectorDirection,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              cylDirection[idir] = vectorDirection[idir];
+            }
+
+          Vector<Real> vectorPoint;
+          pp.getarr("cylPoint",vectorPoint,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              cylPoint[idir] = vectorPoint[idir];
+            }
+
+          pp.get("cylRadius",cylRadius);
+
+          pp.get("sphNumber",sphNumber);
+
+          pp.get("sphMinRadius",sphMinRadius);
+          pp.get("sphMaxRadius",sphMaxRadius);
+
+          // Parm Parse doesn't get bools, so work-around with int
+          int intInsideRegular;
+          pp.get("insideRegular",intInsideRegular);
+
+          if (intInsideRegular != 0) insideRegular = true;
+          if (intInsideRegular == 0) insideRegular = false;
+
+          // Stay inside until the end
+          bool inside = true;
+
+          // The vector of spheres
+          Vector<BaseIF*> spheres;
+          spheres.resize(sphNumber);
+
+          // Place random spheres inside the cylinder
+          int i = 0;
+
+          Vector<Real> prob_lo(SpaceDim,1.0);
+
+          pp.getarr("origin",prob_lo,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              origin[idir] = prob_lo[idir];
+            }
+
+          Real domainLength;
+          pp.get("domain_length",domainLength);
+
+          while (i < sphNumber)
+          {
+            RealVect center;
+            Real     radius;
+
+            // Get a random center and radius for a sphere
+            for (int idir = 0; idir < SpaceDim; idir++)
+              {
+                center[idir] = (domainLength - prob_lo[idir])*drand48() + prob_lo[idir];
+              }
+
+            radius = (sphMaxRadius - sphMinRadius)*drand48() + sphMinRadius;
+
+            // Get the distance from the center of the sphere to the axis of the
+            // cylinder
+            Real dist = getDistance(center,cylDirection,cylPoint);
+
+            // If the sphere is inside cylinder, use it
+            if (dist + radius <= cylRadius)
+            {
+              spheres[i] = new SphereIF(radius,center,inside);
+              i++;
+            }
+          }
+
+          // Take the union of the insides of the spheres
+          UnionIF insideSpheres(spheres);
+
+          // Complement to get the outside of the spheres
+          ComplementIF outsideSpheres(insideSpheres,true);
+
+          // Define the cylinder
+          TiltedCylinderIF cylinder(cylRadius,cylDirection,cylPoint,inside);
+
+          // Intersect the inside of the cylinder with the outside of the spheres
+          IntersectionIF implicit(cylinder,outsideSpheres);
+
+          // Complement if necessary
+          ComplementIF finalIF(implicit,!insideRegular);
+
+          RealVect vectDx = RealVect::Unit;
+          vectDx *= fineDx;
+          GeometryShop workshop(finalIF,verbosity,vectDx);
+
+          // This generates the new EBIS
+          ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+        }
+      else if (whichgeom == 23)
+        {
+          pout() << "Implicit function from datafile Geometry intersected with tilted cylinder" << endl;
+
+          Real levelSetValue1;
+          pp.get("level",levelSetValue1);
+          // Parm Parse doesn't get bools, so work-around with int
+          bool inside;
+          int intInsideRegular;
+          pp.get("insideRegular",intInsideRegular);
+
+          if (intInsideRegular != 0) inside = true;
+          if (intInsideRegular == 0) inside = false;
+
+          Vector<Real> prob_lo(SpaceDim, 1.0);
+          pp.getarr("origin",prob_lo,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              origin[idir] = prob_lo[idir];
+            }
+
+          DataFileIF* dataFile1;
+          if (pp.contains("input_file"))
+            {
+              std::string in_file;
+              pp.get("input_file",in_file);
+              dataFile1 = new DataFileIF(in_file.c_str(),DataFileIF::ASCII,levelSetValue1,inside);
+            }
+          else
+            {
+              dataFile1 = new DataFileIF(DataFileIF::ASCII,levelSetValue1,inside);
+            }
+
+          // Define the cylinder
+          RealVect cylDirection;
+          RealVect cylPoint;
+          Real cylRadius;
+          RealVect cylCenter;
+          RealVect cylAxis;
+          bool cylInside;
+
+          Vector<Real> vectorDirection;
+          pp.getarr("cylDirection",vectorDirection,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              cylDirection[idir] = vectorDirection[idir];
+            }
+
+          Vector<Real> vectorPoint;
+          pp.getarr("cylPoint",vectorPoint,0,SpaceDim);
+
+          for (int idir = 0; idir < SpaceDim; idir++)
+            {
+              cylPoint[idir] = vectorPoint[idir];
+            }
+
+          pp.get("cylRadius",cylRadius);
+
+          pp.get("cylInside",cylInside);
+
+          TiltedCylinderIF cylinder(cylRadius,cylDirection,cylPoint,cylInside);
+
+          // Intersect the inside of the cylinder with the outside of the spheres
+          IntersectionIF core(cylinder,*dataFile1);
+
+          GeometryShop geometryShop(core,verbosity,fineDx);
+          EBIndexSpace*  ebisPtr;
+          ebisPtr = Chombo_EBIS::instance();
+          ebisPtr->
+            define(finestDomain, origin, fineDx[0], geometryShop, ebMaxSize, ebMaxCoarsen);
+
+          delete dataFile1;
+        }
+      else if (whichgeom == 24)
+        {
+          pout() << "Fuel element array geometry" << endl;
+
+          // Get common cylinder attributes
+          Vector<Real> tmp(SpaceDim);
+          RealVect cylAxis;
+          pp.getarr("cylinder_axis", tmp, 0, SpaceDim);
+          for (int idir=0; idir<SpaceDim; idir++)
+            {
+              cylAxis[idir] = tmp[idir];
+            }
+          Real cylRadius;
+          pp.get("cylinder_radius", cylRadius);
+          bool cylOutside;
+          pp.get("cylinder_outside", cylOutside);
+
+          // Get each cylinder's center
+          Vector<RealVect> cylCenters;
+          char charstr[100];
+          int icyl=0;
+          sprintf(charstr, "cylinder_center%d", icyl);
+          while (pp.contains(charstr))
+            {
+              pp.getarr(charstr, tmp, 0, SpaceDim);
+              RealVect ctr;
+              for (int idir = 0; idir < SpaceDim; idir++)
+                {
+                  ctr[idir] = tmp[idir];
+                }
+              cylCenters.push_back(ctr);
+              sprintf(charstr, "cylinder_center%d", ++icyl);
+            }
+
+          // Get coil attributes
+          Real coilRadius;
+          pp.get("coil_radius",coilRadius);
+          Real coilSeparation;
+          pp.get("coil_separation",coilSeparation);
+          Real coilOverlapFraction;
+          pp.get("coil_overlap_fraction",coilOverlapFraction);
+
+          // create a cylinder at the origin
+          TiltedCylinderIF oneCyl(cylRadius,
+                                  cylAxis,
+                                  RealVect::Zero,
+                                  true);
+
+          // calculate helicoil parameters and create it
+          Real helixRadius = cylRadius + coilOverlapFraction*coilRadius;
+          HelicoilIF coil(helixRadius, coilSeparation, coilRadius, true);
+
+          // crop the element to the specified height (don't crop if zero)
+          Real cylHeight=0;
+          pp.query("cylinder_height",cylHeight);
+          BaseIF* element0;
+          if (cylHeight > 0)
+            {
+              RealVect    cylTop =  0.5*cylHeight*cylAxis;
+              RealVect cylBottom = -0.5*cylHeight*cylAxis;
+              Vector<BaseIF*> planes(2, NULL);
+              planes[0] = (BaseIF*) new PlaneIF(cylAxis,    cylTop, false);
+              planes[1] = (BaseIF*) new PlaneIF(cylAxis, cylBottom, true);
+
+              Vector<BaseIF*> shapes(2, NULL);
+              shapes[0] = (BaseIF*) new IntersectionIF(planes);
+              shapes[1] = (BaseIF*) new UnionIF(coil, oneCyl);
+              element0 = (BaseIF*) new IntersectionIF(shapes);
+
+              for (int i=0; i<2; i++)
+                {
+                  delete planes[i];
+                  delete shapes[i];
+                }
+            }
+          else
+            {
+              // take the union of the coil and cylinder
+              element0 = (BaseIF*) new UnionIF(coil, oneCyl);
+            }
+
+          // make a Vector of UnionIF* to hold the fuel elements
+          int nElem = cylCenters.size();
+          Vector<BaseIF*> fuelElements(nElem, NULL);
+
+          // make each fuel element
+          for (int ielem=0; ielem<nElem; ielem++)
+            {
+              // move the element to be coaxial with the cylinder
+              TransformIF* tc = new TransformIF(*element0);
+              tc->translate(cylCenters[ielem]);
+              fuelElements[ielem] = (BaseIF*) tc;
+            }
+
+          UnionIF array(fuelElements);
+          ComplementIF outside(array,cylOutside);
+
+          GeometryShop workshop(outside,verbosity,fineDx);
+
+          // This generates the new EBIS
+          EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
+          ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+
+          delete element0;
+          for (int ielem=0; ielem<nElem; ielem++)
+            {
+              delete fuelElements[ielem];
+            }
+        }
       else
         {
           //bogus which_geom
@@ -3000,7 +3950,231 @@ void definePoissonGeometry(const PoissonParameters&  a_params)
     }
   //  pout() << "Low swirl burner geometry done" << endl;
 }
+
+BaseIF* makeChamber(const Real& radius,
+                    const Real& thick,
+                    const Real& offset,
+                    const Real& height)
+{
+  RealVect zero(D_DECL(0.0,0.0,0.0));
+  RealVect xAxis(D_DECL(1.0,0.0,0.0));
+  bool inside = true;
+
+  Vector<BaseIF*> pieces;
+
+  // Create a chamber
+  TiltedCylinderIF chamberOut(radius + thick/2.0,xAxis,zero, inside);
+  TiltedCylinderIF chamberIn (radius - thick/2.0,xAxis,zero,!inside);
+
+  IntersectionIF infiniteChamber(chamberIn,chamberOut);
+
+  pieces.push_back(&infiniteChamber);
+
+  RealVect normal1(D_DECL(1.0,0.0,0.0));
+  RealVect point1(D_DECL(offset,0.0,0.0));
+  PlaneIF plane1(normal1,point1,inside);
+
+  pieces.push_back(&plane1);
+
+  RealVect normal2(D_DECL(-1.0,0.0,0.0));
+  RealVect point2(D_DECL(offset+height,0.0,0.0));
+  PlaneIF plane2(normal2,point2,inside);
+
+  pieces.push_back(&plane2);
+
+  IntersectionIF* chamber = new IntersectionIF(pieces);
+
+  return chamber;
+}
+
+BaseIF* makePlate(const Real& height,
+                  const Real& thick,
+                  const Real& radius,
+                  const int&  doHoles,
+                  const Real& holeRadius,
+                  const Real& holeSpace)
+{
+  RealVect zero(D_DECL(0.0,0.0,0.0));
+  RealVect xAxis(D_DECL(1.0,0.0,0.0));
+  bool inside = true;
+
+  // Create the plate without holes
+  Vector<BaseIF*> pieces;
+
+  RealVect normal1(D_DECL(1.0,0.0,0.0));
+  RealVect point1(D_DECL(height,0.0,0.0));
+  PlaneIF plane1(normal1,point1,inside);
+
+  pieces.push_back(&plane1);
+
+  RealVect normal2(D_DECL(-1.0,0.0,0.0));
+  RealVect point2(D_DECL(height+thick,0.0,0.0));
+  PlaneIF plane2(normal2,point2,inside);
+
+  pieces.push_back(&plane2);
+
+  TiltedCylinderIF middle(radius,xAxis,zero,inside);
+
+  pieces.push_back(&middle);
+
+  IntersectionIF plate(pieces);
+
+  // Make the drills
+  Vector<BaseIF*> drillBits;
+
+  // Compute how many drills are needed in each direciton - 2*num+1 -
+  // conservatively
+  int num = (int)((radius - holeRadius) / holeSpace + 1.0);
+
+  if (doHoles != 0)
+  {
+    for (int i = -num; i <= num; i++)
+    {
+      for (int j = -num; j <= num; j++)
+      {
+        RealVect center(D_DECL(0.0,i*holeSpace,j*holeSpace));
+        TiltedCylinderIF* drill = new TiltedCylinderIF(holeRadius,xAxis,center,inside);
+
+        drillBits.push_back(drill);
+      }
+    }
+  }
+
+  UnionIF drills(drillBits);
+  ComplementIF notDrills(drills,true);
+
+  // Drill the plate
+  IntersectionIF* holyPlate = new IntersectionIF(plate,notDrills);
+
+  return holyPlate;
+}
+
+BaseIF* makeVanes(const int&      num,
+                  const Real&     thick,
+                  const RealVect& normal,
+                  const Real&     innerRadius,
+                  const Real&     outerRadius,
+                  const Real&     offset,
+                  const Real&     height)
+{
+  RealVect zeroVect(D_DECL(0.0,0.0,0.0));
+  RealVect xAxis(D_DECL(1.0,0.0,0.0));
+
+  Vector<BaseIF*> eachVane;
+
+  for (int i = 0; i < num; i++)
+  {
+    Real angle = i*2.*M_PI/num;
+
+    BaseIF* oneVane = makeVane(thick,normal,innerRadius,outerRadius,offset,height,angle);
+
+    eachVane.push_back(oneVane);
+  }
+
+  UnionIF* allVanes = new UnionIF(eachVane);
+
+  return allVanes;
+}
+
+BaseIF* makeVane(const Real&     thick,
+                 const RealVect& normal,
+                 const Real&     innerRadius,
+                 const Real&     outerRadius,
+                 const Real&     offset,
+                 const Real&     height,
+                 const Real&     angle)
+{
+  RealVect zeroVect(D_DECL(0.0,0.0,0.0));
+  RealVect xAxis(D_DECL(1.0,0.0,0.0));
+  bool inside = true;
+
+  Vector<BaseIF*> vaneParts;
+
+  Real sinTheta = sin(angle);
+
+#if CH_SPACEDIM == 3
+  Real cosTheta = cos(angle);
+  // Each side of the vane (infinite)
+  // rotate the normal around x-axis
+  RealVect normal1(D_DECL(normal[0],cosTheta*normal[1]-sinTheta*normal[2],sinTheta*normal[1]+cosTheta*normal[2]));
+  // rotate point on top of vane around x-axis
+  RealVect point(D_DECL(offset+height/2.0,-thick/2.0,0.0));
+  RealVect point1(D_DECL(point[0],cosTheta*point[1]-sinTheta*point[2],sinTheta*point[1]+cosTheta*point[2]));
+  PlaneIF plane1(normal1,point1,inside);
+
+  vaneParts.push_back(&plane1);
+
+  RealVect normal2(-normal1);
+  // rotate point on bottom (-point[2] of vane around x-axis
+  RealVect point2(D_DECL(point[0],-cosTheta*point[1]-sinTheta*point[2],-sinTheta*point[1]+cosTheta*point[2]));
+  PlaneIF plane2(normal2,point2,inside);
+
+  vaneParts.push_back(&plane2);
+#endif
+
+  // Make sure we only get something to the right of the origin
+  RealVect normal3(D_DECL(0.0,-sinTheta,cosTheta));
+  RealVect point3(D_DECL(0.0,0.0,0.0));
+  PlaneIF plane3(normal3,point3,inside);
+
+  vaneParts.push_back(&plane3);
+
+  // Cut off the top and bottom
+  RealVect normal4(D_DECL(1.0,0.0,0.0));
+  RealVect point4(D_DECL(offset,0.0,0.0));
+  PlaneIF plane4(normal4,point4,inside);
+
+  vaneParts.push_back(&plane4);
+
+  RealVect normal5(D_DECL(-1.0,0.0,0.0));
+  RealVect point5(D_DECL(offset+height,0.0,0.0));
+  PlaneIF plane5(normal5,point5,inside);
+
+  vaneParts.push_back(&plane5);
+
+  // The outside of the inner cylinder
+  TiltedCylinderIF inner(innerRadius,xAxis,zeroVect,!inside);
+
+  vaneParts.push_back(&inner);
+
+  // The inside of the outer cylinder
+  TiltedCylinderIF outer(outerRadius,xAxis,zeroVect,inside);
+
+  vaneParts.push_back(&outer);
+
+  IntersectionIF* vane = new IntersectionIF(vaneParts);
+
+  return vane;
+}
 /***/
+Real getDistance(const RealVect& a_point,
+                 const RealVect& a_lineDirection,
+                 const RealVect& a_linePoint)
+{
+  RealVect diff = a_linePoint;
+  diff -= a_point;
+
+  Real normDiff2 = 0.0;
+  for (int idir = 0; idir < SpaceDim; idir++)
+  {
+    normDiff2 += diff[idir] * diff[idir];
+  }
+
+  Real normDirection2 = 0.0;
+  for (int idir = 0; idir < SpaceDim; idir++)
+  {
+    normDirection2 += a_lineDirection[idir] * a_lineDirection[idir];
+  }
+
+  Real dotDiffDirection2 = 0.0;
+  for (int idir = 0; idir < SpaceDim; idir++)
+  {
+    dotDiffDirection2 += diff[idir] * a_lineDirection[idir];
+  }
+  dotDiffDirection2 = dotDiffDirection2 * dotDiffDirection2;
+
+  return sqrt(normDiff2 - dotDiffDirection2 / normDirection2);
+}
 /***/
 void getAllIrregRefinedLayouts(Vector<DisjointBoxLayout>& a_grids,
                                Vector<EBISLayout>&        a_ebisl,

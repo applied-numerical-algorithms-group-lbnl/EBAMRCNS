@@ -159,8 +159,8 @@ class NWOEBConductivityOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB
   {
   }
 
-  void fillPhiGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const;
-  void fillPhiGhost(const LevelData<EBCellFAB>& a_phi) const;
+  void fillPhiGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd, bool a_homog) const;
+  void fillPhiGhost(const LevelData<EBCellFAB>& a_phi, bool a_homog) const;
 
   void getFlux(EBFluxFAB&                    a_flux,
                const LevelData<EBCellFAB>&   a_data,

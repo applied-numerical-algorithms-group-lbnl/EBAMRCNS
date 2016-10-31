@@ -13,7 +13,7 @@
 
 #include "NWOEBConductivityOp.H"
 #include "EBArith.H"
-
+#include "ParmParse.H"
 #include "CH_Timer.H"
 #include "NWOEBConductivityOpFactory.H"
 #include "EBCoarseAverage.H"
@@ -92,8 +92,8 @@ refToFiner(const ProblemDomain& a_domain) const
 
 //-----------------------------------------------------------------------
 NWOEBConductivityOpFactory::
-NWOEBConductivityOpFactory(const Vector<EBLevelGrid>&                                  a_eblgs,
-                        const Vector<RefCountedPtr<EBQuadCFInterp> >&               a_quadCFI,
+NWOEBConductivityOpFactory(const Vector<EBLevelGrid>&                               a_eblgs,
+                        const Vector<RefCountedPtr<NWOEBQuadCFInterp> >&            a_quadCFI,
                         const Real&                                                 a_alpha,
                         const Real&                                                 a_beta,
                         const Vector<RefCountedPtr<LevelData<EBCellFAB> > >&        a_acoef,
@@ -234,6 +234,15 @@ MGnewOp(const ProblemDomain& a_domainFine,
         int                  a_depth,
         bool                 a_homoOnly)
 {
+  ParmParse pp;
+  bool turn_off_mg = false;
+  pp.query("turn_off_multigrid_for_nwoc", turn_off_mg);
+  if(turn_off_mg)
+    {
+      pout() << "turn off multigrid for NWOEBConductivityOp because turn_off_multigrid_for_nwoc = true " << endl;
+      return NULL;
+    }
+
   //find out if there is a real starting point here.
   int ref=-1;
   bool found = false;
@@ -260,7 +269,7 @@ MGnewOp(const ProblemDomain& a_domainFine,
   Real          dxMGLevel;
   EBLevelGrid eblgMGLevel;
   EBLevelGrid eblgCoarMG;
-  RefCountedPtr<EBQuadCFInterp> quadCFI; //only defined if on an amr level
+  RefCountedPtr<NWOEBQuadCFInterp> quadCFI; //only defined if on an amr level
   Real dxCoar = 1.0;
   dxCoar *= -1.0;
   //  int refToDepth = 1;

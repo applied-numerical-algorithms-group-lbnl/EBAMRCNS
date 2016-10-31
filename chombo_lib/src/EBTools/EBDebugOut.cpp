@@ -494,6 +494,25 @@ void dumpEBLevelAll(const LevelData<EBCellFAB>* a_level)
       dumpEBFABIVS(&(lev[dit()]), &ivs, 0.0);
     }
 }
+
+void dumpEBLevelGhost(const LevelData<EBCellFAB>* a_level)
+{
+  const LevelData<EBCellFAB>& lev = *a_level;
+  pout() << "ghost irregular data in eblevel" << endl;
+  const DisjointBoxLayout& dbl = a_level->disjointBoxLayout();
+  for (DataIterator dit = dbl.dataIterator(); dit.ok(); ++dit)
+    {
+      Box gridbox = dbl[dit()];
+      Box box = gridbox;
+      //      box.grow(a_level->ghostVect());
+      box.grow(1);
+      box &= lev[dit()].getEBISBox().getDomain();
+      IntVectSet ivs(box);
+      ivs -= gridbox;
+      dumpEBFABIVS(&(lev[dit()]), &ivs, 0.0);
+    }
+}
+
 void dumpEBLevelThresh(const LevelData<EBCellFAB>* a_level, Real a_thresh)
 {
   const LevelData<EBCellFAB>& lev = *a_level;

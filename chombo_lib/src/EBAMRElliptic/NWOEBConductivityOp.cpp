@@ -27,9 +27,10 @@
 #include "EBAlias.H" 
 #include "BCFunc.H"
 #include "EBCoarseAverage.H"
+#include "EBDebugOut.H"
 #include "ParmParse.H"
 #include "NamespaceHeader.H"
-bool NWOEBConductivityOp::s_doLazyRelax = true;
+bool NWOEBConductivityOp::s_doLazyRelax = false;
 
 bool NWOEBConductivityOp::s_turnOffBCs = false; //REALLY needs to default to false
 bool NWOEBConductivityOp::s_forceNoEBCF = false; //REALLY needs to default to false
@@ -723,6 +724,7 @@ applyOp(LevelData<EBCellFAB>&                    a_lhs,
       else
         {
           m_interpWithCoarser->coarseFineInterp(phi, *a_phiCoar,  0, 0, 1);
+          //          dumpEBLevelGhost(&phi);
         }
     }
   applyOp(a_lhs, a_phi, a_homogeneousPhysBC);
@@ -738,7 +740,7 @@ applyOp(LevelData<EBCellFAB>&                    a_lhs,
   LevelData<EBCellFAB>&  phi = (LevelData<EBCellFAB>&) a_phi;
   {
     CH_TIME("ghostcell fills");
-    fillPhiGhost(a_phi);
+    fillPhiGhost(a_phi, a_homogeneous);
     phi.exchange(m_exchangeCopier);
   }
 
@@ -764,7 +766,7 @@ applyOp(LevelData<EBCellFAB>&                    a_lhs,
 //-----------------------------------------------------------------------
 void
 NWOEBConductivityOp::
-fillPhiGhost(const LevelData<EBCellFAB>& a_phi) const
+fillPhiGhost(const LevelData<EBCellFAB>& a_phi, bool a_homog) const
 {
   CH_TIME("nwoebco::fillghostLD");
   DataIterator dit = m_eblg.getDBL().dataIterator();
@@ -772,12 +774,14 @@ fillPhiGhost(const LevelData<EBCellFAB>& a_phi) const
 #pragma omp parallel for
   for (int mybox=0;mybox<nbox; mybox++)
     {
-      fillPhiGhost(a_phi[dit[mybox]], dit[mybox]);
+      fillPhiGhost(a_phi[dit[mybox]], dit[mybox], a_homog);
     }
+  LevelData<EBCellFAB>& phi = (LevelData<EBCellFAB>&)(a_phi);
+  phi.exchange(m_exchangeCopier);
 }
 void
 NWOEBConductivityOp::
-fillPhiGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const
+fillPhiGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd, bool a_homog) const
 {
   CH_TIME("nwoebco::fillghostfab");
 
@@ -792,7 +796,7 @@ fillPhiGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const
   if (!s_turnOffBCs)
     {
       FArrayBox& fab = phi.getFArrayBox();
-      condbc->fillPhiGhost(fab, grid, domBox, m_dx, false);
+      condbc->fillPhiGhost(fab, grid, domBox, m_dx, a_homog);
     }
   else
     {
@@ -869,30 +873,28 @@ applyOpIrregular(EBCellFAB&             a_lhs,
 
   for (int idir = 0; idir < SpaceDim; idir++)
     {
-      for (int comp = 0; comp < SpaceDim; comp++)
+      int comp = 0;
+      for (m_vofIterDomLo[idir][a_datInd].reset(); m_vofIterDomLo[idir][a_datInd].ok();  ++m_vofIterDomLo[idir][a_datInd])
         {
-          for (m_vofIterDomLo[idir][a_datInd].reset(); m_vofIterDomLo[idir][a_datInd].ok();  ++m_vofIterDomLo[idir][a_datInd])
-            {
-              Real flux;
-              const VolIndex& vof = m_vofIterDomLo[idir][a_datInd]();
-              m_domainBC->getFaceFlux(flux,vof,comp,a_phi,
-                                      RealVect::Zero,vectDx,idir,Side::Lo, a_datInd, 0.0,
-                                      a_homogeneous);
+          Real flux;
+          const VolIndex& vof = m_vofIterDomLo[idir][a_datInd]();
+          m_domainBC->getFaceFlux(flux,vof,comp,a_phi,
+                                  RealVect::Zero,vectDx,idir,Side::Lo, a_datInd, 0.0,
+                                  a_homogeneous);
 
-              //area gets multiplied in by bc operator
-              a_lhs(vof,comp) -= flux*m_beta/m_dx;
-            }
-          for (m_vofIterDomHi[idir][a_datInd].reset(); m_vofIterDomHi[idir][a_datInd].ok();  ++m_vofIterDomHi[idir][a_datInd])
-            {
-              Real flux;
-              const VolIndex& vof = m_vofIterDomHi[idir][a_datInd]();
-              m_domainBC->getFaceFlux(flux,vof,comp,a_phi,
-                                      RealVect::Zero,vectDx,idir,Side::Hi,a_datInd,0.0,
-                                      a_homogeneous);
+          //area gets multiplied in by bc operator
+          a_lhs(vof,comp) -= flux*m_beta/m_dx;
+        }
+      for (m_vofIterDomHi[idir][a_datInd].reset(); m_vofIterDomHi[idir][a_datInd].ok();  ++m_vofIterDomHi[idir][a_datInd])
+        {
+          Real flux;
+          const VolIndex& vof = m_vofIterDomHi[idir][a_datInd]();
+          m_domainBC->getFaceFlux(flux,vof,comp,a_phi,
+                                  RealVect::Zero,vectDx,idir,Side::Hi,a_datInd,0.0,
+                                  a_homogeneous);
 
-              //area gets multiplied in by bc operator
-              a_lhs(vof,comp) += flux*m_beta/m_dx;
-            }
+          //area gets multiplied in by bc operator
+          a_lhs(vof,comp) += flux*m_beta/m_dx;
         }
     }
 
@@ -1104,7 +1106,7 @@ relax(LevelData<EBCellFAB>&       a_phi,
           if ((icolor == 0) || (!s_doLazyRelax))
             {
               CH_TIME("ghostfill and homogcfinterp");
-              fillPhiGhost(a_phi);
+              fillPhiGhost(a_phi, true);
               homogeneousCFInterp(a_phi);
             }
           if(!printedStuff)
@@ -1136,7 +1138,7 @@ homogeneousCFInterp(LevelData<EBCellFAB>&   a_phif)
   CH_TIME("nwoebco::homog_cfinterp");
   if (m_hasCoar)
     {
-      m_interpWithCoarser->coarseFineInterpH(a_phif,  0, 0, SpaceDim);
+      m_interpWithCoarser->coarseFineInterpH(a_phif,  0, 0, 1);
     }
 }
 
@@ -1406,6 +1408,7 @@ incrementFRCoar(EBFastFR&             a_fluxReg,
           //getFlux(coarflux, coarfab, ghostedBox, box, m_eblg.getDomain(), ebisBox, m_dx, dit[mybox], idir);
 
           // new way
+          fillPhiGhost(a_phi[dit[mybox]], dit[mybox], false);
           getFluxRegOnly(coarflux, coarfab, ghostedBox, m_dx, dit[mybox], idir);
           for (SideIterator sit; sit.ok(); ++sit)
             {
@@ -1477,7 +1480,7 @@ getFlux(EBFluxFAB&                    a_flux,
       ghostedBox.grow(1);
       ghostedBox.grow(idir,-1);
       ghostedBox &= m_eblg.getDomain();
-
+      fillPhiGhost(a_data[a_dit], a_dit, false);
 
       getFlux(a_flux[idir], a_data[a_dit], ghostedBox, a_grid,
               m_eblg.getDomain(), m_eblg.getEBISL()[a_dit], m_dx, a_dit, idir);

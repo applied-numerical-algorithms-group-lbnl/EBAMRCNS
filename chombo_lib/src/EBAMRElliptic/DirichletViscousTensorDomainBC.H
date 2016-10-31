@@ -77,20 +77,23 @@ public:
           {
             Box toRegion = adjCellBox(valid, idir, sit(), 1);
 
-            for (BoxIterator bit(toRegion); bit.ok(); ++bit)
+            if(!a_domain.contains(toRegion))
               {
-                const IntVect& iv = bit();
-                //fake vof just to get the location
-                VolIndex vof(iv, 0);
-                RealVect loc = EBArith::getVoFLocation(vof, a_dx, RealVect::Zero);
-                int isign = sign(sit());
-                IntVect ivneigh = iv - isign*BASISV(idir);
-                RealVect value = bcvaluefunc(loc, idir, sit());
-                if(a_homogeneous) value = RealVect::Zero;
-                for(int comp = 0; comp < SpaceDim; comp++)
+                for (BoxIterator bit(toRegion); bit.ok(); ++bit)
                   {
-                    //diri
-                    a_phi(iv, comp) = -a_phi(ivneigh, comp)  + 2.*value[comp];
+                    const IntVect& iv = bit();
+                    //fake vof just to get the location
+                    VolIndex vof(iv, 0);
+                    RealVect loc = EBArith::getVoFLocation(vof, a_dx, RealVect::Zero);
+                    int isign = sign(sit());
+                    IntVect ivneigh = iv - isign*BASISV(idir);
+                    RealVect value = bcvaluefunc(loc, idir, sit());
+                    if(a_homogeneous) value = RealVect::Zero;
+                    for(int comp = 0; comp < SpaceDim; comp++)
+                      {
+                        //diri
+                        a_phi(iv, comp) = -a_phi(ivneigh, comp)  + 2.*value[comp];
+                      }
                   }
               }
           } 

@@ -23,8 +23,8 @@ using std::cerr;
 #include "EBFABView.H"
 #include "EBDebugDump.H"
 
-#include "EBConductivityOp.H"
-#include "EBConductivityOpFactory.H"
+#include "NWOEBConductivityOp.H"
+#include "NWOEBConductivityOpFactory.H"
 #include "EBLevelDataOps.H"
 #include "DebugDump.H"
 #include "EBDebugDump.H"
@@ -80,7 +80,7 @@ void solve(const PoissonParameters&  a_params)
   else
     botSolve = &bicgstab;
 
-  defineConductivitySolver(solver, grids, ebisl, *botSolve, a_params);
+  defineNWOConductivitySolver(solver, grids, ebisl, *botSolve, a_params);
 
 
 

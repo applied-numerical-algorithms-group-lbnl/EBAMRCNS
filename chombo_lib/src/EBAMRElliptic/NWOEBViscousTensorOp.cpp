@@ -248,7 +248,7 @@ averageCellToFace(LevelData<EBFluxFAB>&         a_fluxData,
       //#pragma omp parallel for  
       for (int mybox=0;mybox<nbox; mybox++)
         {
-          fillVelGhost(a_cellData[dit[mybox]], dit[mybox]);
+          fillVelGhost(a_cellData[dit[mybox]], dit[mybox], false);
           averageCellToFace(a_fluxData[dit[mybox]][idir],
                             a_cellData[dit[mybox]],
                             a_grids[dit[mybox]],
@@ -1486,7 +1486,7 @@ relax(LevelData<EBCellFAB>&       a_phi,
           if ((icolor == 0) || (!s_doLazyRelax))
             {
               CH_TIME("ghostfill and homogcfinterp");
-              fillVelGhost(a_phi);
+              fillVelGhost(a_phi, true);
               homogeneousCFInterp(a_phi);
             }
           if(!printedStuff)
@@ -1863,7 +1863,7 @@ getFlux(EBFluxFAB&                    a_flux,
       ghostedBox.grow(1);
       ghostedBox.grow(idir,-1);
       ghostedBox &= m_eblg.getDomain();
-      fillVelGhost(a_data[a_dit], a_dit);
+      fillVelGhost(a_data[a_dit], a_dit, false);
       getFlux(a_flux[idir],
               a_data[a_dit],
               ghostedBox, a_grid,
@@ -1875,7 +1875,7 @@ getFlux(EBFluxFAB&                    a_flux,
 
 void
 NWOEBViscousTensorOp::
-fillVelGhost(const LevelData<EBCellFAB>& a_phi) const
+fillVelGhost(const LevelData<EBCellFAB>& a_phi, bool a_homog) const
 {
   CH_TIME("nwoebvto::fillghostLD");
   DataIterator dit = m_eblg.getDBL().dataIterator();
@@ -1883,12 +1883,15 @@ fillVelGhost(const LevelData<EBCellFAB>& a_phi) const
 #pragma omp parallel for
   for (int mybox=0;mybox<nbox; mybox++)
     {
-      fillVelGhost(a_phi[dit[mybox]], dit[mybox]);
+      fillVelGhost(a_phi[dit[mybox]], dit[mybox], a_homog);
     }
+  LevelData<EBCellFAB>& phi = (LevelData<EBCellFAB>&)(a_phi);
+  phi.exchange(m_exchangeCopier);
+  
 }
 void
 NWOEBViscousTensorOp::
-fillVelGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const
+fillVelGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd, bool a_homog) const
 {
   CH_TIME("nwoebvto::fillghostfab");
   EBCellFAB& phi = (EBCellFAB&) a_phi;
@@ -1902,7 +1905,7 @@ fillVelGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd) const
   if (!s_turnOffBCs)
     {
       FArrayBox& fab = phi.getFArrayBox();
-      viscbc->fillVelGhost(fab, grid, domBox, m_dx, false);
+      viscbc->fillVelGhost(fab, grid, domBox, m_dx, a_homog);
     }
   else
     {
@@ -1945,7 +1948,7 @@ getFlux(EBFaceFAB&                    a_fluxCentroid,
   Box faceBox = surroundingNodes(a_ghostedBox, a_idir);
   EBFaceFAB fluxCenter(a_ebisBox, a_ghostedBox, a_idir,SpaceDim);
   FArrayBox&       regFlux = (      FArrayBox &)   fluxCenter.getSingleValuedFAB();
-  fillVelGhost(a_phi, a_datInd);
+  fillVelGhost(a_phi, a_datInd, false);
   getFlux(regFlux, regPhi,  faceBox, a_idir, a_datInd);
 
   a_fluxCentroid.copy(fluxCenter);
@@ -2077,11 +2080,10 @@ applyOp(LevelData<EBCellFAB>             & a_lhs,
         bool                               a_homogeneous)
 {
   CH_TIME("nwoebvto::applyOpFull");
-  LevelData<EBCellFAB>&  phi = (LevelData<EBCellFAB>&) a_phi;
   {
+    //this includes exchange.
     CH_TIME("ghostcell fills");
-    fillVelGhost(a_phi);
-    phi.exchange(m_exchangeCopier);
+    fillVelGhost(a_phi, a_homogeneous);
   }
 
   /**
