@@ -12,7 +12,7 @@
 #define _EBPlanarShockSolverBC_H_
 
 #include "RefCountedPtr.H"
-#include "BaseDomainBC.H"
+#include "ViscousBaseDomainBC.H"
 
 #include "NamespaceHeader.H"
 

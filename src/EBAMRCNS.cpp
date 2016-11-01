@@ -33,9 +33,10 @@
 #include "EBAMRIO.H"
 #include "BaseIVFactory.H"
 #include "NWOEBViscousTensorOpFactory.H"
-#include "EBConductivityOpFactory.H"
+#include "NWOEBConductivityOpFactory.H"
 #include "EBAMRPoissonOpFactory.H"
 #include "KappaSquareNormal.H"
+#include "NWOEBQuadCFInterp.H"
 
 #include "AMRLevel.H"
 #include "EBAMRCNS.H"
@@ -302,7 +303,7 @@ defineFactories(bool a_atHalfTime)
       Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >  etaIrreg(nlevels);
       Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >  bcoTempIrreg(nlevels);
       Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >  lambdaIrreg(nlevels);
-      Vector<RefCountedPtr<EBQuadCFInterp> >                quadCFI(nlevels);
+      Vector<RefCountedPtr<NWOEBQuadCFInterp> >             quadCFI(nlevels);
 
       EBAMRCNS* coarsestLevel = (EBAMRCNS*)(hierarchy[0]);
       Real           lev0Dx      = (coarsestLevel->m_dx[0]);
@@ -362,10 +363,10 @@ defineFactories(bool a_atHalfTime)
       s_tempFactory =
         RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >
         (dynamic_cast<AMRLevelOpFactory<LevelData<EBCellFAB> >*>
-         (new EBConductivityOpFactory(eblgs, quadCFI, alpha, beta, acoTemp, 
-                                      bcoTemp, bcoTempIrreg, lev0Dx, 
-                                      refRat, m_params.m_doBCTemp, 
-                                      m_params.m_ebBCTemp, giv, giv, relaxType)));
+         (new NWOEBConductivityOpFactory(eblgs, quadCFI, alpha, beta, acoTemp, 
+                                         bcoTemp, bcoTempIrreg, lev0Dx, 
+                                         refRat, m_params.m_doBCTemp, 
+                                         m_params.m_ebBCTemp, giv, giv, relaxType)));
 
     }
   (*m_eta     )    .exchange(Interval(0,0));
@@ -388,7 +389,7 @@ defineSolvers()
     }
   if(tagAllIrregular) s_noEBCF = true;
 
-  EBConductivityOp::setForceNoEBCF( s_noEBCF);
+  NWOEBConductivityOp::setForceNoEBCF( s_noEBCF);
   NWOEBViscousTensorOp::setForceNoEBCF(s_noEBCF);
   defineFactories(true);
   if(m_params.m_doDiffusion)
@@ -2833,21 +2834,21 @@ levelSetup()
 
       int nvarQuad = 1; //temperature
 
-      m_quadCFI = RefCountedPtr<EBQuadCFInterp>
-        (new EBQuadCFInterp(m_eblg.getDBL(),
-                            coEBLG.getDBL(),
-                            m_eblg.getEBISL(),
-                            coEBLG.getEBISL(),
-                            coEBLG.getDomain(),
-                            nRefCrse, nvarQuad,
-                            (*m_eblg.getCFIVS()),
-                            Chombo_EBIS::instance()));
+      NWOEBQuadCFInterp* interpptr = new NWOEBQuadCFInterp(m_eblg.getDBL(),
+                                                           coEBLG.getDBL(),
+                                                           m_eblg.getEBISL(),
+                                                           coEBLG.getEBISL(),
+                                                           coEBLG.getDomain(),
+                                                           nRefCrse, nvarQuad,
+                                                           m_dx[0], ivGhost,
+                                                           (*m_eblg.getCFIVS()));
+      m_quadCFI = RefCountedPtr<NWOEBQuadCFInterp>(interpptr);
 
       coarPtr->syncWithFineLevel();
     }
   else
     {
-      m_quadCFI = RefCountedPtr<EBQuadCFInterp>(new EBQuadCFInterp());
+      m_quadCFI = RefCountedPtr<NWOEBQuadCFInterp>();
       m_ebLevelGodunov.define(m_eblg.getDBL(),
                               DisjointBoxLayout(),
                               m_eblg.getEBISL(),

@@ -12,7 +12,7 @@
 #define _SLIPWALLVISCOUSTENSORDOMAINBC_H_
 
 #include "RefCountedPtr.H"
-#include "BaseDomainBC.H"
+#include "ViscousBaseDomainBC.H"
 #include "BaseBCFuncEval.H"
 #include "BCFunc.H"
 #include "NamespaceHeader.H"

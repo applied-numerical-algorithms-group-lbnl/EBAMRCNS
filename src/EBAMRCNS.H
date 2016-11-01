@@ -38,7 +38,7 @@
 #include "Vector.H"
 #include "MomentumTGA.H"
 #include "DisjointBoxLayout.H"
-#include "EBQuadCFInterp.H"
+#include "NWOEBQuadCFInterp.H"
 
 #include "NamespaceHeader.H"
 
@@ -414,7 +414,7 @@ protected:
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_etaIrreg;
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_bcoTempIrreg;
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_lambdaIrreg;
-  RefCountedPtr<EBQuadCFInterp>                                 m_quadCFI;
+  RefCountedPtr<NWOEBQuadCFInterp>                              m_quadCFI;
 
   static RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >  s_tempFactory;
   static RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >  s_veloFactory;
