@@ -49,20 +49,20 @@ public:
   //! Constructs a factory that builds NWOEBConductivityOps with time-independent
   //! A and B coefficients.
   NWOEBConductivityOpFactory(const Vector<EBLevelGrid>&                                  a_eblgs,
-                          const Vector<RefCountedPtr<NWOEBQuadCFInterp> >&             a_quadCFI,
-                          const Real&                                                 a_alpha,
-                          const Real                                         &        a_beta,
-                          const Vector<RefCountedPtr<LevelData<EBCellFAB> > >&        a_acoef,
-                          const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&        a_bcoef,
-                          const Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >& a_bcoefIrreg,
-                          const Real&                                                 a_dxCoarse,
-                          const Vector<int>&                                          a_refRatio,
-                          const RefCountedPtr<BaseDomainBCFactory>&                   a_domainBCFactory,
-                          const RefCountedPtr<BaseEBBCFactory>    &                   a_ebBcFactory,
-                          const IntVect&                                              a_ghostCellsPhi,
-                          const IntVect&                                              a_ghostCellsRhs,
-                          const int&                                                  a_relaxType,
-                          int a_numLevels = -1);
+                             const Vector<RefCountedPtr<NWOEBQuadCFInterp> >&             a_quadCFI,
+                             const Real&                                                 a_alpha,
+                             const Real                                         &        a_beta,
+                             const Vector<RefCountedPtr<LevelData<EBCellFAB> > >&        a_acoef,
+                             const Vector<RefCountedPtr<LevelData<EBFluxFAB> > >&        a_bcoef,
+                             const Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >& a_bcoefIrreg,
+                             const Real&                                                 a_dxCoarse,
+                             const Vector<int>&                                          a_refRatio,
+                             const RefCountedPtr<BaseDomainBCFactory>&                   a_domainBCFactory,
+                             const RefCountedPtr<BaseEBBCFactory>    &                   a_ebBcFactory,
+                             const IntVect&                                              a_ghostCellsPhi,
+                             const IntVect&                                              a_ghostCellsRhs,
+                             const int&                                                  a_relaxType,
+                             int a_numLevels = -1);
 
 
   //! Destructor.

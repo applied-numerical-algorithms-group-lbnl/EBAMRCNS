@@ -11,10 +11,8 @@
 #include "LoadBalance.H"
 #include "EBArith.H"
 #include "EBAMRPoissonOp.H"
-
 #include "NWOEBConductivityOp.H"
 #include "EBQuadCFInterp.H"
-
 #include "EBConductivityOpF_F.H"
 #include "InterpF_F.H"
 #include "EBAMRPoissonOpF_F.H"
