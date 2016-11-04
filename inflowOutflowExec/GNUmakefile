@@ -11,7 +11,7 @@ OPT=HIGH
 #parallel can be TRUE or FALSE
 MPI=TRUE
 #threading can be TRUE or FALSE
-OPENMPCC =FALSE 
+OPENMPCC =FALSE
 
 # the location of Chombo lib dir
 CHOMBO_HOME = ../chombo_lib

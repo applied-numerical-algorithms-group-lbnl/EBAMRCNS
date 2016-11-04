@@ -792,7 +792,6 @@ NWOEBViscousTensorOp::
 calculateRelaxationCoefficient()
 {
   CH_TIME("nwoebvto::calcRelCoef");
-  CH_assert(!m_operatorForTimingOnly);
 
   //define regular relaxation coefficent
   //define regular relaxation coefficent
@@ -1028,6 +1027,11 @@ defineStencilsForTimingOnly()
   m_domainBC->setCoef(m_eblg,   m_beta,      m_eta,      m_lambda);
   m_ebBC->setCoef(    m_eblg,   m_beta,      m_etaIrreg, m_lambdaIrreg, m_eta, m_lambda);
   m_ebBC->define(    *m_eblg.getCFIVS(), 1.0);
+  for (int ivar = 0; ivar < SpaceDim; ivar++)
+    {
+      m_opEBStencil[ivar].define(m_eblg.getDBL());
+    }
+  m_vofIterIrreg.define(m_eblg.getDBL());
 
   EBCellFactory fact(m_eblg.getEBISL());              
   LevelData<EBCellFAB> phiProxy(m_eblg.getDBL(), SpaceDim, m_ghostPhi, fact);
@@ -1054,6 +1058,7 @@ defineStencilsForTimingOnly()
       ivsStenc -= ivsComplement;
       /**/
 
+      m_vofIterIrreg[datind].define(ivsStenc, ebisBox.getEBGraph());
       m_alphaDiagWeight[datind].define(ivsStenc, ebisBox.getEBGraph(), SpaceDim);
       m_betaDiagWeight [datind].define(ivsStenc, ebisBox.getEBGraph(), SpaceDim);
 
@@ -1064,7 +1069,7 @@ defineStencilsForTimingOnly()
           DataIterator dit = m_eblg.getDBL().dataIterator();
 
           const EBISBox& ebisBox = m_eblg.getEBISL()[datind];
-          VoFIterator &  vofit = m_vofIterIrreg[datind];
+          VoFIterator& vofit  = m_vofIterIrreg[datind];
           const Vector<VolIndex>& vofvec = vofit.getVector();
           // cast from VolIndex to BaseIndex
           Vector<RefCountedPtr<BaseIndex> >    dstVoF(vofvec.size());

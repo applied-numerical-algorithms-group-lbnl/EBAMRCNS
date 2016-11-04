@@ -55,11 +55,11 @@ NWOEBViscousTensorOpFactory(EBLevelGrid                             &    a_eblg,
   EBCellFactory        cellFact(a_eblg.getEBISL());
   EBFluxFactory        fluxFact(a_eblg.getEBISL());
   BaseIVFactory<Real>  bivrFact(a_eblg.getEBISL());
-  m_acoef      [0] = RefCountedPtr<LevelData<EBCellFAB>        >(new LevelData<EBCellFAB       >(a_eblg.getDBL(), 1, IntVect::Zero, cellFact));
-  m_eta        [0] = RefCountedPtr<LevelData<EBFluxFAB>        >(new LevelData<EBFluxFAB       >(a_eblg.getDBL(), 1, IntVect::Zero, fluxFact));
-  m_lambda     [0] = RefCountedPtr<LevelData<EBFluxFAB>        >(new LevelData<EBFluxFAB       >(a_eblg.getDBL(), 1, IntVect::Zero, fluxFact));
-  m_etaIrreg   [0] = RefCountedPtr<LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(a_eblg.getDBL(), 1, IntVect::Zero, bivrFact));
-  m_lambdaIrreg[0] = RefCountedPtr<LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(a_eblg.getDBL(), 1, IntVect::Zero, bivrFact));
+  m_acoef      [0] = RefCountedPtr<LevelData<EBCellFAB>        >(new LevelData<EBCellFAB       >(a_eblg.getDBL(), 1, 4*IntVect::Unit, cellFact));
+  m_eta        [0] = RefCountedPtr<LevelData<EBFluxFAB>        >(new LevelData<EBFluxFAB       >(a_eblg.getDBL(), 1, 4*IntVect::Unit, fluxFact));
+  m_lambda     [0] = RefCountedPtr<LevelData<EBFluxFAB>        >(new LevelData<EBFluxFAB       >(a_eblg.getDBL(), 1, 4*IntVect::Unit, fluxFact));
+  m_etaIrreg   [0] = RefCountedPtr<LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(a_eblg.getDBL(), 1, 4*IntVect::Unit, bivrFact));
+  m_lambdaIrreg[0] = RefCountedPtr<LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(a_eblg.getDBL(), 1, 4*IntVect::Unit, bivrFact));
   DataIterator dit = a_eblg.getDBL().dataIterator();
   int nbox = dit.size();
   for(int ibox = 0; ibox < nbox; ibox++)

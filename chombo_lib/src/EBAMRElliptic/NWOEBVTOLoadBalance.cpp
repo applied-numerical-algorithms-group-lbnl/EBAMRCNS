@@ -50,8 +50,8 @@ getNWOEBVTORelaxLoadsAndBoxes(Vector<unsigned long long>               &    a_lo
   IntVect nghostPhi = opFact.getGhostPhi();
   IntVect nghostRHS = opFact.getGhostRHS();
   EBCellFactory ebcellfact(eblg.getEBISL());
-  LevelData<EBCellFAB> phi(a_dblOrig, 1, nghostPhi, ebcellfact);
-  LevelData<EBCellFAB> rhs(a_dblOrig, 1, nghostRHS, ebcellfact);
+  LevelData<EBCellFAB> phi(a_dblOrig, SpaceDim, nghostPhi, ebcellfact);
+  LevelData<EBCellFAB> rhs(a_dblOrig, SpaceDim, nghostRHS, ebcellfact);
 
   EBLevelDataOps::setToZero(rhs);
   EBLevelDataOps::setToZero(phi);
