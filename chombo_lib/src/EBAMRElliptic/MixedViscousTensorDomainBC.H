@@ -78,12 +78,16 @@ public:
                Real           a_dx,
                bool           a_homogeneous)
   {
-    Box valid = a_valid;
+
+    Box grownBox = a_valid;
+    grownBox.grow(1);
     for (int idir=0; idir<CH_SPACEDIM; ++idir)
       {
         for(SideIterator sit; sit.ok(); ++sit)
           {
-            Box toRegion = adjCellBox(valid, idir, sit(), 1);
+            Box choppedBox = grownBox;
+            choppedBox.grow(idir,-1);
+            Box toRegion = adjCellBox(choppedBox, idir, sit(), 1);
 
             for (BoxIterator bit(toRegion); bit.ok(); ++bit)
               {
@@ -110,8 +114,6 @@ public:
                   }
               }
           } 
-        //grow valid box so we hit corners
-        valid.grow(idir, 1);
       }//end loop over directions
   }
 
