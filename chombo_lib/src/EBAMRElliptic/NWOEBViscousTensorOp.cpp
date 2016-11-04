@@ -2158,14 +2158,16 @@ fillVelGhost(const LevelData<EBCellFAB>& a_phi, bool a_homog) const
   CH_TIME("nwoebvto::fillVelGhostLD");
   DataIterator dit = m_eblg.getDBL().dataIterator();
 
+  //exchange must happen first to get corners correct
+  LevelData<EBCellFAB>& phi = (LevelData<EBCellFAB>&)(a_phi);
+  phi.exchange(m_exchangeCopier);
+
   int nbox=dit.size();
 #pragma omp parallel for
   for (int mybox=0;mybox<nbox; mybox++)
     {
       fillVelGhost(a_phi[dit[mybox]], dit[mybox], a_homog);
     }
-  LevelData<EBCellFAB>& phi = (LevelData<EBCellFAB>&)(a_phi);
-  phi.exchange(m_exchangeCopier);
   
 }
 void
