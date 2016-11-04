@@ -548,7 +548,7 @@ getSingleLdOfU(LevelData<EBCellFAB>      & a_divSigmaU,
   EBLevelDataOps::setToZero(nonConsDivSigmaU);
   EBLevelDataOps::incr     (nonConsDivSigmaU, kappaConsDivSigmaU, 1.0);
 
-  m_normalizor->normalize(nonConsDivSigmaU, Interval(0, SpaceDim-1));
+  m_normalizor->normalize(nonConsDivSigmaU, Interval(0, 0));
 
   //(\rho E)^{**} = (\rho E)^* + \dt L^d(U^*)
   //     mass diff = kappa(1-kappa)*(kappaConsDissFcn - nonConsDissFcn)
