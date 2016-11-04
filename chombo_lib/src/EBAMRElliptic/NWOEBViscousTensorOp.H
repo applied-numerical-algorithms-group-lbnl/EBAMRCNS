@@ -31,6 +31,7 @@
 #include "CFIVS.H"
 #include "EBFastFR.H"
 #include "EBMGAverage.H"
+#include "TimedDataIterator.H"
 #include "EBMGInterp.H"
 #include "EBTensorCFInterp.H"
 #include "EBCoarsen.H"
@@ -55,7 +56,7 @@ class NWOEBViscousTensorOp;
 //class NWOEBViscousTensorOp: public AMRLevelOp<LevelData<EBCellFAB> >
 class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFAB >
 {
-  public:
+public:
 
   static int s_whichLev;
   static int s_step;
@@ -64,27 +65,55 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
   //! Constructs a viscous tensor operator using the given data. This
   //! constructor is for time-independent a and b coefficients.
   NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblgFine,
-                    const EBLevelGrid &                                a_eblg,
-                    const EBLevelGrid &                                a_eblgCoar,
-                    const EBLevelGrid &                                a_eblgCoarMG,
-                    const Real&                                        a_alpha,
-                    const Real&                                        a_beta,
-                    const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef,
-                    const RefCountedPtr<LevelData<EBFluxFAB> >&        a_eta,
-                    const RefCountedPtr<LevelData<EBFluxFAB> >&        a_lambda,
-                    const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_etaIrreg,
-                    const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_lambdaIrreg,
-                    const Real&                                        a_dx,
-                    const Real&                                        a_dxCoar,
-                    const int&                                         a_refToFine,
-                    const int&                                         a_refToCoar,
-                    const RefCountedPtr<ViscousBaseDomainBC>&          a_domainBC,
-                    const RefCountedPtr<ViscousBaseEBBC>&              a_ebBC,
-                    const bool&                                        a_hasMGObjects,
-                    const IntVect&                                     a_ghostPhi,
-                    const IntVect&                                     a_ghostRHS);
+                       const EBLevelGrid &                                a_eblg,
+                       const EBLevelGrid &                                a_eblgCoar,
+                       const EBLevelGrid &                                a_eblgCoarMG,
+                       const Real&                                        a_alpha,
+                       const Real&                                        a_beta,
+                       const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef,
+                       const RefCountedPtr<LevelData<EBFluxFAB> >&        a_eta,
+                       const RefCountedPtr<LevelData<EBFluxFAB> >&        a_lambda,
+                       const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_etaIrreg,
+                       const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_lambdaIrreg,
+                       const Real&                                        a_dx,
+                       const Real&                                        a_dxCoar,
+                       const int&                                         a_refToFine,
+                       const int&                                         a_refToCoar,
+                       const RefCountedPtr<ViscousBaseDomainBC>&          a_domainBC,
+                       const RefCountedPtr<ViscousBaseEBBC>&              a_ebBC,
+                       const bool&                                        a_hasMGObjects,
+                       const IntVect&                                     a_ghostPhi,
+                       const IntVect&                                     a_ghostRHS);
 
 
+  ///
+  /**
+     minimal define.   ONLY for load balancing purposes (only capable of applying the calling timed relax)
+     alpha = 1, beta = -1.  coeffs set to constants.  dx forced to 1.0.
+     BCs left in there because that can affect stencils.
+  */
+  NWOEBViscousTensorOp(const EBLevelGrid &                                a_eblg,
+                       const Real&                                        a_alpha,
+                       const Real&                                        a_beta,
+                       const RefCountedPtr<LevelData<EBCellFAB> >&        a_acoef,
+                       const RefCountedPtr<LevelData<EBFluxFAB> >&        a_eta,
+                       const RefCountedPtr<LevelData<EBFluxFAB> >&        a_lambda,
+                       const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_etaIrreg,
+                       const RefCountedPtr<LevelData<BaseIVFAB<Real> > >& a_lambdaIrreg,
+                       const Real&                                        a_dx,
+                       const RefCountedPtr<ViscousBaseDomainBC>&          a_domainBC,
+                       const RefCountedPtr<ViscousBaseEBBC>&              a_ebBC,
+                       const IntVect&                                     a_ghostPhi,
+                       const IntVect&                                     a_ghostRHS);
+
+  //this is for load balancing.
+  void
+  relaxTimed(LevelData<EBCellFAB>&            a_phi,
+             const LevelData<EBCellFAB>&      a_rhs,
+             TimedDataIterator         &      a_dit,
+             int                              a_iterations);
+
+                    
   //! Destructor.
   virtual ~NWOEBViscousTensorOp();
 
@@ -118,7 +147,7 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
   /// compute (tau dot grad u) (for energy equation)
   void getShearStressDotGradU(LevelData<EBCellFAB>      & a_source,
                               const LevelData<EBCellFAB>& a_gradU,
-                             int a_level);
+                              int a_level);
 
   /// compute volfrac(sigma dot grad u) (for energy equation)
   void getKappaDivSigmaU(LevelData<EBCellFAB>      & a_divSigmaU,
@@ -241,7 +270,7 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
 
   ///
   /**
-  */
+   */
   virtual void applyOp(LevelData<EBCellFAB>&             a_opPhi,
                        const LevelData<EBCellFAB>&       a_phi,
                        bool                              a_homogeneousPhysBC);
@@ -477,8 +506,9 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
 
   //! (Re)define the stencils for the given coefficients.
   void defineStencils();
+  void defineStencilsForTimingOnly();
 
-  protected:
+protected:
 
   //internal functions not usable without significant context
 
@@ -529,10 +559,20 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
                  const LevelData<EBCellFAB>& a_rhs,
                  const IntVect&              a_color);
 
+  void gsrbColorTimed(LevelData<EBCellFAB>       & a_phi,
+                      const LevelData<EBCellFAB> & a_rhs,
+                      const IntVect              & a_color,
+                      TimedDataIterator          & a_dit);
+
+
   void
   fillVelGhost(const EBCellFAB& a_phi, const DataIndex& a_datInd, bool a_homog) const;
   void
   fillVelGhost(const LevelData<EBCellFAB>& a_phi, bool a_homog) const;
+
+  void
+  fillVelGhostTimed(const LevelData<EBCellFAB>& a_phi, bool a_homog, TimedDataIterator& a_dit) const;
+
   void getFaceCenteredFluxStencil(VoFStencil&      a_fluxStencil,
                                   const FaceIndex& a_face,
                                   const DataIndex& a_dit,
@@ -674,6 +714,7 @@ class NWOEBViscousTensorOp: public LevelTGAHelmOp<LevelData<EBCellFAB>, EBFluxFA
 
   LayoutData<IntVectSet> m_ivsIrregCCFlux;
 
+  bool m_operatorForTimingOnly;
 private:
   ///weak construction is bad
   NWOEBViscousTensorOp()

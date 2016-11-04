@@ -39,7 +39,7 @@
 #include "MomentumTGA.H"
 #include "DisjointBoxLayout.H"
 #include "NWOEBQuadCFInterp.H"
-
+#include "EBNormalizeByVolumeFraction.H"
 #include "NamespaceHeader.H"
 
 //! \class EBAMRCNS
@@ -325,7 +325,8 @@ public:
 #endif
 
 protected:
-
+  void getProcMap(Vector<int>& a_proc_map, 
+                  Vector<Box>& a_m_level_grids) const;
   void defineFactories(bool a_atHalfTime);
 
   void implicitReflux();
@@ -415,7 +416,8 @@ protected:
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_bcoTempIrreg;
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_lambdaIrreg;
   RefCountedPtr<NWOEBQuadCFInterp>                              m_quadCFI;
-
+  RefCountedPtr<EBNormalizeByVolumeFraction>                    m_normalizor;
+  
   static RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >  s_tempFactory;
   static RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >  s_veloFactory;
   static RefCountedPtr<AMRMultiGrid<     LevelData<EBCellFAB> > >  s_tempSolver;

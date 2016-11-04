@@ -8,58 +8,16 @@
  */
 #endif
 
-#include <cmath>
-
-#include "parstream.H"
+#include "EBAMRCNS.H"
 #include "ParmParse.H"
-#include "PolyGeom.H"
-
-#include "DebugOut.H"
-#include "Box.H"
-#include "Vector.H"
-#include "IntVectSet.H"
-#include "EBCellFAB.H"
-#include "DisjointBoxLayout.H"
-#include "LayoutIterator.H"
-#include "CH_HDF5.H"
-#include "SPMD.H"
-#include "NeumannPoissonDomainBC.H"
-#include "NeumannPoissonEBBC.H"
-#include "SPMD.H"
-#include "EBLoadBalance.H"
-#include "ProblemDomain.H"
-#include "BoxIterator.H"
-#include "AMRMultiGrid.H"
-#include "EBAMRIO.H"
-#include "BaseIVFactory.H"
 #include "NWOEBViscousTensorOpFactory.H"
 #include "NWOEBConductivityOpFactory.H"
-#include "EBAMRPoissonOpFactory.H"
-#include "KappaSquareNormal.H"
-#include "NWOEBQuadCFInterp.H"
-
-#include "AMRLevel.H"
-#include "EBAMRCNS.H"
-#include "EBCellFactory.H"
-#include "BaseIVFactory.H"
-#include "VoFIterator.H"
+#include "EBPatchPolytropicF_F.H"
 #include "EBPatchGodunovF_F.H"
 #include "EBPlanarShockF_F.H"
-#include "EBPatchPolytropicF_F.H"
-#include "EBIndexSpace.H"
-#include "EBArith.H"
-#include "EBAMRDataOps.H"
 #include "EBLGIntegrator.H"
-#include "EBLevelDataOps.H"
-#include "EBBackwardEuler.H"
-#include "AMR.H"
-#include "GodunovGeom.H"
-#include "EBNoFlowIBC.H"
-#include "LoadBalance.H"
-#include "EBExplosionIBCFactory.H"
-#include "EBPlanarShockIBCFactory.H"
+#include "NWOEBVTOLoadBalance.H"
 #include "EBEllipticLoadBalance.H"
-
 #include "NamespaceHeader.H"
 
 #ifdef CH_USE_HDF5
@@ -152,65 +110,6 @@ clearSolvers()
 }
 //---------------------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------------------
-void
-EBAMRCNS::
-setAirDiffusionCoefficients(const LevelData<EBCellFAB>& a_densCell,
-                            const LevelData<EBCellFAB>& a_tempCell,
-                            const LevelData<EBFluxFAB>& a_densFace,
-                            const LevelData<EBFluxFAB>& a_tempFace)
-{
-  CH_TIME("set_air_diffusion_coef");
-  for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
-    {
-      Box cellBox = m_eblg.getDBL().get(dit());
-      for(int idir = 0; idir < SpaceDim; idir++)
-        {
-          Box faceBox = surroundingNodes(cellBox, idir);
-          FORT_AIRVISCOSITY(CHF_FRA1((*m_eta  )      [dit()][idir].getSingleValuedFAB(), 0),
-                            CHF_CONST_FRA1(a_densFace[dit()][idir].getSingleValuedFAB(), 0),
-                            CHF_CONST_FRA1(a_tempFace[dit()][idir].getSingleValuedFAB(), 0),
-                            CHF_BOX(faceBox));
-
-          FORT_AIRTHERMDIFF(CHF_FRA1((*m_bcoTemp)    [dit()][idir].getSingleValuedFAB(), 0),
-                            CHF_CONST_FRA1(a_densFace[dit()][idir].getSingleValuedFAB(), 0),
-                            CHF_CONST_FRA1(a_tempFace[dit()][idir].getSingleValuedFAB(), 0),
-                            CHF_BOX(faceBox));
-          
-          Vector<FaceIndex> faces = m_eblg.getEBISL()[dit()].getEBGraph().getMultiValuedFaces(idir, cellBox);
-          for(int iface = 0; iface < faces.size(); iface++)
-            {
-              FORT_POINTAIRVISCOSITY(CHF_REAL((*m_eta  )      [dit()][idir](faces[iface], 0)),
-                                     CHF_CONST_REAL(a_densFace[dit()][idir](faces[iface], 0)),
-                                     CHF_CONST_REAL(a_tempFace[dit()][idir](faces[iface], 0)));
-
-
-              FORT_POINTAIRTHERMDIFF(CHF_REAL((*m_bcoTemp)    [dit()][idir](faces[iface], 0)),
-                                     CHF_CONST_REAL(a_densFace[dit()][idir](faces[iface], 0)),
-                                     CHF_CONST_REAL(a_tempFace[dit()][idir](faces[iface], 0)));
-            }
-          (*m_lambda)[dit()][idir].copy((*m_eta)[dit()][idir]);
-          (*m_lambda)[dit()][idir] *= (-2.0/3.0);
-
-        }
-      IntVectSet ivs = m_eblg.getEBISL()[dit()].getIrregIVS(cellBox); //irreg because we are also setting the irregular coeffs here
-      for(VoFIterator vofit(ivs, m_eblg.getEBISL()[dit()].getEBGraph()); vofit.ok(); ++vofit)
-        {
-          FORT_POINTAIRVISCOSITY(CHF_REAL((*m_etaIrreg)    [dit()](vofit(), 0)),
-                                 CHF_CONST_REAL(a_densCell [dit()](vofit(), 0)),
-                                 CHF_CONST_REAL(a_tempCell [dit()](vofit(), 0)));
-
-                                                                   
-          FORT_POINTAIRTHERMDIFF(CHF_REAL((*m_bcoTempIrreg)[dit()](vofit(), 0)),
-                                 CHF_CONST_REAL(a_densCell [dit()](vofit(), 0)),
-                                 CHF_CONST_REAL(a_tempCell [dit()](vofit(), 0)));
-
-          (*m_lambdaIrreg)[dit()](vofit(), 0) = (-2.0/3.0)*(*m_etaIrreg)[dit()](vofit(), 0);
-        }
-
-    }
-}
-//---------------------------------------------------------------------------------------
 
 //---------------------------------------------------------------------------------------
 void
@@ -230,54 +129,12 @@ fillCoefficients(const LevelData<EBCellFAB>& a_state)
     }
   if(m_level == 0)
     {
-      if((!m_params.m_useAirCoefs))
-        {
-          pout() << "using constant diffusion coefficients"  ;
-          pout() << ": mu = " << m_params.m_viscosityMu; 
-          pout() << ", lambda = " << m_params.m_viscosityLa ;
-          pout() << ", kappa = " << m_params.m_thermalCond;
-          pout() << ", cp = " << m_params.m_specHeatCv  << endl;
-        }
-    }
-  if(m_params.m_useAirCoefs)
-    {
-      pout() << "specific heat = " << m_params.m_specHeatCv  << endl;
-      pout() << "using diffusion coefficients for air"  << endl;
-      EBCellFactory cellFact(m_eblg.getEBISL());
-      EBFluxFactory fluxFact(m_eblg.getEBISL());
-      LevelData<EBCellFAB>  tempCell(m_eblg.getDBL(), 1, 4*IntVect::Unit, cellFact);
-      LevelData<EBCellFAB>  densCell(m_eblg.getDBL(), 1, 4*IntVect::Unit, cellFact);
-      LevelData<EBFluxFAB>  tempFace(m_eblg.getDBL(), 1,   IntVect::Zero, fluxFact);
-      LevelData<EBFluxFAB>  densFace(m_eblg.getDBL(), 1,   IntVect::Zero, fluxFact);
 
-      getTemperature(tempCell, a_state);
-      Interval srcComp(CRHO, CRHO);
-      Interval dstComp(0, 0);
-      a_state.copyTo(srcComp, densCell, dstComp);
-
-      if(m_hasCoarser)
-        {
-          EBAMRCNS* coarCNS = getCoarserLevel();
-          EBPWLFillPatch patcher(m_eblg.getDBL()  , coarCNS->m_eblg.getDBL(),
-                                 m_eblg.getEBISL(), coarCNS->m_eblg.getEBISL(),
-                                 coarCNS->m_eblg.getDomain(), m_ref_ratio, 1, 4);
-
-
-          EBCellFactory coarFact(coarCNS->m_eblg.getEBISL());
-          LevelData<EBCellFAB>  coarTemp(coarCNS->m_eblg.getDBL(), 1, 4*IntVect::Unit, coarFact);
-          LevelData<EBCellFAB>  coarDens(coarCNS->m_eblg.getDBL(), 1, 4*IntVect::Unit, coarFact);
-
-          coarCNS->getTemperature(coarTemp, coarCNS->m_stateNew);
-          coarCNS->m_stateNew.copyTo(srcComp, coarDens, dstComp);
-
-          patcher.interpolate(tempCell, coarTemp, coarTemp, m_time, m_time, m_time, Interval(0,0));
-          patcher.interpolate(densCell, coarDens, coarDens, m_time, m_time, m_time, Interval(0,0));
-
-        }
-      EBLevelDataOps::averageCellToFaces(tempFace, tempCell, m_eblg.getDBL(), m_eblg.getEBISL(), m_eblg.getDomain(), 0);
-      EBLevelDataOps::averageCellToFaces(densFace, densCell, m_eblg.getDBL(), m_eblg.getEBISL(), m_eblg.getDomain(), 0);
-
-      setAirDiffusionCoefficients(densCell, tempCell, tempFace, densFace);
+      pout() << "using constant diffusion coefficients"  ;
+      pout() << ": mu = " << m_params.m_viscosityMu; 
+      pout() << ", lambda = " << m_params.m_viscosityLa ;
+      pout() << ", kappa = " << m_params.m_thermalCond;
+      pout() << ", cp = " << m_params.m_specHeatCv  << endl;
     }
 }
 //---------------------------------------------------------------------------------------
@@ -542,8 +399,6 @@ advance()
   NWOEBViscousTensorOp::s_whichLev = m_level;
   m_dtOld = m_dt;
 
-  if(m_params.m_variableCoeff && (m_level== 0) && m_params.m_doDiffusion) defineSolvers();
-
   if(m_params.m_verbosity >= 3)
     {
       pout() << " in EBAMRCNS advance for level " << m_level << ", with dt = " << m_dt << endl;
@@ -692,8 +547,8 @@ getSingleLdOfU(LevelData<EBCellFAB>      & a_divSigmaU,
   //now get the non conservative version
   EBLevelDataOps::setToZero(nonConsDivSigmaU);
   EBLevelDataOps::incr     (nonConsDivSigmaU, kappaConsDivSigmaU, 1.0);
-  KappaSquareNormal normalizinator(m_eblg);
-  normalizinator(nonConsDivSigmaU);
+
+  m_normalizor->normalize(nonConsDivSigmaU, Interval(0, SpaceDim-1));
 
   //(\rho E)^{**} = (\rho E)^* + \dt L^d(U^*)
   //     mass diff = kappa(1-kappa)*(kappaConsDissFcn - nonConsDissFcn)
@@ -2400,8 +2255,7 @@ regrid(const Vector<Box>& a_new_grids)
   m_level_grids = a_new_grids;
   mortonOrdering(m_level_grids);
   Vector<int> proc_map;
-
-  EBEllipticLoadBalance(proc_map,m_level_grids, m_eblg.getDomain().domainBox());
+  getProcMap(proc_map, m_level_grids);
 
   DisjointBoxLayout grids(a_new_grids, proc_map);
 
@@ -2432,7 +2286,28 @@ regrid(const Vector<Box>& a_new_grids)
   m_stateNew.copyTo(interv,m_stateOld, interv);
 }
 //-------------------------------------------------------------------------
-
+void
+EBAMRCNS::
+getProcMap(Vector<int> & a_proc_map, 
+           Vector<Box> & a_boxes) const
+{
+  if(m_params.m_loadBalanceType == 2)
+    {
+      NWOEBVTORelaxLoadBalance(a_proc_map,a_boxes, m_params.m_doBCVelo, m_params.m_ebBCVelo, m_problem_domain.domainBox());
+    }
+  else if(m_params.m_loadBalanceType == 1)
+    {
+      EBEllipticLoadBalance(a_proc_map,a_boxes, m_problem_domain.domainBox());
+    }
+  else if(m_params.m_loadBalanceType == 0)
+    {
+      LoadBalance(a_proc_map,a_boxes);
+    }
+  else
+    {
+      MayDay::Error("bogus load balance type in params");
+    }
+}
 //-------------------------------------------------------------------------
 void
 EBAMRCNS::
@@ -2450,18 +2325,7 @@ initialGrid(const Vector<Box>& a_new_grids)
   mortonOrdering(m_level_grids);
   // load balance and create boxlayout
   Vector<int> proc_map;
-  if(m_params.m_doDiffusion)
-    {
-      EBEllipticLoadBalance(proc_map,m_level_grids, m_problem_domain.domainBox());
-    }
-  else
-    {
-      LoadBalance(proc_map,m_level_grids);
-    }
-  if(m_params.m_verbosity >= 3)
-    {
-      pout() << " just loadbalanced " << m_level << endl;
-    }
+  getProcMap(proc_map, m_level_grids);
 
   DisjointBoxLayout grids(m_level_grids,proc_map);
   m_eblg.define(grids, m_problem_domain, m_nGhost, ebisPtr);
@@ -2747,6 +2611,7 @@ levelSetup()
   m_divSigma .define(m_eblg.getDBL(),SpaceDim, ivGhost, factoryNew);
   m_divSigmaU.define(m_eblg.getDBL(),       1, ivGhost, factoryNew);
   m_divKGradT.define(m_eblg.getDBL(),       1, ivGhost, factoryNew);
+  m_normalizor = RefCountedPtr<EBNormalizeByVolumeFraction>(new EBNormalizeByVolumeFraction(m_eblg, m_stateNew));
 
   EBLevelDataOps::setVal(m_redisRHS, 0.0);
 
@@ -3128,7 +2993,7 @@ readCheckpointLevel(HDF5Handle& a_handle)
     }
 
   Vector<int> proc_map;
-  LoadBalance(proc_map,vboxGrids);
+  getProcMap(proc_map, vboxGrids);
 
   const EBIndexSpace* const ebisPtr = Chombo_EBIS::instance();
   DisjointBoxLayout grids(vboxGrids,proc_map);

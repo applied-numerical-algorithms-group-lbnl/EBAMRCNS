@@ -35,6 +35,8 @@
 #include "PolyGeom.H"
 #include "EBAMRPoissonOp.H"
 #include "EBLevelGrid.H"
+#include "BaseDomainBC.H"
+#include "BaseEBBC.H"
 #include "NamespaceHeader.H"
 
 ///
@@ -68,11 +70,22 @@ public:
                               bool a_noMG = false);
 
 
+  ///just for convenience in load balancing manufactures coefficients and everything
+  NWOEBViscousTensorOpFactory(EBLevelGrid                             &    a_eblgs,
+                              const RefCountedPtr<BaseDomainBCFactory>&    a_domainBCFactory,
+                              const RefCountedPtr<BaseEBBCFactory>    &    a_ebBcFactory);
+
   ///
   virtual NWOEBViscousTensorOp*
   MGnewOp(const ProblemDomain& a_FineindexSpace,
           int                  a_depth,
           bool                 a_homoOnly = true);
+
+
+  /// This for introspective load balance
+  virtual NWOEBViscousTensorOp*
+  newOpForTimingOnly(const ProblemDomain& a_FineindexSpace);
+
 
   NWOEBViscousTensorOp* createOperator(const EBLevelGrid&             a_eblgMGLevel,
                                        const EBLevelGrid&             a_eblgCoarMG,
@@ -113,6 +126,14 @@ public:
     m_lambdaIrreg = a_lambdaIrreg;
   }
 
+  IntVect getGhostPhi() const
+  {
+    return m_ghostCellsPhi;
+  }
+  IntVect getGhostRHS() const
+  {
+    return m_ghostCellsRhs;
+  }
 protected:
   Vector< Vector<EBLevelGrid> >                                  m_eblgsMG;
 
@@ -147,6 +168,7 @@ protected:
   int                                                  m_numLevels;
   Vector<Real>                                         m_dx;
   bool m_noMG;
+  bool m_forTimingOnly;
 private:
   ///weak construction bad
   NWOEBViscousTensorOpFactory()

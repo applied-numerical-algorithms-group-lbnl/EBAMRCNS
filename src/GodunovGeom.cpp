@@ -330,8 +330,7 @@ getEBAMRCNSFactory(      RefCountedPtr<EBAMRCNSFactory>&                  a_fact
   pp.get("initial_cfl",     a_params.m_initialDtMultiplier);
   pp.get("do_smushing",     a_params.m_doSmushing);
   pp.get("verbosity",       a_params.m_verbosity);
-  pp.get("use_air_coefficients", a_params.m_useAirCoefs);
-  a_params.m_variableCoeff =  a_params.m_useAirCoefs;
+
   if(a_reynoldsNumber <= 0)
     {
       pp.get("mu_viscosity",    a_params.m_viscosityMu);
@@ -1758,14 +1757,6 @@ fillSolverBCs(EBAMRCNSParams& a_params, const int& a_iprob)
   pp.get("do_diffusion", a_params.m_doDiffusion);
   if(a_params.m_doDiffusion)
     {
-      pout() << " Homogeneous Neumann boundary conditions for our smoothing operators " << endl;
-      NeumannPoissonEBBCFactory* neumbcSmooth = new NeumannPoissonEBBCFactory();
-      neumbcSmooth->setValue(0.);
-      a_params.m_ebBCSmooth = RefCountedPtr<BaseEBBCFactory>(neumbcSmooth);
-      NeumannPoissonDomainBCFactory* neumdobcSmooth = new NeumannPoissonDomainBCFactory();
-      neumdobcSmooth->setValue(0.);
-      a_params.m_doBCSmooth = RefCountedPtr<BaseDomainBCFactory>(neumdobcSmooth);
-
       pout() << " Thermally insulated embedded boundaries "  << endl;
       NeumannConductivityEBBCFactory* neumbctemp = new NeumannConductivityEBBCFactory();
       neumbctemp->setValue(0.);
@@ -1848,7 +1839,23 @@ fillAMRParams(EBAMRCNSParams& a_params, int a_iprob)
     }
 
   ppgodunov.query("slip_boundaries",a_params.m_slipBoundaries);
-
+  ppgodunov.query("load_balance_type", a_params.m_loadBalanceType);
+  if(a_params.m_loadBalanceType == 0)
+    {
+      pout() << "using standard (number of points in box) load balance" << endl;
+    }
+  else if(a_params.m_loadBalanceType == 1)
+    {
+      pout() << "using EBElliptic load balance (uses EBPoissonOp::applyOp times for loads)" << endl;
+    }
+  else if(a_params.m_loadBalanceType == 2)
+    {
+      pout() << "using NWOEBVTOLoadBalance (uses NWOEBViscousTensorOp::relax times for loads)" << endl;
+    }
+  else
+    {
+      MayDay::Error("bogus load balance flag");
+    }
   
   if(a_params.m_slipBoundaries)
     {
@@ -1885,20 +1892,11 @@ fillAMRParams(EBAMRCNSParams& a_params, int a_iprob)
   ppgodunov.get ("refine_thresh", a_params.m_refineThresh);
   ppgodunov.get("tag_buffer_size",a_params.m_tagBufferSize);
 
-  ppgodunov.get("use_air_coefficients", a_params.m_useAirCoefs);
-  a_params.m_variableCoeff = (a_params.m_useAirCoefs);
-  if(!a_params.m_useAirCoefs)
-    {
-      ppgodunov.get("specific_heat",        a_params.m_specHeatCv );
-      ppgodunov.get("thermal_conductivity", a_params.m_thermalCond);
-      ppgodunov.get("mu_viscosity",         a_params.m_viscosityMu);
-      ppgodunov.get("lambda_viscosity",     a_params.m_viscosityLa);
-    }
-  else
-    {
-      ppgodunov.get("specific_heat",        a_params.m_specHeatCv );
-      //the others are not used
-    }
+  ppgodunov.get("specific_heat",        a_params.m_specHeatCv );
+  ppgodunov.get("thermal_conductivity", a_params.m_thermalCond);
+  ppgodunov.get("mu_viscosity",         a_params.m_viscosityMu);
+  ppgodunov.get("lambda_viscosity",     a_params.m_viscosityLa);
+
   int iusemassredist;
   ppgodunov.get("use_mass_redist", iusemassredist);
   a_params.m_useMassRedist    = (iusemassredist ==1);

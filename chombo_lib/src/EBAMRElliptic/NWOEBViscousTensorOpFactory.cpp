@@ -17,8 +17,61 @@
 #include "CH_Timer.H"
 #include "NWOEBViscousTensorOpFactory.H"
 #include "EBCoarseAverage.H"
+#include "EBCellFactory.H"
+#include "EBFluxFactory.H"
+#include "BaseIVFactory.H"
+#include "EBLevelGrid.H"
 #include "NamespaceHeader.H"
 
+/* constructor for when you just want timings */
+NWOEBViscousTensorOpFactory::
+NWOEBViscousTensorOpFactory(EBLevelGrid                             &    a_eblg,
+                            const RefCountedPtr<BaseDomainBCFactory>&    a_domBC,
+                            const RefCountedPtr<BaseEBBCFactory>    &    a_ebBC)
+
+{
+  m_forTimingOnly = true;
+  m_noMG = true;
+  m_ghostCellsRhs = 4*IntVect::Unit;
+  m_ghostCellsPhi = 4*IntVect::Unit;
+  m_eblgs = Vector<EBLevelGrid>(1, a_eblg);
+  m_numLevels = 1;
+
+
+  m_domainBCFactory = a_domBC;
+  m_ebBCFactory     = a_ebBC;
+
+  m_dx.resize(m_numLevels);
+  //make fake but more or less reasonable coeffs.
+  m_dx[0] = 1;
+  m_alpha = 1;
+  m_beta  = -1;
+  m_acoef      .resize(m_numLevels);
+  m_lambda     .resize(m_numLevels);
+  m_eta        .resize(m_numLevels);
+  m_lambdaIrreg.resize(m_numLevels);
+  m_etaIrreg   .resize(m_numLevels);
+
+  EBCellFactory        cellFact(a_eblg.getEBISL());
+  EBFluxFactory        fluxFact(a_eblg.getEBISL());
+  BaseIVFactory<Real>  bivrFact(a_eblg.getEBISL());
+  m_acoef      [0] = RefCountedPtr<LevelData<EBCellFAB>        >(new LevelData<EBCellFAB       >(a_eblg.getDBL(), 1, IntVect::Zero, cellFact));
+  m_eta        [0] = RefCountedPtr<LevelData<EBFluxFAB>        >(new LevelData<EBFluxFAB       >(a_eblg.getDBL(), 1, IntVect::Zero, fluxFact));
+  m_lambda     [0] = RefCountedPtr<LevelData<EBFluxFAB>        >(new LevelData<EBFluxFAB       >(a_eblg.getDBL(), 1, IntVect::Zero, fluxFact));
+  m_etaIrreg   [0] = RefCountedPtr<LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(a_eblg.getDBL(), 1, IntVect::Zero, bivrFact));
+  m_lambdaIrreg[0] = RefCountedPtr<LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(a_eblg.getDBL(), 1, IntVect::Zero, bivrFact));
+  DataIterator dit = a_eblg.getDBL().dataIterator();
+  int nbox = dit.size();
+  for(int ibox = 0; ibox < nbox; ibox++)
+    {
+      const DataIndex datind = dit[ibox];
+      (*m_acoef[0])[datind].setVal(1.);
+      (*m_eta[0])[datind].setVal(1.);
+      (*m_lambda[0])[datind].setVal(-2./3.);
+      (*m_etaIrreg[0])[datind].setVal(1.);
+      (*m_lambdaIrreg[0])[datind].setVal(-2./3.);
+    }
+}
 /***/
 void
 coarsenStuff(LevelData<EBCellFAB>               & a_acoefCoar,
@@ -77,23 +130,22 @@ int
 NWOEBViscousTensorOpFactory::
 refToFiner(const ProblemDomain& a_domain) const
 {
-  int retval = -1;
-  bool found = false;
-  for (int ilev = 0; ilev < m_eblgs.size(); ilev++)
-    {
-      if (m_eblgs[ilev].getDomain() == a_domain)
-        {
-          retval = m_refRatio[ilev];
-          found = true;
-        }
-    }
-  if (!found)
-    {
-      MayDay::Error("Domain not found in AMR hierarchy");
-    }
-  return retval;
+int retval = -1;
+bool found = false;
+for (int ilev = 0; ilev < m_eblgs.size(); ilev++)
+  {
+if (m_eblgs[ilev].getDomain() == a_domain)
+  {
+retval = m_refRatio[ilev];
+found = true;
 }
-
+}
+if (!found)
+  {
+MayDay::Error("Domain not found in AMR hierarchy");
+}
+return retval;
+}
 //-----------------------------------------------------------------------
 NWOEBViscousTensorOpFactory::
 NWOEBViscousTensorOpFactory(const Vector<EBLevelGrid>&                                  a_eblgs,
@@ -114,6 +166,7 @@ NWOEBViscousTensorOpFactory(const Vector<EBLevelGrid>&                          
                             bool a_noMG)
 {
   CH_assert(a_eblgs.size() <= a_refRatio.size());
+  m_forTimingOnly = false;
   m_noMG = a_noMG;
   m_ghostCellsRhs = a_ghostCellsRhs;
   m_ghostCellsPhi = a_ghostCellsPhi;
@@ -250,6 +303,7 @@ MGnewOp(const ProblemDomain& a_domainFine,
         int                  a_depth,
         bool                 a_homoOnly)
 {
+  CH_assert(!m_forTimingOnly);
   //debug turn off multigrid
   //if (a_depth > 2)
   //  return NULL;
@@ -377,12 +431,57 @@ MGnewOp(const ProblemDomain& a_domainFine,
   return newOp;
 }
 //-----------------------------------------------------------------------
+//-----------------------------------------------------------------------
+NWOEBViscousTensorOp*
+NWOEBViscousTensorOpFactory::
+newOpForTimingOnly(const ProblemDomain& a_domainFine)
+{
+  //figure out which level we are at.
+  int ref=-1;
+  bool found = false;
+  EBLevelGrid eblgFine, eblgCoar;
+
+  for (int ilev = 0; ilev < m_numLevels && !found; ilev++)
+    {
+      if (a_domainFine == m_eblgs[ilev].getDomain())
+        {
+          found = true;
+          ref = ilev ;
+        }
+    }
+  if (!found)
+    {
+      MayDay::Error("No corresponding AMRLevel to starting point of newOpForTimingOnly");
+    }
+
+
+  //creates coarse and finer info and bcs and all that
+  EBLevelGrid      eblgMGLevel = m_eblgs[ref];
+  Real               dxMGLevel =    m_dx[ref];
+
+  ViscousBaseEBBC*     viscEBBC  = (ViscousBaseEBBC*)     m_ebBCFactory->create(    m_eblgs[ref].getDomain(),
+                                                                                    m_eblgs[ref].getEBISL(), dxMGLevel*RealVect::Unit,
+                                                                                    &m_ghostCellsPhi, &m_ghostCellsRhs);
+  ViscousBaseDomainBC* viscDomBC = (ViscousBaseDomainBC*) m_domainBCFactory->create(m_eblgs[ref].getDomain(),
+                                                                                    m_eblgs[ref].getEBISL(), dxMGLevel*RealVect::Unit);
+  RefCountedPtr<ViscousBaseEBBC>      ebbc(viscEBBC);
+  RefCountedPtr<ViscousBaseDomainBC> dombc(viscDomBC);
+
+  NWOEBViscousTensorOp* newOp = NULL;
+  newOp = new NWOEBViscousTensorOp(eblgMGLevel, 
+                                   m_alpha, m_beta, m_acoef[ref], m_eta[ref], m_lambda[ref],
+                                   m_etaIrreg[ref], m_lambdaIrreg[ref], dxMGLevel,
+                                   dombc, ebbc, m_ghostCellsPhi, m_ghostCellsRhs);
+
+  return newOp;
+}
 
 //-----------------------------------------------------------------------
 NWOEBViscousTensorOp*
 NWOEBViscousTensorOpFactory::
 AMRnewOp(const ProblemDomain& a_domainFine)
 {
+  CH_assert(!m_forTimingOnly);
   //figure out which level we are at.
   int ref=-1;
   bool found = false;
