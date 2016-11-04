@@ -72,7 +72,7 @@ public:
     m_backwardEuler       = false;
     m_crankNicolson      = false;
     m_checkMaxMin   = false;
-    m_loadBalanceType = 2;
+    m_loadBalanceType = 0;
   }
   ~EBAMRCNSParams()
   {;}
