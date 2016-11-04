@@ -625,9 +625,9 @@ getSplitLdOfU(LevelData<EBCellFAB>      & a_dissFunc,
   LevelData<EBCellFAB>   nonConsDissFunc(m_eblg.getDBL(), 1,4*IntVect::Unit, fact);
   EBLevelDataOps::setToZero(nonConsDissFunc);
   EBLevelDataOps::incr     (nonConsDissFunc, kappaConsDissFunc, 1.0);
-  KappaSquareNormal normalizinator(m_eblg);
-  normalizinator(nonConsDissFunc);  
-
+  //KappaSquareNormal normalizinator(m_eblg);
+  //normalizinator(nonConsDissFunc);  
+  m_normalizor->normalize(nonConsDissFunc);  
 
   //(\rho E)^{**} = (\rho E)^* + \dt L^d(U^*)
   //     mass diff = kappa(1-kappa)*(kappaConsDissFcn - nonConsDissFcn)
@@ -1211,9 +1211,11 @@ explicitHyperbolicSource(LevelData<EBCellFAB>&       a_momentSource,
     {
       //finally all these things are multiplied by kappa so we need to make 
       //them normalized 
-      KappaSquareNormal normalizinator(m_eblg);
-      normalizinator(a_momentSource);
-      normalizinator(a_energySource);
+      //KappaSquareNormal normalizinator(m_eblg);
+      //normalizinator(a_momentSource);
+      //normalizinator(a_energySource);
+      m_normalizor->normalize(a_momentSource);
+      m_normalizor->normalize(a_energySource);
     }
 }
 //---------------------------------------------------------------------------------------
@@ -2611,7 +2613,7 @@ levelSetup()
   m_divSigma .define(m_eblg.getDBL(),SpaceDim, ivGhost, factoryNew);
   m_divSigmaU.define(m_eblg.getDBL(),       1, ivGhost, factoryNew);
   m_divKGradT.define(m_eblg.getDBL(),       1, ivGhost, factoryNew);
-  m_normalizor = RefCountedPtr<EBNormalizeByVolumeFraction>(new EBNormalizeByVolumeFraction(m_eblg, m_stateNew));
+  m_normalizor = RefCountedPtr<EBNormalizeByVolumeFraction>(new EBNormalizeByVolumeFraction(m_eblg, &m_stateNew));
 
   EBLevelDataOps::setVal(m_redisRHS, 0.0);
 
