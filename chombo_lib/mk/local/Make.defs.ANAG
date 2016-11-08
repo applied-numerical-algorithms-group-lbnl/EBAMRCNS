@@ -154,9 +154,6 @@ ifeq ($(USE_FFTW),TRUE)
 endif
 
 
-cxxname := $(notdir $(firstword $(CXX)))
-fname   := $(notdir $(firstword $(FC)))
-
 # LeakTracer is not on by default, and only supported for g++
 ifeq ($(TRACER),TRUE)
   ifeq ($(findstring g++,$(cxxname)),g++)

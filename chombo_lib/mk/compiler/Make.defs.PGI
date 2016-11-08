@@ -21,9 +21,6 @@
 
 makefiles+=compiler/Make.defs.PGI
 
-cxxname := $(notdir $(firstword $(CXX)))
-fname   := $(notdir $(firstword $(FC)))
-
 ifeq ($(cxxname),pgCC)
   defcxxoptflags  = -fast   #--one_instantiation_per_object --instantiation_dir t/$(_config)
   defcxxdbgflags  = -g #-v #--one_instantiation_per_object --instantiation_dir t/$(_config)

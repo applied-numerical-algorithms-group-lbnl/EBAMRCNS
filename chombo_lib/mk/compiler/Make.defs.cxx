@@ -37,8 +37,6 @@
 
 makefiles+=compiler/Make.defs.cxx
 
-cxxname := $(notdir $(firstword $(CXX)))
-fname   := $(notdir $(firstword $(FC)))
 
 ifeq ($(cxxname),cxx)
   defcxxcppflags = -D__USE_STD_IOSTREAM

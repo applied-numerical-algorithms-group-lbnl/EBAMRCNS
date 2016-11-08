@@ -29,10 +29,6 @@
 ##  only the '*_r' versions of the compilers set this macro:
 ##   __VACPP_MULTI__  == (int) thread-safe C or C++ compilers (1)
 
-ifeq ($(system),AIX)
-  cxxname := $(notdir $(firstword $(CXX)))
-  fname   := $(notdir $(firstword $(FC)))
-
   ## IBM compiler has many names
   ifneq ($(findstring $(cxxname),xlC xlC_r CC CC_r mpCC_r),)
     # this is known to work for versions 6, 7 and 8, but not for v5.

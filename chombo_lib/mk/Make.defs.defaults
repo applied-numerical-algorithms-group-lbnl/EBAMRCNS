@@ -70,6 +70,8 @@
 ##  MULTIDIM        if true, will be compiling and linking with multiple dimensions
 
 ################################################################################
+makefiles+=Make.defs.defaults_in
+
 FAS?=TRUE
 # vars affecting the configuration string
 DIM?=2
@@ -83,9 +85,10 @@ GPU?=FALSE
 PIC?=FALSE
 OPENMPCC?=FALSE
 OPENMPFC?=FALSE
+USE_PAPI?=FALSE
 
-CXX?=g++
-FC?=gfortran
+#CXX?=g++
+FC?=gfortran#
 # Note: if MPI=TRUE, MPICXX is used to compile but CXX is used to
 #       determine the type of the base C++ compiler
 MPICXX?=mpiCC
@@ -161,3 +164,5 @@ CUBIN?=cubin
 ifeq (0,$(shell test -e $(CHOMBO_HOME)/mk/Make.defs.defaults_ac; echo $$?))
 include $(CHOMBO_HOME)/mk/Make.defs.defaults_ac
 endif
+
+makefiles+=Make.defs.defaults_out

@@ -47,9 +47,6 @@
 
 makefiles+=compiler/Make.defs.PathScale
 
-cxxname := $(notdir $(firstword $(CXX)))
-fname   := $(notdir $(firstword $(FC)))
-
 ifeq ($(cxxname),pathCC)
   _gppversion := $(subst ., ,$(shell $(CXX) -dumpversion))
   _gppmajorver:= $(word 1,$(_gppversion))

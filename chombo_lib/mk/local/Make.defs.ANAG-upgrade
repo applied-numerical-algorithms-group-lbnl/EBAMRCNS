@@ -75,8 +75,10 @@
 
 ################################################################
 
-makefiles+=local/Make.defs.ANAG-upgrade
+makefiles+=local/Make.defs.ANAG-upgrade_in
 
+CXX:=g++
+FC:=gfortran
 MPICXX=mpiCC
 
 ifeq ($(OPENMPCC),TRUE)
@@ -154,9 +156,6 @@ ifeq ($(USE_FFTW),TRUE)
 endif
 
 
-cxxname := $(notdir $(firstword $(CXX)))
-fname   := $(notdir $(firstword $(FC)))
-
 # LeakTracer is not on by default, and only supported for g++
 ifeq ($(TRACER),TRUE)
   ifeq ($(findstring g++,$(cxxname)),g++)
@@ -219,3 +218,4 @@ ifeq ($(USE_PETSC),TRUE)
   endif
 
 endif
+makefiles+=local/Make.defs.ANAG-upgrade_out

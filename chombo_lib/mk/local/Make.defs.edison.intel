@@ -12,11 +12,20 @@ USE_64=TRUE
 
 CH_CPP=$(CXX) -E -P -C
 
-RUN = aprun -n 2 ./#
+RUN = srun -n 2 ./#
 
-cxxoptflags += -O2 -fast -no-ipo
+cxxoptflags += -O2 -fast -no-ipo -std=c++11
+#cxxoptflags += -O2 -no-ipo  ## -fast disabled for linking Vtune
 foptflags += -O2
 flibflags += -lifport -lifcore -limf -lsvml -lm -lipgo -lirc -lsvml
+
+# Compile with OpenMP
+ifeq ($(OPENMPCC),TRUE)
+  cxxoptflags += -qopenmp
+  foptflags += -qopenmp
+  flibflags += -lpthread -liomp5
+endif
+
 XTRALDFLAGS += -Wl,-zmuldefs
 #syslibflags = -mkl
 
