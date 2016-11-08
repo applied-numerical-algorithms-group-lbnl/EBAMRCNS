@@ -24,6 +24,7 @@
 #include "EBIndexSpace.H"
 #include "EBLoadBalance.H"
 #include "CornerCopier.H"
+#include "CH_Timer.H"
 #include "NamespaceHeader.H"
 
 /*****/
@@ -2533,6 +2534,7 @@ Real EBLevelDataOps::sumKappaDotProductAllCells(Real&        a_volume,
             sum += val1*val2;
             // sum1+= val1*val2;
           }
+          ch_flops()+=ncomp*2+1;
         }
       // else
       //   {
@@ -2591,7 +2593,7 @@ Real EBLevelDataOps::sumKappaDotProductAllCells(Real&        a_volume,
             }
         }
     }
-
+  ch_flops()+=nvof*(ncomp*2+1);
   CH_STOP(part2b);
   return sum;
 }

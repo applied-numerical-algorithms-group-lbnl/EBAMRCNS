@@ -103,7 +103,7 @@ relax(EBCellFAB              & a_phi,
       const int              & a_varDest,
       const IntVect          & a_color)
 {
-  CH_TIME("VCAggSten::apply");
+  CH_TIME("VCAggSten::relax");
   const int numtyperhs = a_rhs.numDataTypes();
   const int numtypephi = a_phi.numDataTypes();
   const int numtyperel = a_relCoef.numDataTypes();
@@ -182,11 +182,12 @@ relax(EBCellFAB              & a_phi,
           lphi = a_beta*lphi + a_alpha*alphaWeight*phii;
 
           phii = phii + relco*(rhsi - lphi);
+          ch_flops()+=ebstencil.size()*2+5;
         }
     }
   //the /ncolor is because this does one color at a time
   int ncolor = D_TERM(2, *2, *2);
-  ch_flops()+=(9*m_ebstencil.size())/ncolor;
+  //ch_flops()+=(9*m_ebstencil.size())/ncolor;
 }
 
 

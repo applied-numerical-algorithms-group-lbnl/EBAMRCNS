@@ -217,7 +217,7 @@ c     $      (bhi(2)*(phihi(2)- phipt   ) -  blo(2)*(phipt   - philo(2)))*dx0]
       chf_enddo
 
       ncolors = CHF_DTERM[2; *2; *2]
-      ch_flops=ch_flops+CHF_POINTS[box]*(4 + 6*CH_SPACEDIM)
+      ch_flops=ch_flops+(CHF_POINTS[box]*(4 + 6*CH_SPACEDIM))/ncolors
 
       return
       end
