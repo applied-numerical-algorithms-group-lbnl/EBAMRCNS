@@ -35,7 +35,7 @@ else
   fdbgflags += -Wno-unknown-pragmas -diag-disable 3180
 endif
 
-XTRALDFLAGS += -Wl,-zmuldefs  -L$(CRAY_MPICH_DIR)/lib -lmpich_intel
+XTRALDFLAGS += -Wl,-zmuldefs  -L$(CRAY_MPICH_DIR)/lib -lmpich_intel -mkl
 #syslibflags = -mkl
 
 USE_HDF=TRUE
