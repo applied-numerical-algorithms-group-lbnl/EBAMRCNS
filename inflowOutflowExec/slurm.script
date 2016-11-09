@@ -1,0 +1,12 @@
+#!/bin/bash -l
+#SBATCH -p regular
+#SBATCH -N 20
+#SBATCH -t 01:00:00
+#SBATCH -J newload
+#SBATCH -o newload.%j.out
+#SBATCH -e newload.%j.err
+export CH_TIMER=1
+export CH_OUTPUT_INTERVAL=20
+mail dtgraves@lbl.gov -s "new load balance job started on edison" 
+srun -n 480 ../navierDriver3d.Linux.64.icpc.ftn.OPTHIGH.MPI.ex ./benchmark_3d.inputs
+mail dtgraves@lbl.gov -s "new load balance job done on edison" 
