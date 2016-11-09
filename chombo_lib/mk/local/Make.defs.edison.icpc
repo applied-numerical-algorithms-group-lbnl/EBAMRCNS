@@ -5,6 +5,7 @@
 
 makefiles+=local/Make.defs.edison.icpc
 
+
 CXX=icpc
 FC=ftn
 MPICXX=icpc -I$(CRAY_MPICH_DIR)/include 
