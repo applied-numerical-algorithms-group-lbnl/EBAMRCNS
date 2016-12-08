@@ -2293,22 +2293,7 @@ EBAMRCNS::
 getProcMap(Vector<int> & a_proc_map, 
            Vector<Box> & a_boxes) const
 {
-  if(m_params.m_loadBalanceType == 2)
-    {
-      NWOEBVTORelaxLoadBalance(a_proc_map,a_boxes, m_params.m_doBCVelo, m_params.m_ebBCVelo, m_problem_domain.domainBox());
-    }
-  else if(m_params.m_loadBalanceType == 1)
-    {
-      EBEllipticLoadBalance(a_proc_map,a_boxes, m_problem_domain.domainBox());
-    }
-  else if(m_params.m_loadBalanceType == 0)
-    {
-      LoadBalance(a_proc_map,a_boxes);
-    }
-  else
-    {
-      MayDay::Error("bogus load balance type in params");
-    }
+  LoadBalance(a_proc_map,a_boxes);
 }
 //-------------------------------------------------------------------------
 void

@@ -1197,7 +1197,7 @@ Vector<string>
 EBPatchPolytropic::
 primNames()
 {
-  Vector<string> retval;
+  Vector<string> retval(QNUM);
 
   ParmParse pp;
   int logflag = 0;
@@ -1207,34 +1207,31 @@ primNames()
     }
   if(logflag == 1)
     {
-      retval.push_back("log10density");
+      retval[QRHO] = string("log10density");
     }
   else
     {
-      retval.push_back("density");
+      retval[QRHO] = string("density");
     }
-  retval.push_back("x-velocity");
-  retval.push_back("y-velocity");
-
-
+  retval[QVELX] = string("x-velocity");
+  retval[QVELY] = string("y-velocity");
 #if CH_SPACEDIM==3
-  retval.push_back("z-velocity");
+  retval[QVELZ] = string("z-velocity");
 #endif
 
   if(logflag == 1)
     {
-      retval.push_back("log10pressure");
-      retval.push_back("log10entropy");
+      retval[QPRES] = string("log10pressure");
+      retval[QENTR] = string("log10entropy");
     }
   else
     {
-      retval.push_back("pressure");
-      retval.push_back("entropy");
+      retval[QPRES] = string("pressure");
+      retval[QENTR] = string("entropy");
     }
-  retval.push_back("internal_energy");
-  retval.push_back("cv_temperature");
-  retval.push_back("soundspeed");
-
+  retval[QC]      =  string("soundspeed");
+  retval[QINTERN] =  string("internal_energy");
+  retval[QCVTEMP] =  string("cv_temperature");
 
   return retval;
 }
