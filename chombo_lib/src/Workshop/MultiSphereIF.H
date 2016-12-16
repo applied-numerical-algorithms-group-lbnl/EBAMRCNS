@@ -66,7 +66,7 @@ public:
   virtual BaseIF* newImplicitFunction() const;
 
   virtual bool fastIntersection(const RealVect& a_low, const RealVect& a_high) const
-  {return true;}
+  {return false;}
 
   virtual GeometryService::InOut InsideOutside(const RealVect& a_low, const RealVect& a_high) const;
 

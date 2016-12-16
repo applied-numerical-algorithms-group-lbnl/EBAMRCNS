@@ -16,6 +16,8 @@
 
 void EBDontYouDareCallMe()
 {
+  checkLDCell(NULL);
+  checkLDFlux(NULL);
   printMaxMinEBCF(NULL);
   printMaxMinEBFlux(NULL);
   printMaxMinEBFace(NULL);

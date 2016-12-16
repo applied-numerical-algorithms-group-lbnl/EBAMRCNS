@@ -609,8 +609,10 @@ fillNewNode(IrregNode           &     a_node,
   //if we need to refine the cell, refine all the cells and
   //add up their moments
   int numRefSoFar = 0;
+  //  bool refinedThisOne = false;
   while(needToRefine(a_node, a_dx, numRefSoFar))
     {
+      //refinedThisOne = true;
       Vector<IrregNode> refNodes;
       for(BoxIterator boxit(refBox); boxit.ok(); ++boxit)
         {
@@ -669,6 +671,14 @@ fillNewNode(IrregNode           &     a_node,
       refDx /= 2.;
       numRefSoFar++;
     }
+//  if(refinedThisOne)
+//    {
+//      pout() << "refined " << a_iv << endl;
+//    }
+//  else
+//    {
+//      pout() << "did not refine " << a_iv << endl;
+//    }
   /**/
 }
 /*********************************************/

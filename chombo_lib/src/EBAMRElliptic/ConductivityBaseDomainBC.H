@@ -101,7 +101,10 @@ public:
                const Box&     a_valid,
                const Box&     a_domain,
                Real           a_dx,
-               bool           a_homogeneous) = 0;
+               bool           a_homogeneous)
+  {
+    MayDay::Error("This shouldn't be called unless using NWO");
+  }
 
 protected:
   bool m_onlyHomogeneous;

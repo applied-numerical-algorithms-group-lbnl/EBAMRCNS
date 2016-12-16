@@ -24,7 +24,6 @@
 
 //leave to default faulse.   Moving the coords works better
 //but makes for weird convergence tests
-//this feature is buggy as of now (10/2016) --dtg
 bool LocalCoordMoveSwitch::s_turnOffMoveLocalCoords = true;
 
 // empty constructor (dim == 1)

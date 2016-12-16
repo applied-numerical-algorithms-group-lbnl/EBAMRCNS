@@ -139,6 +139,7 @@ public:
             const bool            & a_distributedData             = false,
             const bool            & a_fixRegularNextToMultiValued = true);
 
+  void checkGraph() const;
 #ifdef CH_USE_HDF5
   /// read from file from top level only file
   EBISLevel(HDF5Handle& handle);

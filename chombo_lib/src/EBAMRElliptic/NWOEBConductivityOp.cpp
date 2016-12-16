@@ -769,14 +769,13 @@ fillPhiGhost(const LevelData<EBCellFAB>& a_phi, bool a_homog) const
   CH_TIME("nwoebco::fillghostLD");
   DataIterator dit = m_eblg.getDBL().dataIterator();
   int nbox=dit.size();
-  
-  LevelData<EBCellFAB>& phi = (LevelData<EBCellFAB>&)(a_phi);
-  phi.exchange(m_exchangeCopier);
 #pragma omp parallel for
   for (int mybox=0;mybox<nbox; mybox++)
     {
       fillPhiGhost(a_phi[dit[mybox]], dit[mybox], a_homog);
     }
+  LevelData<EBCellFAB>& phi = (LevelData<EBCellFAB>&)(a_phi);
+  phi.exchange(m_exchangeCopier);
 }
 void
 NWOEBConductivityOp::

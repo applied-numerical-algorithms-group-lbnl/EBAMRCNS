@@ -252,8 +252,10 @@ public:
   void resetLevels(int nLevel);
 
   Vector<RefCountedPtr<EBIndexSpace> > connectedComponents();
+  Vector<RefCountedPtr<EBIndexSpace> > connectedComponentsNew();
 
   RefCountedPtr<EBIndexSpace> biggestConnectedComponent(int & a_numComponents);
+  RefCountedPtr<EBIndexSpace> biggestConnectedComponentNew(int & a_numComponents);
 
   static bool s_MFSingleBox;
 
@@ -261,6 +263,8 @@ public:
 
 private:
   Vector<RefCountedPtr<EBIndexSpace> > findConnectedComponents(int        & a_numComponents,
+                                                               const bool & a_onlyBiggest);
+  Vector<RefCountedPtr<EBIndexSpace> > findConnectedComponentsNew(int        & a_numComponents,
                                                                const bool & a_onlyBiggest);
 
   bool setAllConnectedVoFs(Real&               a_totalVolFrac,
@@ -270,8 +274,22 @@ private:
                            const VolIndex&     a_curVoF,
                            const VolIndex&     a_lastVoF,
                            const unsigned int& a_curNum);
+  bool setAllConnectedVoFsNew(Real&               a_totalVolFrac,
+                           EBCellFAB&          a_curEBCellFAB,
+                           const Box&          a_curBox,
+                           const EBGraph&      a_curEBGraph,
+                           const EBISBox&      a_curEBISBox,
+                           const VolIndex&     a_curVoF,
+                           const VolIndex&     a_lastVoF,
+                           const unsigned int& a_curNum);
 
   void resetAllConnectedVoFs(EBCellFAB&          a_curEBCellFAB,
+                             const EBGraph&      a_curEBGraph,
+                             const EBISBox&      a_curEBISBox,
+                             const VolIndex&     a_curVoF,
+                             const VolIndex&     a_lastVoF);
+  void resetAllConnectedVoFsNew(EBCellFAB&          a_curEBCellFAB,
+                             const Box&          a_curBox,
                              const EBGraph&      a_curEBGraph,
                              const EBISBox&      a_curEBISBox,
                              const VolIndex&     a_curVoF,

@@ -6,8 +6,6 @@ C    Please refer to Copyright.txt, in Chombo's root directory.
 
 #include "EBLGIntegrator.H"
 #include "CONSTANTS.H"
-cccccccccccccccc
-
         subroutine setgammaandsmall(
      &    chf_const_real[augamma])
 
@@ -347,7 +345,7 @@ c     centered (in time and space) u
       primitive(QRHO)  = dense
       primitive(QENTR) = entropy
       primitive(QINTERN) = internal
-      primitive(QCVTEMP) = internal/dense
+      primitive(QCVTEMP) = cvtemp
       primitive(QC)    = soundspeed
       primitive(QPRES) = press
 
@@ -374,7 +372,7 @@ cccccccccccccccc
       dense       = primitive(QRHO)
       entropy     = primitive(QENTR)
       internal    = primitive(QINTERN)
-      internal    = primitive(QCVTEMP)
+      cvtemp      = primitive(QCVTEMP)
       soundspeed  = primitive(QC)
       press       = primitive(QPRES)
 
@@ -438,48 +436,29 @@ cccccccccccccccc
      &     chf_const_int[iverbose]
      &     )
 
-      integer chf_ddecl[i; j; k]
+      integer chf_ddecl[i; j; k], ivec
+      real_t   prim(0:QNUM-1)
+      real_t   cons(0:CNUM-1)
 
       real_t vel, dense, internal, cvtemp, kinetic, press, mgam, msmp
-      integer idir
+      integer idir, qnum, cnum
 
 #include "EBEOSCommon.fh"
 
+      qnum = QNUM-1
+      cnum = CNUM-1
+
       chf_multido[dcalc;i;j;k]
 
-      dense = max(u(chf_ix[i;j;k], CRHO), smallr)
-c     density
-      q(chf_ix[i;j;k], QRHO) = dense
-
-      kinetic = zero
-      do idir = 0, CH_SPACEDIM-1
-c     velocity
-         vel = u(chf_ix[i;j;k], CMOMX+idir)/dense
-         q(chf_ix[i;j;k], QVELX+idir) = vel
-         kinetic = kinetic + half*vel*vel
+      do ivec = 0, CNUM-1
+         cons(ivec) = u(chf_ix[i;j;k], ivec)
       enddo
-      internal = u(chf_ix[i;j;k], CENG)-kinetic*dense
-      cvtemp = internal/dense
-      mgam = gamma
-      msmp = smallp
-      press = max((gamma-one)*internal, smallp)
 
-c     pressure
-      q(chf_ix[i;j;k], QPRES) = press
-c     entropy set to zero when not in output mode
-      q(chf_ix[i;j;k], QENTR) = zero
-c     internal energy
-      q(chf_ix[i;j;k], QINTERN) = internal
-c     cv * temperature
-      q(chf_ix[i;j;k], QCVTEMP) = cvtemp
-c     soundspeed
-      q(chf_ix[i;j;k], QC) = sqrt(gamma*press/dense)
+      call pointcons2prm(cons, cnum, prim, qnum, logflag)
 
-      if (logflag .ne. 0) then
-         q(chf_ix[i;j;k], QENTR) = log10(press) - gamma*log10(dense)
-         q(chf_ix[i;j;k], QRHO) = log10(dense)
-         q(chf_ix[i;j;k], QPRES)= log10(press)
-      endif
+      do ivec = 0, QNUM-1
+         q(chf_ix[i;j;k], ivec) = prim(ivec)
+      enddo
 
       chf_enddo
 
@@ -588,7 +567,7 @@ cccccccccccccccc
       enddo
       internal = energ-kinetic*dense
       cvtemp = internal/dense
-      temper = internal/specificheat
+      temper = cvtemp/specificheat
 
       return
       end

@@ -29,7 +29,7 @@
 #include "AllRegularService.H"
 #include "PolyGeom.H"
 #include "EBLevelDataOps.H"
-
+#include "FaceIterator.H"
 #include "NamespaceHeader.H"
 
 
@@ -45,7 +45,37 @@ EBIndexSpace* Chombo_EBIS::instance()
 
   return  s_instance;
 }
-
+////
+void 
+EBISLevel::
+checkGraph() const
+{
+#ifndef NDEBUG
+  for(DataIterator dit = m_grids.dataIterator(); dit.ok(); ++dit)
+    {
+      const EBGraph & graph  = m_graph[dit()];
+      const Box     & grid   = m_grids[dit()];
+      IntVectSet ivsgrid(grid);
+      for(int idir = 0; idir < SpaceDim; idir++)
+        {
+          for(FaceIterator faceit(ivsgrid, graph, idir, FaceStop::SurroundingNoBoundary); faceit.ok(); ++faceit)
+            {
+              const FaceIndex& face = faceit();
+              for(SideIterator sit; sit.ok(); ++sit)
+                {
+                  const IntVect& iv = face.gridIndex(sit());
+                  if(graph.getRegion().contains(iv) && graph.isCovered(iv))
+                    {
+                      pout() << "cell " << iv << "is both covered and part of a face" << endl;
+                      MayDay::Error("inconsistent graph description");
+                    }
+                }
+            }
+        }
+    }
+#endif
+}
+////
 void Chombo_EBIS::alias(const EBIndexSpace* a_input)
 {
   s_instance = (EBIndexSpace*)(a_input);
@@ -458,6 +488,8 @@ EBISLevel::EBISLevel(const ProblemDomain   & a_domain,
   defineGraphFromGeo(m_graph, allNodes, a_geoserver, m_grids,
                      m_domain,m_origin, m_dx, 
                      a_distributedData);
+
+  checkGraph();
 
   EBDataFactory dataFact;
   m_data.define(m_grids, 1, IntVect::Zero, dataFact);
@@ -936,6 +968,7 @@ EBISLevel::EBISLevel(EBISLevel             & a_fineEBIS,
   //overallMemoryUsage();
   // fix the fine->coarseVoF thing.
   fixFineToCoarse(a_fineEBIS);
+  checkGraph();
 #if 0
   pout() << "EBISLevel::EBISLevel 4 - m_grids - m_dx: " << m_dx << endl;
   pout() << "--------" << endl;

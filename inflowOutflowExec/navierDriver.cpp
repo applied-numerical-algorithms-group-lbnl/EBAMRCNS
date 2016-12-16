@@ -12,7 +12,7 @@
 #include "CH_HDF5.H"
 #include "parstream.H"
 
-#include "EBPlanarShockIBCFactory.H"
+#include "EBInflowOutflowIBCFactory.H"
 #include "EBPatchPolytropicFactory.H"
 
 #include "EBPatchPolytropic.H"
@@ -58,7 +58,6 @@
 #include   "NeumannConductivityDomainBC.H"
 #include "DirichletConductivityEBBC.H"
 #include   "NeumannConductivityEBBC.H"
-#include "EBPlanarShockSolverBC.H"
 #include "CH_Attach.H"
 #include "memusage.H"
 #include <iostream>
@@ -71,7 +70,7 @@ void amrGodunov(const Box&      a_domain,
                 const RealVect& a_dx)
 {
   EBAMRCNSParams params;
-  int iprob = 1;
+  int iprob = 2; //magic number to get solver bcs
   fillAMRParams(params, iprob);
   
   ParmParse ppgodunov;
@@ -81,21 +80,6 @@ void amrGodunov(const Box&      a_domain,
       ppgodunov.get("tag_all_irregular", tagAllIrregular);
     }
   EBAMRCNS::s_noEBCF = tagAllIrregular;
-  int ishockback;
-  ppgodunov.get("shock_backward",ishockback);
-  bool shockbackward = (ishockback == 1);
-
-  int inormal;
-  ppgodunov.get("shock_normal",inormal);
-
-  bool useLimiting = true;
-  bool doRZCoords = false;
-
-  Real ms;
-  ppgodunov.get("shock_mach",ms);
-
-  Real center;
-  ppgodunov.get("shock_center",center);
 
   Real gamma = 1.4;
   ppgodunov.get("gamma",gamma);
@@ -103,8 +87,18 @@ void amrGodunov(const Box&      a_domain,
   Real specHeat = 1.0;
   ppgodunov.get("specific_heat",specHeat);
 
-  EBPlanarShockIBCFactory
-    bcfactory(gamma, ms, center, inormal, shockbackward, doRZCoords);
+  Real tempInflow, tempInterior, presInflow, presInterior, machInflow;
+  int flowDir;
+  ppgodunov.get("inflow_temperature"  , tempInflow);
+  ppgodunov.get("interior_temperature", tempInterior);
+  ppgodunov.get("inflow_pressure"     , presInflow);
+  ppgodunov.get("interior_pressure"   , presInterior);
+  ppgodunov.get("inflow_mach"          , machInflow);
+  flowDir = SpaceDim-1;
+  ppgodunov.query("flow_direction"      , flowDir);
+
+  EBInflowOutflowIBCFactory
+    bcfactory(gamma, specHeat, tempInflow, tempInterior, presInflow, presInterior, machInflow, flowDir);
 
   //create patch integrator
   int ifourth, iflatten, iartvisc;
@@ -114,7 +108,8 @@ void amrGodunov(const Box&      a_domain,
   bool useFourthOrderSlopes = (ifourth  == 1);
   bool useFlattening        = (iflatten == 1);
   bool useArtificialVisc    = (iartvisc == 1);
-
+  bool useLimiting = true;
+  bool doRZCoords  = false;
   RefCountedPtr<EBPatchPolytropicFactory> patchGamma = 
     RefCountedPtr<EBPatchPolytropicFactory>
     (new EBPatchPolytropicFactory(&bcfactory,

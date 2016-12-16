@@ -40,6 +40,7 @@
 #include "DisjointBoxLayout.H"
 #include "NWOEBQuadCFInterp.H"
 #include "EBNormalizeByVolumeFraction.H"
+#include "CellCenterToFaceCentroidTransform.H"
 #include "NamespaceHeader.H"
 
 //! \class EBAMRCNS
@@ -327,7 +328,7 @@ public:
 protected:
   void getProcMap(Vector<int>& a_proc_map, 
                   Vector<Box>& a_m_level_grids) const;
-  void defineFactories(bool a_atHalfTime);
+  void defineFactories();
 
   void implicitReflux();
 
@@ -409,14 +410,15 @@ protected:
   //! End-of-step A coefficient for the viscous diffusion equation.
   RefCountedPtr<LevelData<EBCellFAB> >                          m_acoVelo;
 
-  RefCountedPtr<LevelData<EBFluxFAB> >                          m_eta;
+  RefCountedPtr<LevelData<EBFluxFAB> >                          m_mu;
   RefCountedPtr<LevelData<EBFluxFAB> >                          m_bcoTemp;
   RefCountedPtr<LevelData<EBFluxFAB> >                          m_lambda;
-  RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_etaIrreg;
+  RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_muIrreg;
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_bcoTempIrreg;
   RefCountedPtr<LevelData<BaseIVFAB<Real> > >                   m_lambdaIrreg;
-  RefCountedPtr<NWOEBQuadCFInterp>                              m_quadCFI;
+  RefCountedPtr<EBQuadCFInterp>                                 m_quadCFI;
   RefCountedPtr<EBNormalizeByVolumeFraction>                    m_normalizor;
+  RefCountedPtr<CellCenterToFaceCentroidTransform>              m_coeffTransform;
   
   static RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >  s_tempFactory;
   static RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >  s_veloFactory;
@@ -435,6 +437,8 @@ protected:
   static RefCountedPtr< EBLevelCrankNicolson > s_tempIntegratorCN;
 
   void fillCoefficients(const LevelData<EBCellFAB>& a_state);
+  void fillConstantCoefficients(const LevelData<EBCellFAB>& a_state);
+  void fillVariableCoefficients(const LevelData<EBCellFAB>& a_state);
   void     clearSolvers();
 
   //(rho I - dt Lv) delta = dt*Dr(Fm)

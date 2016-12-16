@@ -23,6 +23,7 @@
 class EBAMRCNSParams
 {
 public:
+  bool                                m_variableTransportCoeffs;
   bool                                m_doLazyRelax;
   bool                                m_checkMaxMin;
   bool                                m_doDiffusion;
@@ -46,6 +47,8 @@ public:
   Real                                m_viscosityMu;
   Real                                m_viscosityLa;
   Real                                m_regridSmoothCoef;
+
+  Real                                m_referenceTemperature;
   RefCountedPtr<BaseDomainBCFactory>  m_doBCTemp;
   RefCountedPtr<BaseDomainBCFactory>  m_doBCVelo;
   RefCountedPtr<BaseEBBCFactory>      m_ebBCTemp;
@@ -72,7 +75,9 @@ public:
     m_backwardEuler       = false;
     m_crankNicolson      = false;
     m_checkMaxMin   = false;
+    m_variableTransportCoeffs = false;
     m_loadBalanceType = 0;
+    m_referenceTemperature = 273.;
   }
   ~EBAMRCNSParams()
   {;}

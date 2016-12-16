@@ -272,7 +272,6 @@ public:
      implementation is provided that puts in generic names.
   */
   Vector<string> primNames();
-  Vector<string> primNamesNoLog();
 
   ///
   /**

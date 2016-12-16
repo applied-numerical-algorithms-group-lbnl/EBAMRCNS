@@ -10,9 +10,10 @@
 
 #include "EBAMRCNS.H"
 #include "ParmParse.H"
-#include "NWOEBViscousTensorOpFactory.H"
-#include "NWOEBConductivityOpFactory.H"
+#include "EBViscousTensorOpFactory.H"
+#include "EBConductivityOpFactory.H"
 #include "EBPatchPolytropicF_F.H"
+#include "TransportCoefF_F.H"
 #include "EBPatchGodunovF_F.H"
 #include "EBPlanarShockF_F.H"
 #include "EBLGIntegrator.H"
@@ -37,8 +38,16 @@ RefCountedPtr<AMRMultiGrid<     LevelData<EBCellFAB> > > EBAMRCNS::s_veloSolver 
 //BiCGStabSolver<LevelData<EBCellFAB> >                    EBAMRCNS::s_botSolver          = BiCGStabSolver<LevelData<EBCellFAB> >();
 EBSimpleSolver                 EBAMRCNS::s_botSolver;
 bool EBAMRCNS::s_solversDefined = false;
-bool EBAMRCNS::s_noEBCF = false;
+
+//coefficient interpolation needs more work if this is false.
+bool EBAMRCNS::s_noEBCF = true;
 bool dumpStuff = false;
+
+#ifndef NDEBUG
+const bool g_checkEverything = true;
+#else
+const bool g_checkEverything = false;
+#endif
 
 
 bool 
@@ -92,7 +101,6 @@ EBAMRCNS::
 }
 //---------------------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------------------
 void
 EBAMRCNS::
 clearSolvers()
@@ -109,25 +117,37 @@ clearSolvers()
   s_veloSolver   =  RefCountedPtr<AMRMultiGrid<     LevelData<EBCellFAB> > >();
 }
 //---------------------------------------------------------------------------------------
-
-
-//---------------------------------------------------------------------------------------
 void
 EBAMRCNS::
 fillCoefficients(const LevelData<EBCellFAB>& a_state)
 {
   CH_TIME("EBAMRCNS::fillcoef");
+  if(m_params.m_variableTransportCoeffs)
+    {
+      fillVariableCoefficients(a_state);
+    }
+  else
+    {
+      fillConstantCoefficients(a_state);
+    }
+}
+//---------------------------------------------------------------------------------------
+void
+EBAMRCNS::
+fillConstantCoefficients(const LevelData<EBCellFAB>& a_state)
+{
+  CH_TIME("EBAMRCNS::fillConstantCoef");
   for (DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
     {
       // All of these coefficients are time-independent and can be set here.
-      (*m_eta     )    [dit()].setVal(m_params.m_viscosityMu);
+      (*m_mu     )    [dit()].setVal(m_params.m_viscosityMu);
       (*m_bcoTemp )    [dit()].setVal(m_params.m_thermalCond);
-      (*m_etaIrreg)    [dit()].setVal(m_params.m_viscosityMu);
+      (*m_muIrreg)    [dit()].setVal(m_params.m_viscosityMu);
       (*m_lambda     ) [dit()].setVal(m_params.m_viscosityLa);
       (*m_lambdaIrreg) [dit()].setVal(m_params.m_viscosityLa);
       (*m_bcoTempIrreg)[dit()].setVal(m_params.m_thermalCond);
     }
-  if(m_level == 0)
+  if((m_level == 0)&& (!m_params.m_variableTransportCoeffs))
     {
 
       pout() << "using constant diffusion coefficients"  ;
@@ -138,11 +158,109 @@ fillCoefficients(const LevelData<EBCellFAB>& a_state)
     }
 }
 //---------------------------------------------------------------------------------------
+void
+EBAMRCNS::
+fillVariableCoefficients(const LevelData<EBCellFAB>& a_state)
+{
+  CH_TIME("EBAMRCNS::fillVariableCoef");
+  //pout() << "intiializing with constant coefficients so covered cells have something reasonable." << endl;
+  //  fillConstantCoefficients(a_state);
 
+  EBCellFactory fact(m_eblg.getEBISL());
+  //fill cell based coeffcients.
+  LevelData<EBCellFAB>  muCell(m_eblg.getDBL(), 1, m_nGhost*IntVect::Unit, fact);
+  LevelData<EBCellFAB> lamCell(m_eblg.getDBL(), 1, m_nGhost*IntVect::Unit, fact);
+  LevelData<EBCellFAB> bcoCell(m_eblg.getDBL(), 1, m_nGhost*IntVect::Unit, fact);
+
+  LevelData<EBCellFAB>&  Told = m_tempOld;
+  getTemperature(Told,  a_state);
+  Real mu0  = m_params.m_viscosityMu; 
+  Real lam0 = m_params.m_viscosityLa;
+  Real bco0 = m_params.m_thermalCond;
+  Real temp0= m_params.m_referenceTemperature;
+
+  for (DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+    {
+      // All of these coefficients are time-independent and can be set here.
+      BaseFab<Real>& regMu  =  muCell[dit()].getSingleValuedFAB();
+      BaseFab<Real>& regLam = lamCell[dit()].getSingleValuedFAB();
+      BaseFab<Real>& regBco = bcoCell[dit()].getSingleValuedFAB();
+      BaseFab<Real>& regTemp=    Told[dit()].getSingleValuedFAB();
+      const   Box  & grid   = m_eblg.getDBL()[dit()];
+      FORT_GETTRANSPORTCOEFFS(CHF_BOX(grid),
+                              CHF_FRA1(regMu  ,0),
+                              CHF_FRA1(regLam ,0),
+                              CHF_FRA1(regBco ,0),
+                              CHF_FRA1(regTemp,0),
+                              CHF_REAL(mu0),
+                              CHF_REAL(lam0),
+                              CHF_REAL(bco0),
+                              CHF_REAL(temp0));
+      IntVectSet ivsMulti = m_eblg.getEBISL()[dit()].getMultiCells(grid);
+      for(VoFIterator vofit(ivsMulti, m_eblg.getEBISL()[dit()].getEBGraph()); vofit.ok(); ++vofit)
+        {
+          Real mu, lambda, bco;
+          const VolIndex& vof = vofit();
+
+          Real temp = Told[dit()](vof, 0);
+          FORT_POINTGETTRANSPORTCOEFFS(CHF_REAL(mu),
+                                       CHF_REAL(lambda),
+                                       CHF_REAL(bco),
+                                       CHF_REAL(temp),
+                                       CHF_REAL(mu0),
+                                       CHF_REAL(lam0),
+                                       CHF_REAL(bco0),
+                                       CHF_REAL(temp0));
+          muCell[dit()]  (vof, 0) = mu;
+          lamCell[dit()] (vof, 0) = lambda;
+          bcoCell[dit()] (vof, 0) = bco;
+
+        }
+    }
+  //now interpolate to face centroids.
+  m_coeffTransform->slowTransform(*m_mu     , muCell);
+  m_coeffTransform->slowTransform(*m_lambda , lamCell);
+  m_coeffTransform->slowTransform(*m_bcoTemp, bcoCell);
+
+  if(g_checkEverything) EBLevelDataOps::checkData(muCell , string("muCell"));
+  if(g_checkEverything) EBLevelDataOps::checkData(lamCell, string("lambdaCell"));
+  if(g_checkEverything) EBLevelDataOps::checkData(bcoCell, string("bcoeffCell"));
+  if(g_checkEverything) EBLevelDataOps::checkData(*m_mu    , string("m_mu"));
+  if(g_checkEverything) EBLevelDataOps::checkData(*m_lambda, string("m_lamda"));
+  if(g_checkEverything) EBLevelDataOps::checkData(*m_bcoTemp, string("m_bcoTemp"));
+
+  m_mu->exchange();
+  m_lambda->exchange();
+  m_bcoTemp->exchange();
+  //finally, fill the cut face coefficients with their cell centered values 
+  //as we are clearly worried about invalid states and cannot risk extrapolation
+  for (DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+    {
+      const   Box  & grid   = m_eblg.getDBL()[dit()];
+      IntVectSet ivsIrreg = m_eblg.getEBISL()[dit()].getIrregIVS(grid);
+      for(VoFIterator vofit(ivsIrreg, m_eblg.getEBISL()[dit()].getEBGraph()); vofit.ok(); ++vofit)
+        {
+          const VolIndex& vof = vofit();
+          (*m_muIrreg     )[dit()](vof, 0) =  muCell[dit()](vof,0);
+          (*m_lambdaIrreg )[dit()](vof, 0) = lamCell[dit()](vof,0);
+          (*m_bcoTempIrreg)[dit()](vof, 0) = bcoCell[dit()](vof,0);
+        }
+    }
+
+  if(m_level == 0)
+    {
+
+      pout() << "using variable coefficients (const*sqrt(T/To)) with constants:"  ;
+      pout() << ": mu = " << m_params.m_viscosityMu; 
+      pout() << ", lambda = " << m_params.m_viscosityLa ;
+      pout() << ", kappa = " << m_params.m_thermalCond;
+      pout() << ", cp = " << m_params.m_specHeatCv  << endl;
+    }
+}
 //---------------------------------------------------------------------------------------
 void
 EBAMRCNS::
-defineFactories(bool a_atHalfTime)
+defineFactories()
 {
   CH_TIME("EBAMRCNS::defineFactories");
   if(m_params.m_doDiffusion)
@@ -160,7 +278,7 @@ defineFactories(bool a_atHalfTime)
       Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >  etaIrreg(nlevels);
       Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >  bcoTempIrreg(nlevels);
       Vector<RefCountedPtr<LevelData<BaseIVFAB<Real> > > >  lambdaIrreg(nlevels);
-      Vector<RefCountedPtr<NWOEBQuadCFInterp> >             quadCFI(nlevels);
+      Vector<RefCountedPtr<EBQuadCFInterp> >             quadCFI(nlevels);
 
       EBAMRCNS* coarsestLevel = (EBAMRCNS*)(hierarchy[0]);
       Real           lev0Dx      = (coarsestLevel->m_dx[0]);
@@ -171,26 +289,15 @@ defineFactories(bool a_atHalfTime)
         {
           EBAMRCNS* cnsLevel = dynamic_cast<EBAMRCNS*>(hierarchy[ilev]);
 
-          EBCellFactory fact(cnsLevel->m_eblg.getEBISL());
-          LevelData<EBCellFAB> halfSt(cnsLevel->m_eblg.getDBL(),m_nComp, 4*IntVect::Unit, fact);
-          if(a_atHalfTime)
-            {
-              cnsLevel->getHalfState(halfSt);
-            }
-          else
-            {
-              Interval interv(0, m_nComp-1);
-              cnsLevel->m_stateOld.copyTo(interv, halfSt, interv);
-            }
-          cnsLevel->fillCoefficients(halfSt);
+          cnsLevel->fillCoefficients(cnsLevel->m_stateOld);
 
           eblgs       [ilev] = cnsLevel->m_eblg;
           grids       [ilev] = cnsLevel->m_eblg.getDBL();
           refRat      [ilev] = cnsLevel->m_ref_ratio;
           acoVelo     [ilev] = cnsLevel->m_acoVelo;
           acoTemp     [ilev] = cnsLevel->m_acoTemp;
-          eta         [ilev] = cnsLevel->m_eta;
-          etaIrreg    [ilev] = cnsLevel->m_etaIrreg;
+          eta         [ilev] = cnsLevel->m_mu;
+          etaIrreg    [ilev] = cnsLevel->m_muIrreg;
           lambda      [ilev] = cnsLevel->m_lambda;
           lambdaIrreg [ilev] = cnsLevel->m_lambdaIrreg;
           quadCFI     [ilev] = cnsLevel->m_quadCFI;
@@ -208,25 +315,25 @@ defineFactories(bool a_atHalfTime)
       s_veloFactory =
         RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >
         (dynamic_cast<AMRLevelOpFactory<LevelData<EBCellFAB> >*>
-         (new NWOEBViscousTensorOpFactory(eblgs, alpha, beta, acoVelo, eta,
+         (new EBViscousTensorOpFactory(eblgs, alpha, beta, acoVelo, eta,
                                           lambda, etaIrreg, lambdaIrreg,lev0Dx, refRat,
                                           m_params.m_doBCVelo, m_params.m_ebBCVelo,giv, giv, -1, noMG)));
 
 
-      NWOEBViscousTensorOp::doLazyRelax(m_params.m_doLazyRelax);
+      EBViscousTensorOp::doLazyRelax(m_params.m_doLazyRelax);
 
       // Thermal diffusion operator.
       int relaxType = 1;
       s_tempFactory =
         RefCountedPtr<AMRLevelOpFactory<LevelData<EBCellFAB> > >
         (dynamic_cast<AMRLevelOpFactory<LevelData<EBCellFAB> >*>
-         (new NWOEBConductivityOpFactory(eblgs, quadCFI, alpha, beta, acoTemp, 
+         (new EBConductivityOpFactory(eblgs, quadCFI, alpha, beta, acoTemp, 
                                          bcoTemp, bcoTempIrreg, lev0Dx, 
                                          refRat, m_params.m_doBCTemp, 
                                          m_params.m_ebBCTemp, giv, giv, relaxType)));
 
     }
-  (*m_eta     )    .exchange(Interval(0,0));
+  (*m_mu     )    .exchange(Interval(0,0));
   (*m_bcoTemp )    .exchange(Interval(0,0));
   (*m_lambda     ) .exchange(Interval(0,0));
 }
@@ -239,16 +346,12 @@ defineSolvers()
 {
   CH_TIME("EBAMRCNS::defineSolvers");
   ParmParse pp;
-  bool tagAllIrregular = false;
-  if(pp.contains("tag_all_irregular"))
-    {
-      pp.get("tag_all_irregular", tagAllIrregular);
-    }
-  if(tagAllIrregular) s_noEBCF = true;
+  // coefficient interpolation requires more work if this is not true
+  s_noEBCF = true;
 
-  NWOEBConductivityOp::setForceNoEBCF( s_noEBCF);
-  NWOEBViscousTensorOp::setForceNoEBCF(s_noEBCF);
-  defineFactories(true);
+  EBConductivityOp::setForceNoEBCF( s_noEBCF);
+  EBViscousTensorOp::setForceNoEBCF(s_noEBCF);
+  defineFactories();
   if(m_params.m_doDiffusion)
     {
       Vector<AMRLevel*> hierarchy = AMRLevel::getAMRLevelHierarchy();
@@ -312,12 +415,10 @@ defineSolvers()
       s_tempSolver->m_iterMin = miniterCond;
       s_veloSolver->m_iterMax = maxiterVisc;
       s_veloSolver->m_iterMin = miniterVisc;
-      pout() <<  "min iter cond = " << miniterCond << endl;
-      pout() <<  "max iter cond = " << maxiterCond << endl;
-      pout() <<  "min iter visc = " << miniterVisc << endl;
-      pout() <<  "max iter visc = " << maxiterVisc << endl;
-      //      s_botSolver.m_verbosity   = 0;
-      //  s_botSolver.m_numRestarts = 0;
+      //pout() <<  "min iter cond = " << miniterCond << endl;
+      //pout() <<  "max iter cond = " << maxiterCond << endl;
+      //pout() <<  "min iter visc = " << miniterVisc << endl;
+      //pout() <<  "max iter visc = " << maxiterVisc << endl;
 
       s_tempIntegratorBE  = RefCountedPtr< EBLevelBackwardEuler>( new  EBLevelBackwardEuler(grids, refRat, lev0Dom, s_tempFactory, s_tempSolver));
       s_veloIntegratorBE  = RefCountedPtr<MomentumBackwardEuler>(new  MomentumBackwardEuler(grids, refRat, lev0Dom, s_veloFactory, s_veloSolver));
@@ -394,10 +495,26 @@ advance()
 {
   CH_TIME("EBAMRCNS::advance");
   EBPatchGodunov::s_whichLev = m_level;
-  NWOEBViscousTensorOp::s_step = AMR::s_step;
+  EBViscousTensorOp::s_step = AMR::s_step;
   //this is so I can output a rhs
-  NWOEBViscousTensorOp::s_whichLev = m_level;
+  EBViscousTensorOp::s_whichLev = m_level;
   m_dtOld = m_dt;
+
+  pout() << "before advance max mins for data for level " << m_level << endl;
+  for(int icomp = 0; icomp < m_stateNew.nComp(); icomp++)
+    {
+      Real maxVal, minVal;
+      EBLevelDataOps::getMaxMin(maxVal, minVal, m_stateNew, icomp);
+      pout() << " "
+             << setprecision(4)
+             << setiosflags(ios::showpoint)
+             << setiosflags(ios::scientific)
+             <<  "comp = " <<  icomp 
+             << ", max = " << maxVal 
+             << ", min = " << minVal << endl;
+    }
+
+  if(g_checkEverything) EBLevelDataOps::checkData(m_stateNew, "stateNew");
 
   if(m_params.m_verbosity >= 3)
     {
@@ -412,6 +529,8 @@ advance()
 
   //PDivU and rhouedele are not multiplied by the volume fraction (that happens in the integrator.
   fluxDivergence( divergeF);
+
+  if(g_checkEverything) EBLevelDataOps::checkData(divergeF, "flux_divergence");
 
   pout() << "advancing density" << endl;
   if(!m_params.m_doDiffusion)
@@ -435,6 +554,8 @@ advance()
         pout() << "step 1.5: doing explicit redistribution into ustar of hyperbolic mass difference" <<endl;
         //redistribute stuff in hyperbolic registers.
         hyperbolicRedistribution(UStar);
+
+        if(g_checkEverything) EBLevelDataOps::checkData(UStar, "u star");
       }
       {
         pout() << "step 2: solving for div(sigma)" <<endl;
@@ -445,22 +566,30 @@ advance()
         //LevelData<EBCellFAB>    divSigma(m_eblg.getDBL(),SpaceDim, 4*IntVect::Unit, fact);
         getDivSigma(divSigma, UStar);
 
+        if(g_checkEverything) EBLevelDataOps::checkData(divSigma, "div(Sigma)");
+
         pout() << "step 3: getting the components of div Ld = div(sigma u)" << endl;
         //$L^d(U^*) =u \cdot \grad \cdot \sigma) + \sigma \cdot (\grad \ubold)$
         //(\rho E)^{**} = (\rho E)^* + \dt L^d(U^*)
         //LevelData<EBCellFAB>   divSigmaU(m_eblg.getDBL(),       1, 4*IntVect::Unit, fact);
         getSingleLdOfU(divSigmaU,  UStar);
 
+        if(g_checkEverything) EBLevelDataOps::checkData(divSigmaU, "div(Sigma*U)");
+
         /** (\kappa \rho^\npo C_v I - \frac{\kappa \dt} L^k)T^\npo = \kappa \rho^\npo C_v T^{**}
             (\rho E)^{n+1} = (\rho E)^{**} + \dt L^k(T**)      **/
         pout() << "step 4: solve for conduction term and add to energy" << endl;
         //      LevelData<EBCellFAB> dtDivKGradT(m_eblg.getDBL(),       1, 4*IntVect::Unit, fact);
         getDivKappaGradT(dtDivKGradT, UStar);
+
+        if(g_checkEverything) EBLevelDataOps::checkData(dtDivKGradT, "dt*div(K(grad T))");
       }
       {
         CH_TIME("final_advance");
         pout() << "putting state into m_statenew and flooring" << endl;
         finalAdvance(UStar);
+
+        if(g_checkEverything) EBLevelDataOps::checkData(UStar, "final UStar");
       }
     }
   Real new_dt;
@@ -475,7 +604,7 @@ advance()
 
   //save stable timestep to save computational effort
   m_dtNew = new_dt;
-  if(m_params.m_checkMaxMin)
+  //  if(m_params.m_checkMaxMin)
     {
       CH_TIME("max_min_check");
       pout() << "after advance max mins for data for level " << m_level << endl;
@@ -534,21 +663,31 @@ getSingleLdOfU(LevelData<EBCellFAB>      & a_divSigmaU,
   LevelData<EBCellFAB> velHalf(m_eblg.getDBL(), SpaceDim, m_nGhost*IntVect::Unit, fact);
 
   getVelocity(velStar, a_UStar);
+
+  if(g_checkEverything) EBLevelDataOps::checkData(velStar, "velStar");
+
   LevelData<EBCellFAB>  kappaConsDivSigmaU(m_eblg.getDBL(), 1,4*IntVect::Unit, fact);
   LevelData<EBCellFAB>    nonConsDivSigmaU(m_eblg.getDBL(), 1,4*IntVect::Unit, fact);
   LevelData<EBCellFAB>* veloCoar = NULL;
   LevelData<EBCellFAB>* tempCoar = NULL;
   getCoarserTemperatureAndVelocity(tempCoar, veloCoar);
+ 
   s_veloIntegratorBE->getKappaDivSigmaU(kappaConsDivSigmaU,
                                         velStar,
                                         veloCoar,
                                         m_level);
- 
+
+  if(g_checkEverything) EBLevelDataOps::checkData(kappaConsDivSigmaU, "kappa(div (sigma u)) cons");
+
   //now get the non conservative version
   EBLevelDataOps::setToZero(nonConsDivSigmaU);
   EBLevelDataOps::incr     (nonConsDivSigmaU, kappaConsDivSigmaU, 1.0);
 
+  if(g_checkEverything) EBLevelDataOps::checkData(nonConsDivSigmaU, "non cons (div (sigma u)) ");
+
   m_normalizor->normalize(nonConsDivSigmaU, Interval(0, 0));
+
+  if(g_checkEverything) EBLevelDataOps::checkData(nonConsDivSigmaU, "non cons (div (sigma u)) post normalize");
 
   //(\rho E)^{**} = (\rho E)^* + \dt L^d(U^*)
   //     mass diff = kappa(1-kappa)*(kappaConsDissFcn - nonConsDissFcn)
@@ -556,6 +695,10 @@ getSingleLdOfU(LevelData<EBCellFAB>      & a_divSigmaU,
                                         kappaConsDivSigmaU,
                                         nonConsDivSigmaU,
                                         a_UStar);
+
+
+  if(g_checkEverything) EBLevelDataOps::checkData(a_UStar, "ustar after noncons div sigma u addition");
+
 
   if(m_hasCoarser)
     {
@@ -625,8 +768,7 @@ getSplitLdOfU(LevelData<EBCellFAB>      & a_dissFunc,
   LevelData<EBCellFAB>   nonConsDissFunc(m_eblg.getDBL(), 1,4*IntVect::Unit, fact);
   EBLevelDataOps::setToZero(nonConsDissFunc);
   EBLevelDataOps::incr     (nonConsDissFunc, kappaConsDissFunc, 1.0);
-  //KappaSquareNormal normalizinator(m_eblg);
-  //normalizinator(nonConsDissFunc);  
+
   m_normalizor->normalize(nonConsDissFunc);  
 
   //(\rho E)^{**} = (\rho E)^* + \dt L^d(U^*)
@@ -837,7 +979,7 @@ getDivSigma(LevelData<EBCellFAB>& a_divSigma,
       fineVelFRPtr = &m_veloFluxRegister;
     }
 
-  bool zeroPhi = false;
+  bool zeroPhi = true;
   Interval srcInt(CRHO, CRHO);  
   Interval dstInt(0, 0);
   for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
@@ -866,8 +1008,14 @@ getDivSigma(LevelData<EBCellFAB>& a_divSigma,
                                       m_level, zeroPhi);
     }
 
+
+  if(g_checkEverything) EBLevelDataOps::checkData(velold, "velold");
+  if(g_checkEverything) EBLevelDataOps::checkData(velnew, "velnew");
   EBLevelDataOps::scale(velold, -1./m_dt);
   EBLevelDataOps::scale(velnew,  1./m_dt);
+
+  if(g_checkEverything) EBLevelDataOps::checkData(*m_acoVelo, "a coeff velo");
+  
   for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
     {
       a_divSigma[dit()].setVal(0.);
@@ -890,7 +1038,6 @@ getDivSigma(LevelData<EBCellFAB>& a_divSigma,
       int isrc = 0; int idst = CMOMX; int inco = SpaceDim;
       a_UStar[dit()].plus(dtDivSigma, isrc, idst, inco);
     }
-
 }
 
 
@@ -907,6 +1054,10 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
   LevelData<EBCellFAB>&  Tnew = m_tempNew;
   getTemperature(Told,  a_UStar);
   getTemperature(Tnew,  a_UStar);
+
+  if(g_checkEverything) EBLevelDataOps::checkData(Told, "Told");
+  if(g_checkEverything) EBLevelDataOps::checkData(Tnew, "Tnew");
+
 
   EBFluxRegister*       coarTempFRPtr = NULL;
   EBFluxRegister*       fineTempFRPtr = NULL;
@@ -929,6 +1080,7 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
 
       coarCNS->getTemperature(*TCoarOldPtr, coarCNS->m_stateOld);
       coarCNS->getTemperature(*TCoarNewPtr, coarCNS->m_stateNew);
+
     }
   if(m_hasFiner)
     {
@@ -949,6 +1101,8 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
       (*m_acoTemp)[dit()] *= m_params.m_specHeatCv;
     }
 
+  if(g_checkEverything) EBLevelDataOps::checkData(*m_acoTemp, "m_acoeffTemp");
+
   LevelData<EBCellFAB>& rhsTemp = m_rhsTemp;
   EBLevelDataOps::setToZero(rhsTemp);
   Interval srcComp(CENG, CENG);
@@ -957,9 +1111,11 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
   m_redisRHS.copyTo(srcComp, rhsTemp, dstComp);
   EBLevelDataOps::setToZero(m_redisRHS);
 
+  if(g_checkEverything) EBLevelDataOps::checkData(rhsTemp, "rhs Temp");
+
   defineSolvers();
 
-  bool zeroPhi = false;
+  bool zeroPhi = true;
   if(m_params.m_crankNicolson)
     {
       s_tempIntegratorCN->updateSoln(Tnew, Told, rhsTemp,  fineTempFRPtr, coarTempFRPtr,
@@ -983,6 +1139,9 @@ getDivKappaGradT(LevelData<EBCellFAB>& a_dtDivKappaGradT,
 
   EBLevelDataOps::scale(Told, -1.0);
   EBLevelDataOps::scale(Tnew,  1.0);
+
+  if(g_checkEverything) EBLevelDataOps::checkData(Told, "Told after advance");
+  if(g_checkEverything) EBLevelDataOps::checkData(Tnew, "Tnew after advance");
 
   for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
     {
@@ -1211,9 +1370,6 @@ explicitHyperbolicSource(LevelData<EBCellFAB>&       a_momentSource,
     {
       //finally all these things are multiplied by kappa so we need to make 
       //them normalized 
-      //KappaSquareNormal normalizinator(m_eblg);
-      //normalizinator(a_momentSource);
-      //normalizinator(a_energySource);
       m_normalizor->normalize(a_momentSource);
       m_normalizor->normalize(a_energySource);
     }
@@ -1349,36 +1505,6 @@ void
 EBAMRCNS::
 coarseFineIncrement()
 {
-  CH_TIME("EBAMRCNS::coarseFineIncrement");
-  Interval interv(0, m_nComp-1);
-  // increment redistribution register between this level
-  // and next coarser level
-  {
-    CH_TIME("coarse-fine guano");
-    if(m_hasCoarser && (!s_noEBCF))
-      {
-        for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
-          {
-            m_ebFineToCoarRedist.increment(m_massDiff[dit()], dit(), interv);
-          }
-      }
-
-    //initialize redistribution register between this level
-    // and next finer level
-    //this includes re-redistribution registers
-    if(m_hasFiner  && (!s_noEBCF))
-      {
-
-        m_ebCoarToFineRedist.setToZero();
-        m_ebCoarToCoarRedist.setToZero();
-        for(DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
-          {
-            BaseIVFAB<Real>& massDiffFAB = m_massDiff[dit()];
-            m_ebCoarToFineRedist.increment(massDiffFAB, dit(), interv);
-            m_ebCoarToCoarRedist.increment(massDiffFAB, dit(), interv);
-          }
-      }
-  }
 }
 //---------------------------------------------------------------------------------------
 
@@ -1775,19 +1901,6 @@ void
 EBAMRCNS::
 refluxRedistInteraction()
 {
-  //the flux register must modify the redistribution
-  //registers
-  CH_TIME("EBAMRCNS::refluxRedistInteraction");
-  if(m_hasFiner  && (!s_noEBCF))
-    {
-      Real scale = -1.0/m_dx[0];
-      Interval interv(0, m_nComp-1);
-      m_divFFluxRegister.incrementRedistRegister(m_ebCoarToFineRedist,
-                                                 interv, scale);
-
-      m_divFFluxRegister.incrementRedistRegister(m_ebCoarToCoarRedist,
-                                                 interv, scale);
-    }
 }
 //---------------------------------------------------------------------------------------
 
@@ -1804,18 +1917,6 @@ resetWeights()
       int densevar = m_ebPatchGodunov->densityIndex();
       m_stateNew.exchange(Interval(0, m_nComp-1));
       m_ebLevelRedist.resetWeights(m_stateNew, densevar);
-
-      if(m_hasCoarser && (!s_noEBCF))
-        {
-          EBAMRCNS* coarPtr = getCoarserLevel();
-          coarPtr->m_stateNew.exchange(Interval(0, m_nComp-1));
-          m_ebFineToCoarRedist.resetWeights(coarPtr->m_stateNew, densevar);
-        }
-      if(m_hasFiner && (!s_noEBCF))
-        {
-          m_ebCoarToFineRedist.resetWeights(m_stateNew, densevar);
-          m_ebCoarToCoarRedist.resetWeights(m_stateNew, densevar);
-        }
     }
 }
 //---------------------------------------------------------------------------------------
@@ -1838,31 +1939,6 @@ void
 EBAMRCNS::
 coarseFineRedistribution(const Interval & a_interv)
 {
-  CH_TIME("EBAMRCNS::coarseFineRedistribution");
-  if(m_hasCoarser)
-    {
-      if(m_params.m_doSmushing && (!s_noEBCF))
-        {
-          //redistibute to coarser level
-          EBAMRCNS* coarPtr = getCoarserLevel();
-          //put mass directly into state
-          m_ebFineToCoarRedist.redistribute(coarPtr->m_stateNew, a_interv);
-          m_ebFineToCoarRedist.setToZero();
-        }
-    }
-  if (m_hasFiner)
-    {
-      EBAMRCNS* finePtr = getFinerLevel();
-      if(m_params.m_doSmushing  && (!s_noEBCF))
-        {
-          //redistibute to finer level
-          m_ebCoarToFineRedist.redistribute(finePtr->m_stateNew, a_interv);
-          //do the re redistirubtion
-          m_ebCoarToCoarRedist.redistribute(         m_stateNew, a_interv);
-          m_ebCoarToFineRedist.setToZero();
-          m_ebCoarToCoarRedist.setToZero();
-        }
-    }
 }
 //---------------------------------------------------------------------------------------
 
@@ -1965,20 +2041,18 @@ tagCells(IntVectSet& a_tags)
     }
   consTemp.exchange(intervDensity);
 
-  bool tagAllIrregular = false;
+  // coefficient interpolation requires more work if this is not true
+  s_noEBCF = true;
+
   bool tagInflow = false;
-  if(pp.contains("tag_all_irregular"))
-    {
-      pp.get("tag_all_irregular", tagAllIrregular);
-    }
+  pout() << "tagging all irregular cells" << endl;
+
+  
   if(pp.contains("tag_inflow"))
     {
       pp.get("tag_inflow", tagInflow);
     }
-  if(tagAllIrregular || s_noEBCF)
-    {
-      pout() << "tagging all irregular cells" << endl;
-    }
+  
   if(tagInflow)
     {
       pout() << "tagging cells at inflow" << endl;
@@ -2114,14 +2188,11 @@ tagCells(IntVectSet& a_tags)
             }
         }
 
-      if(tagAllIrregular || s_noEBCF)
-        {
-          //refine all irregular cells
-          //this is probably not ideal.
-          IntVectSet irregIVS = ebisBox.getIrregIVS(b);
-          localTags |= irregIVS;
-          s_noEBCF = true;
-        }
+      //refine all irregular cells
+      IntVectSet irregIVS = ebisBox.getIrregIVS(b);
+      localTags |= irregIVS;
+      s_noEBCF = true;
+
       if(tagInflow)
         {
           Box lowBox = adjCellLo(m_eblg.getDomain().domainBox(), 0, 1);
@@ -2309,14 +2380,17 @@ initialGrid(const Vector<Box>& a_new_grids)
   const EBIndexSpace* const ebisPtr = Chombo_EBIS::instance();
   //the order of boxes will change
   m_level_grids = a_new_grids;
+  //  pout() << "before morton ordering" << endl;
   mortonOrdering(m_level_grids);
   // load balance and create boxlayout
   Vector<int> proc_map;
+  //  pout() << "before get proc map" << endl;
   getProcMap(proc_map, m_level_grids);
 
   DisjointBoxLayout grids(m_level_grids,proc_map);
+  //  pout() << "before eblg define map" << endl;
   m_eblg.define(grids, m_problem_domain, m_nGhost, ebisPtr);
-  pout() << "initial grid: number of grids for level " << m_level << " = " << grids.size() << endl;
+  //pout() << "initial grid: number of grids for level " << m_level << " = " << grids.size() << endl;
   //  pout() << "initial grids for level " << m_level << " = " << m_eblg.getDBL() << endl;
 //  if(m_params.m_verbosity >= 5)
 //    {
@@ -2326,7 +2400,12 @@ initialGrid(const Vector<Box>& a_new_grids)
 //    }
 
   // set up data structures
+  //  pout() << "going into levelsetup " << m_level << endl;
+
   levelSetup();
+  
+  //  pout() << "leaving levelsetup " << m_level << endl;
+
 }
 //-------------------------------------------------------------------------
 
@@ -2355,7 +2434,6 @@ void
 EBAMRCNS::
 postInitialGrid(const bool a_restart)
 {
-  if(m_level == 0) defineSolvers();
 }
 void
 EBAMRCNS::
@@ -2382,7 +2460,7 @@ postInitialize()
         sumConserved(m_originalMomentum[iv-velInt.begin()], iv);
       sumConserved(m_originalEnergy, CENG); // Index not otherwise accessible.
     }
-    if(m_level==0) defineSolvers();
+  if(m_level==0) defineSolvers();
 }
 //-------------------------------------------------------------------------
 
@@ -2443,21 +2521,6 @@ syncWithFineLevel()
                                 nRefFine,
                                 1, Chombo_EBIS::instance(), s_noEBCF);
 
-      //define fine to coarse redistribution object
-      //for now set to volume weighting
-      if (!s_noEBCF)
-        {
-          m_ebCoarToFineRedist.define(finer_eblg, m_eblg, nRefFine , m_nComp, 1);
-          //define coarse to coarse redistribution object
-          m_ebCoarToCoarRedist.define(finer_eblg, m_eblg, nRefFine , m_nComp, 1);
-        }
-
-      //set all the registers to zero
-      if(!s_noEBCF)
-        {
-          m_ebCoarToFineRedist.setToZero();
-          m_ebCoarToCoarRedist.setToZero();
-        }
       m_divFFluxRegister.setToZero();
       m_veloFluxRegister.setToZero();
       m_tempFluxRegister.setToZero();
@@ -2598,7 +2661,10 @@ levelSetup()
   m_divSigma .define(m_eblg.getDBL(),SpaceDim, ivGhost, factoryNew);
   m_divSigmaU.define(m_eblg.getDBL(),       1, ivGhost, factoryNew);
   m_divKGradT.define(m_eblg.getDBL(),       1, ivGhost, factoryNew);
-  m_normalizor = RefCountedPtr<EBNormalizeByVolumeFraction>(new EBNormalizeByVolumeFraction(m_eblg, &m_stateNew));
+  m_normalizor     = RefCountedPtr<EBNormalizeByVolumeFraction      >
+    (new EBNormalizeByVolumeFraction(m_eblg, &m_stateNew));
+  m_coeffTransform = RefCountedPtr<CellCenterToFaceCentroidTransform>
+    (new CellCenterToFaceCentroidTransform(m_eblg, ivGhost, ivGhost, s_noEBCF));
 
   EBLevelDataOps::setVal(m_redisRHS, 0.0);
 
@@ -2613,18 +2679,18 @@ levelSetup()
   BaseIVFactory<Real> bivfFact(m_eblg.getEBISL(), m_sets);
 
   // Allocate the A coefficients for our viscous and conduction operators.
-  m_acoVelo    = RefCountedPtr< LevelData<EBCellFAB> >       (new LevelData<EBCellFAB>       (m_eblg.getDBL(), 1, 4*IntVect::Unit, cellFact));
-  m_acoTemp    = RefCountedPtr< LevelData<EBCellFAB> >       (new LevelData<EBCellFAB>       (m_eblg.getDBL(), 1, 4*IntVect::Unit, cellFact));
+  m_acoVelo    = RefCountedPtr< LevelData<EBCellFAB> >       (new LevelData<EBCellFAB>       (m_eblg.getDBL(), 1, ivGhost, cellFact));
+  m_acoTemp    = RefCountedPtr< LevelData<EBCellFAB> >       (new LevelData<EBCellFAB>       (m_eblg.getDBL(), 1, ivGhost, cellFact));
 
   // Allocate the viscous tensor coefficients on regular and irregular cells.
-  m_eta         = RefCountedPtr< LevelData<EBFluxFAB> >       (new LevelData<EBFluxFAB>       (m_eblg.getDBL(), 1, 4*IntVect::Unit, fluxFact));
-  m_etaIrreg    = RefCountedPtr< LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(m_eblg.getDBL(), 1, 4*IntVect::Unit, bivfFact));
-  m_lambda      = RefCountedPtr< LevelData<EBFluxFAB> >       (new LevelData<EBFluxFAB>       (m_eblg.getDBL(), 1, 4*IntVect::Unit, fluxFact));
-  m_lambdaIrreg = RefCountedPtr< LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(m_eblg.getDBL(), 1, 4*IntVect::Unit, bivfFact));
+  m_mu          = RefCountedPtr< LevelData<EBFluxFAB> >       (new LevelData<EBFluxFAB>       (m_eblg.getDBL(), 1, ivGhost, fluxFact));
+  m_muIrreg     = RefCountedPtr< LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(m_eblg.getDBL(), 1, ivGhost, bivfFact));
+  m_lambda      = RefCountedPtr< LevelData<EBFluxFAB> >       (new LevelData<EBFluxFAB>       (m_eblg.getDBL(), 1, ivGhost, fluxFact));
+  m_lambdaIrreg = RefCountedPtr< LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(m_eblg.getDBL(), 1, ivGhost, bivfFact));
 
   // Allocate the thermal conductivity on regular and irregular cells.
-  m_bcoTemp     = RefCountedPtr< LevelData<EBFluxFAB> >       (new LevelData<EBFluxFAB>       (m_eblg.getDBL(), 1, 4*IntVect::Unit, fluxFact));
-  m_bcoTempIrreg= RefCountedPtr< LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(m_eblg.getDBL(), 1, 4*IntVect::Unit, bivfFact));
+  m_bcoTemp     = RefCountedPtr< LevelData<EBFluxFAB> >       (new LevelData<EBFluxFAB>       (m_eblg.getDBL(), 1, ivGhost, fluxFact));
+  m_bcoTempIrreg= RefCountedPtr< LevelData<BaseIVFAB<Real> > >(new LevelData<BaseIVFAB<Real> >(m_eblg.getDBL(), 1, ivGhost, bivfFact));
 
   EBAMRCNS* coarPtr = getCoarserLevel();
   EBAMRCNS* finePtr = getFinerLevel();
@@ -2672,35 +2738,23 @@ levelSetup()
                               m_hasCoarser,
                               m_hasFiner);
 
-      //define fine to coarse redistribution object
-      //for now set to volume weighting
-      if(!s_noEBCF)
-        {
-          CH_TIME("fineToCoar_defs");
-          m_ebFineToCoarRedist.define(m_eblg, coEBLG,
-                                      nRefCrse, m_nComp, 
-                                      m_params.m_redistRad);
-                                   
-          m_ebFineToCoarRedist.setToZero();
-        }
-
       int nvarQuad = 1; //temperature
 
-      NWOEBQuadCFInterp* interpptr = new NWOEBQuadCFInterp(m_eblg.getDBL(),
+      EBQuadCFInterp* interpptr = new EBQuadCFInterp(m_eblg.getDBL(),
                                                            coEBLG.getDBL(),
                                                            m_eblg.getEBISL(),
                                                            coEBLG.getEBISL(),
                                                            coEBLG.getDomain(),
                                                            nRefCrse, nvarQuad,
-                                                           m_dx[0], ivGhost,
+                                                     //m_dx[0], ivGhost,
                                                            (*m_eblg.getCFIVS()));
-      m_quadCFI = RefCountedPtr<NWOEBQuadCFInterp>(interpptr);
+      m_quadCFI = RefCountedPtr<EBQuadCFInterp>(interpptr);
 
       coarPtr->syncWithFineLevel();
     }
   else
     {
-      m_quadCFI = RefCountedPtr<NWOEBQuadCFInterp>();
+      m_quadCFI = RefCountedPtr<EBQuadCFInterp>();
       m_ebLevelGodunov.define(m_eblg.getDBL(),
                               DisjointBoxLayout(),
                               m_eblg.getEBISL(),

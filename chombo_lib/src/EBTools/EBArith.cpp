@@ -5212,6 +5212,7 @@ getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
                        const EBISBox&    a_ebisBox,
                        const int&        a_redistRad)
 {
+  CH_TIME("EBArith::getAllVoFsWithinRadius(inner)");
   a_vofList.clear();
   Box grownBox(a_vof.gridIndex(), a_vof.gridIndex());
   grownBox.grow(a_redistRad);
@@ -5229,6 +5230,7 @@ getAllVoFsWithinRadius(Vector<VolIndex>& a_vofList,
                        const EBISBox&    a_ebisBox,
                        const int&        a_redistRad)
 {
+  CH_TIME("EBArith::getAllVoFsWithinRadius(outer)");
   const ProblemDomain& domain = a_ebisBox.getDomain();
   if (domain.contains(a_vof.gridIndex()))
     {

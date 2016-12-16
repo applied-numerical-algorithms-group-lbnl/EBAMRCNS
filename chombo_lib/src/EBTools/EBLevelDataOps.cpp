@@ -27,6 +27,48 @@
 #include "CH_Timer.H"
 #include "NamespaceHeader.H"
 
+void
+EBLevelDataOps::checkData(const LevelData<EBFluxFAB>&a_data, const string& label)
+{
+  barrier();
+  pout() << "==== checking " << label << " for nans and infs =====" << std::endl;
+  checkForBogusNumbers(a_data);
+  pout() << "===================================================== " << std::endl;
+  barrier();
+  for(int idir = 0; idir < SpaceDim; idir++)
+    {
+      pout() << "Getting maxs and mins for " << label << "in direction " << idir <<std::endl;
+      for(int icomp = 0; icomp < a_data.nComp(); icomp++)
+        {
+          Real maxVal, minVal;
+          getMaxMin(maxVal,minVal,a_data,icomp,idir);
+          pout() << "max value = " << maxVal << " for comp = " << icomp << std::endl;
+          pout() << "min value = " << minVal << " for comp = " << icomp << std::endl;
+        }
+    }
+  pout() << "==================================================================== " << std::endl;
+  barrier();
+}
+
+void
+EBLevelDataOps::checkData(const LevelData<EBCellFAB>&a_data, const string& label)
+{
+  barrier();
+  pout() << "==== checking " << label << " for nans and infs =====" << std::endl;
+  checkForBogusNumbers(a_data);
+  barrier();
+  pout() << "Getting maxs and mins for " << label << std::endl;
+  for(int icomp = 0; icomp < a_data.nComp(); icomp++)
+    {
+      Real maxVal, minVal;
+      getMaxMin(maxVal,minVal,a_data,icomp);
+      pout() << "max value = " << maxVal << " for comp = " << icomp << std::endl;
+      pout() << "min value = " << minVal << " for comp = " << icomp << std::endl;
+    }
+  pout() << "==================================================================== " << std::endl;
+  barrier();
+}
+
 /*****/
 void
 EBLevelDataOps::pruneCoveredBoxes(Vector<Box>&              a_boxes,
@@ -732,6 +774,97 @@ bool EBLevelDataOps::checkNANINF(const LevelData<EBCellFAB>&a_data,
     }
   return dataIsNANINF;
 }
+
+
+bool 
+EBLevelDataOps::checkForBogusNumbers(const LevelData<EBFluxFAB>&a_data)
+{
+  //this function checks for nans and infs
+  bool dataIsNANINF = false;
+  int ncomp = a_data.nComp();
+  DisjointBoxLayout dbl = a_data.disjointBoxLayout();
+  FaceIndex badface;
+  Real badval;
+  int badcomp;
+  for (DataIterator dit=dbl.dataIterator();dit.ok();++dit)
+    {
+      const Box& region = dbl[dit()];
+      IntVectSet ivsBox(region);
+      for(int idir = 0; idir < SpaceDim; idir ++)
+        {
+          const EBFaceFAB& dataEBFAB = a_data[dit()][idir];
+          const EBISBox& ebisBox = dataEBFAB.getEBISBox();
+          for (FaceIterator faceit(ivsBox, ebisBox.getEBGraph(), idir, FaceStop::SurroundingWithBoundary);faceit.ok(); ++faceit)
+            {
+              const FaceIndex& face = faceit();
+              for (int icomp = 0; icomp < ncomp;++icomp)
+                {
+                  Real val = dataEBFAB(face,icomp);
+                  if (std::isnan(val) || std::isinf(val) || Abs(val)>1.e20)
+                    {
+                      badface = face;
+                      badval = val;
+                      badcomp = icomp;
+                      //                      pout() << "      icomp = " << icomp << " face = " << face << " val = " << val << std::endl;
+                      dataIsNANINF = true;
+                      //                      MayDay::Error();
+                    }
+                }
+            }
+        }
+    }
+  if (dataIsNANINF)
+    {
+      pout() << "first bad face = " << badface << endl;
+      pout() << "bad val = "  << badval << " at comp " << badcomp << endl;
+      MayDay::Warning("Found a NaN or Infinity.");
+    }
+  return dataIsNANINF;
+}
+
+
+bool 
+EBLevelDataOps::checkForBogusNumbers(const LevelData<EBCellFAB>&a_data)
+{
+  //this function checks for nans and infs
+  bool dataIsNANINF = false;
+  int ncomp = a_data.nComp();
+  DisjointBoxLayout dbl = a_data.disjointBoxLayout();
+  VolIndex badvof;
+  Real badval;
+  int badcomp;
+  for (DataIterator dit=dbl.dataIterator();dit.ok();++dit)
+    {
+      const EBCellFAB& dataEBFAB = a_data[dit()];
+      const Box& region = dbl[dit()];
+      IntVectSet ivsBox(region);
+      const EBISBox& ebisBox = dataEBFAB.getEBISBox();
+      for (VoFIterator vofit(ivsBox, ebisBox.getEBGraph());vofit.ok(); ++vofit)
+        {
+          const VolIndex& vof = vofit();
+          for (int icomp = 0; icomp < ncomp;++icomp)
+            {
+              Real val = dataEBFAB(vof,icomp);
+              if (std::isnan(val) || std::isinf(val) || Abs(val)>1.e16)
+                {
+                  badvof = vof;
+                  badval = val;
+                  badcomp = icomp;
+                  //                  pout() << "      icomp = " << icomp << " vof = " << vof << " val = " << val << std::endl;
+                  dataIsNANINF = true;
+                  //                  MayDay::Error();
+                }
+            }
+        }
+    }
+  if (dataIsNANINF)
+    {
+      pout() << "first bad vof = "  << badvof << endl;
+      pout() << "bad val = "  << badval << " at comp " << badcomp << endl;
+      MayDay::Warning("Found a NaN or Infinity.");
+    }
+  return dataIsNANINF;
+}
 void EBLevelDataOps::getMaxMin(Real&                       a_maxVal,
                                Real&                       a_minVal,
                                const LevelData<EBCellFAB>& a_data,
@@ -754,6 +887,46 @@ void EBLevelDataOps::getMaxMin(Real&                       a_maxVal,
       for (vofit.reset();vofit.ok(); ++vofit)
         {
           const VolIndex& vof = vofit();
+          const Real& val = dataEBFAB(vof,a_comp);
+          if (a_doAbs)
+            {
+              a_maxVal = Max(a_maxVal,Abs(val));
+              a_minVal = Min(a_minVal,Abs(val));
+            }
+          else
+            {
+              a_maxVal = Max(a_maxVal,val);
+              a_minVal = Min(a_minVal,val);
+            }
+        }
+    }
+  a_minVal = EBLevelDataOps::parallelMin(a_minVal);
+  a_maxVal = EBLevelDataOps::parallelMax(a_maxVal);
+}
+
+void EBLevelDataOps::getMaxMin(Real&                       a_maxVal,
+                               Real&                       a_minVal,
+                               const LevelData<EBFluxFAB>& a_data,
+                               const int&                  a_comp,
+                               const int&                  a_idir,
+                               const bool&                 a_doAbs)
+{
+  CH_TIME("EBLevelDataOps::getMaxMin");
+  //this function gets the max and min (valid) values
+  a_maxVal = -1.e99;
+  a_minVal =  1.e99;
+
+  const DisjointBoxLayout& dbl = a_data.disjointBoxLayout();
+  for (DataIterator dit=a_data.dataIterator();dit.ok();++dit)
+    {
+      const EBFaceFAB& dataEBFAB = a_data[dit()][a_idir];
+      const Box&        dblBox   = dbl.get(dit());
+      const IntVectSet ivsBox(dblBox);
+      const EBISBox& ebisBox = dataEBFAB.getEBISBox();
+      FaceIterator vofit(ivsBox, ebisBox.getEBGraph(), a_idir, FaceStop::SurroundingWithBoundary);
+      for (vofit.reset();vofit.ok(); ++vofit)
+        {
+          const FaceIndex& vof = vofit();
           const Real& val = dataEBFAB(vof,a_comp);
           if (a_doAbs)
             {

@@ -42,7 +42,7 @@ public:
   GeometryShop(const BaseIF& a_localGeom,
                int           a_verbosity,
                RealVect      a_vectDx,
-               Real          a_thrshdVoF = 0.0);
+               Real          a_thrshdVoF = 1.0e-16);
 
   ///
   ~GeometryShop();
@@ -111,6 +111,7 @@ public:
                            RealVect&            a_bndryCentroid,
                            Vector<RealVect>     a_loFaceCentroid[SpaceDim],
                            Vector<RealVect>     a_hiFaceCentroid[SpaceDim],
+                           const BaseFab<int>&  a_regIrregCovered,
                            const IntVectSet&    a_ivsIrreg,
                            const VolIndex&      a_vof,
                            const ProblemDomain& a_domain,
@@ -118,6 +119,12 @@ public:
                            const Real&          a_dx,
                            const RealVect&      a_vectDx,
                            const IntVect&       a_iv) const;
+
+  void
+  getFullNodeNextToCovered(IrregNode            & a_newNode, 
+                           const BaseFab<int>   & a_regIrregCovered,
+                           const IntVect        & a_iv,
+                           const ProblemDomain  & a_domain) const;
 
   int m_phase;
 

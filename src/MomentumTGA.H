@@ -26,7 +26,7 @@
 #include "ProblemDomain.H"
 #include "BaseLevelTGA.H"
 
-#include "NWOEBViscousTensorOp.H"
+#include "EBViscousTensorOp.H"
 #include "NamespaceHeader.H"
 
 //! Momentum TGA adds another function to EBLevelTGA 
@@ -61,10 +61,10 @@ public:
                              const LevelData<EBCellFAB>& a_gradU,
                              int a_level)
   {
-    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
+    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumTGA::unrecognized operator (i need NWOEBVTO)");
+        MayDay::Error("MomentumTGA::unrecognized operator (i need EBVTO)");
       }
     
     //flux gets multiplied by beta deep in the bowels here.
@@ -78,10 +78,10 @@ public:
                          const LevelData<EBCellFAB>* a_veloCoar,
                          int a_level)
   {
-    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
+    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumTGA::unrecognized operator (i need NWOEBVTO)");
+        MayDay::Error("MomentumTGA::unrecognized operator (i need EBVTO)");
       }
 
     //flux gets multiplied by beta deep in the bowels here.
@@ -123,10 +123,10 @@ public:
                              const LevelData<EBCellFAB>& a_gradU,
                              int a_level)
   {
-    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
+    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumCrankNicolson::unrecognized operator (i need NWOEBVTO)");
+        MayDay::Error("MomentumCrankNicolson::unrecognized operator (i need EBVTO)");
       }
 
     resetSolverAlphaAndBeta(1.0, 1.0);
@@ -139,10 +139,10 @@ public:
                          const LevelData<EBCellFAB>* a_veloCoar,
                          int a_level)
   {
-    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
+    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumCrankNicolson::unrecognized operator (i need NWOEBVTO)");
+        MayDay::Error("MomentumCrankNicolson::unrecognized operator (i need EBVTO)");
       }
 
     resetSolverAlphaAndBeta(0.0, 1.0);
@@ -184,10 +184,10 @@ public:
                              const LevelData<EBCellFAB>& a_gradU,
                              int a_level)
   {
-    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
+    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumBackwardEuler::unrecognized operator (i need NWOEBVTO)");
+        MayDay::Error("MomentumBackwardEuler::unrecognized operator (i need EBVTO)");
       }
 
     resetSolverAlphaAndBeta(1.0, 1.0);
@@ -200,10 +200,10 @@ public:
                          const LevelData<EBCellFAB>* a_veloCoar,
                          int a_level)
   {
-    NWOEBViscousTensorOp* ebvto = dynamic_cast<NWOEBViscousTensorOp*>(m_ops[a_level]);
+    EBViscousTensorOp* ebvto = dynamic_cast<EBViscousTensorOp*>(m_ops[a_level]);
     if(ebvto == NULL)
       {
-        MayDay::Error("MomentumBackwardEuler::unrecognized operator (i need NWOEBVTO)");
+        MayDay::Error("MomentumBackwardEuler::unrecognized operator (i need  EBVTO)");
       }
 
     resetSolverAlphaAndBeta(0.0, 1.0);

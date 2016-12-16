@@ -26,8 +26,19 @@ using std::cerr;
 using std::endl;
 #include "EBFaceFAB.H"
 #include <iomanip>
+#include "EBLevelDataOps.H"
 #include "NamespaceHeader.H"
 IntVect EBDebugPoint::s_ivd = IntVect::Zero;
+
+void checkLDFlux(const LevelData<EBFluxFAB>* a_flux)
+{
+  EBLevelDataOps::checkData(*a_flux, "flux data");
+}
+
+void checkLDCell(const LevelData<EBCellFAB>* a_flux)
+{
+  EBLevelDataOps::checkData(*a_flux, "cell data");
+}
 
 void printMaxMinEBFlux(EBFluxFAB* a_data)
 {

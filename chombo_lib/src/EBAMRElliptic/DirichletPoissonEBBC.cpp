@@ -187,7 +187,7 @@ void DirichletPoissonEBBC::applyEBFluxPoint(const VolIndex&               a_vof,
   const VolIndex& vof = a_vof;
   if (m_dataBased)
     {
-      value = (*m_data)[a_dit](vof, 0);
+      value = (*m_data)[a_dit](vof, s_velComp);
     }
   else if (m_isFunction)
     {

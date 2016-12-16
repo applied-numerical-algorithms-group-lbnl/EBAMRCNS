@@ -1901,7 +1901,7 @@ applyCFBCs(LevelData<EBCellFAB>&             a_phi,
           CH_START(t3);
           Interval interv(0,0);
           m_quadCFIWithCoar->interpolate(a_phi, *a_phiCoar, interv);
-
+          //          dumpEBLevelGhost(&a_phi);
           CH_STOP(t3);
 
         }

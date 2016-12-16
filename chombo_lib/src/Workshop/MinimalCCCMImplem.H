@@ -292,8 +292,8 @@ template <int dim> Vector<Real> MinimalCCCM<dim>::computeRhs(LSProblem<dim> & a_
                                                                            m_cutCellMoments.m_IFData.m_cellCenterCoord,
                                                                            idir);
 
-          Real loFactor = ::POW(loSideValue,exponent);
-          Real hiFactor = ::POW(hiSideValue,exponent);
+          Real loFactor = POW(loSideValue,exponent);
+          Real hiFactor = POW(hiSideValue,exponent);
 
           rhs[(dim*jth) + idir] = hiMom*hiFactor - loMom*loFactor;
 

@@ -383,6 +383,8 @@ doIrregularUpdate(LevelData<EBCellFAB>&         a_divergeF,
 {
   //now do the irregular update and the max wave speed
   int ibox = 0;
+  IntVect ivdebug(D_DECL(44,142,0));
+
   Interval consInterv(0, m_nCons-1);
   Interval fluxInterv(0, m_nFlux-1);
   for (DataIterator dit = m_thisGrids.dataIterator(); dit.ok(); ++dit, ibox++)
@@ -396,6 +398,11 @@ doIrregularUpdate(LevelData<EBCellFAB>&         a_divergeF,
           EBCellFAB& consState = a_cons[dit()];
           BaseIVFAB<Real>& redMass = a_massDiff[dit()];
 
+        int istop = 0;
+        if(cellBox.contains(ivdebug))
+          {
+            istop = 1;
+          }
           m_ebPatchGodunov->setValidBox(cellBox, ebisBox, cfivs, a_time, a_dt);
           //begin debug
           //int here = 0;

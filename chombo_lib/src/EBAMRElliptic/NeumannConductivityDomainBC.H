@@ -112,7 +112,6 @@ public:
   }
 private:
 
-  Real m_value;
 
 };
 

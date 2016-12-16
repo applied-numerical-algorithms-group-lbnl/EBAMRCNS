@@ -57,6 +57,8 @@ public:
   {
   }
 
+  static bool checkForBogusNumbers(const LevelData<EBFluxFAB> & a_data);
+  static bool checkForBogusNumbers(const LevelData<EBCellFAB> & a_data);
 
   ///
   /**
@@ -72,6 +74,10 @@ public:
                                 int isrc, int idst, int inco,
                                 bool a_interpolateToCentroid);
 
+
+  static void  checkData(const LevelData<EBCellFAB>&a_data, const string& label);
+
+  static void  checkData(const LevelData<EBFluxFAB>&a_data, const string& label);
 
   ///
   /**
@@ -219,6 +225,14 @@ public:
                         Real&                       a_minVal,
                         const LevelData<EBCellFAB>& a_data,
                         const int&                  a_comp,
+                        const bool&                 a_doAbs=false);
+
+  ///
+  static void getMaxMin(Real&                       a_maxVal,
+                        Real&                       a_minVal,
+                        const LevelData<EBFluxFAB>& a_data,
+                        const int&                  a_comp,
+                        const int&                  a_idir,
                         const bool&                 a_doAbs=false);
   ///
   /**

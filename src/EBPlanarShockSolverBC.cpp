@@ -22,7 +22,6 @@
 #include "VoFIterator.H"
 #include "ParmParse.H"
 #include "EBPlanarShockF_F.H"
-#include "SlipWallViscousTensorDomainBC.H"
 
 #include "NamespaceHeader.H"
 

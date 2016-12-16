@@ -1237,30 +1237,6 @@ primNames()
 }
 
 /******/
-Vector<string>
-EBPatchPolytropic::
-primNamesNoLog()
-{
-  Vector<string> retval;
-
-  retval.push_back("density");
-  retval.push_back("x-velocity");
-  retval.push_back("y-velocity");
-
-#if CH_SPACEDIM==3
-  retval.push_back("z-velocity");
-#endif
-
-  retval.push_back("pressure");
-  retval.push_back("entropy");
-  retval.push_back("internal_energy");
-  retval.push_back("cv_temperature");
-  retval.push_back("soundspeed");
-
-
-  return retval;
-}
-/******/
 int
 EBPatchPolytropic::
 numPrimitives() const

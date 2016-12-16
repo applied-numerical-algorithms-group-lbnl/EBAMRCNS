@@ -46,6 +46,8 @@ void printMaxMinEBFlux(EBFluxFAB* a_data);
 
 void printMaxMinEBFace(EBFaceFAB* a_data);
 
+void checkLDFlux(const LevelData<EBFluxFAB>* a_flux);
+void checkLDCell(const LevelData<EBCellFAB>* a_flux);
 ///
 void printMaxMinEBCF(EBCellFAB* a_data);
 
