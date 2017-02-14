@@ -196,13 +196,13 @@ BaseEBFaceFAB<T>::define(const EBISBox&  a_ebisBox,
 
   m_ebisBox = a_ebisBox;
   m_region =  a_region;
-  // GHM don't mask region
-  //  m_region &= a_ebisBox.getDomain().domainBox();
+  // GHM don't mask region---kinda have to
+  m_region &= a_ebisBox.getDomain().domainBox();
   CH_assert(!m_region.isEmpty());
 
   m_nComp = a_nComp;
   m_iDir = a_iDir;
-  m_regionFace= surroundingNodes(m_region, a_iDir);
+  m_regionFace= surroundingNodes(a_region, a_iDir);
   Box grownRegion = m_region;
   grownRegion.grow(a_iDir, 1);
   // GHM don't mask region
