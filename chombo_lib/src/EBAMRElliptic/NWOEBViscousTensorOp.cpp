@@ -972,14 +972,16 @@ defineStencils()
 
           const EBISBox& ebisBox = m_eblg.getEBISL()[datind];
           VoFIterator &  vofit = m_vofIterIrreg[datind];
-          const Vector<VolIndex>& vofvec = vofit.getVector();
+          const Vector<VolIndex>& constvofvec = vofit.getVector();
+          Vector<VolIndex>& vofvec = (Vector<VolIndex>&)(constvofvec);
+          Vector<VoFStencil>      stenvec(vofvec.size());
           // cast from VolIndex to BaseIndex
           Vector<RefCountedPtr<BaseIndex> >    dstVoF(vofvec.size());
           Vector<RefCountedPtr<BaseStencil> > stencil(vofvec.size());
           for(int ivec = 0; ivec < vofvec.size(); ivec++)
             {
               const VolIndex& vof = vofvec[ivec];
-              VoFStencil vofsten;
+              VoFStencil& vofsten = stenvec[ivec];
               getVoFStencil(vofsten, vof, datind, ivar);
               if (fluxStencil != NULL)
                 {
@@ -995,8 +997,10 @@ defineStencils()
                       fluxStencilPt *= factor;
                     }
                 }
-              dstVoF[ivec]  = RefCountedPtr<BaseIndex  >(new  VolIndex(vof));
-              stencil[ivec] = RefCountedPtr<BaseStencil>(new VoFStencil(vofsten));
+              dstVoF[ivec]  = RefCountedPtr<BaseIndex  >(static_cast<BaseIndex*>  (&vofvec[ivec]));
+              stencil[ivec] = RefCountedPtr<BaseStencil>(static_cast<BaseStencil*>(&stenvec[ivec]));
+              dstVoF[ivec] .neverDelete();
+              stencil[ivec].neverDelete();
 
               Real diagWeight = EBArith::getDiagWeight(vofsten, vof, ivar);
               m_betaDiagWeight[datind](vof, ivar) = diagWeight;
