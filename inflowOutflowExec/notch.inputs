@@ -70,7 +70,7 @@ chk_prefix = chk
 use_fourth_order_slopes = 1
 use_flattening = 1
 use_art_visc   = 1
-
+no_slip_start = 0.1
 #########eb specific stuff#############
 
 ##redistribution radius
@@ -110,7 +110,7 @@ shock_center = 6.0e-4
 shock_normal = 0
 start_dirichlet = 7.0e-4
 
-which_geom = 20
+which_geom = 27
 #which_geom = 0
 num_poly = 3
 #initial wall  (all these polys are done as fractions of the domain)

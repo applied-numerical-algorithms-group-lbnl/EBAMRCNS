@@ -3,7 +3,7 @@ USE_EB = TRUE
 ebase = navierDriver
 
 #these you can change
-DIM=3
+DIM=2
 #turns on or off symbol table
 DEBUG=FALSE 
 #optimization can be TRUE, FALSE or HIGH

@@ -917,8 +917,76 @@ godunovGeometry(Box& a_coarsestDomain,
           EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
           ebMaxSize = 1024;
           ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
-
         }
+          else if (whichgeom == 27)
+          {
+            pout() << "polygon collection" << endl;
+            bool insideRegular = false;
+
+            // Data for polygons making up nozzle
+            Vector<Vector<RealVect> > polygons;
+
+
+            // For building each polygon
+
+            int num_poly;
+            RealVect translation;
+
+            for(int idir = 0; idir < SpaceDim; idir++)
+            {
+              translation[idir] = 0.5*n_cell[idir]*fineDx[idir];
+            }
+            Real scale = finestDomain.size(0)*fineDx[0];
+            pp.get("num_poly", num_poly);
+            // Nothing initially
+            polygons.resize(num_poly);
+            pout() << "num poly = " << num_poly << endl;
+            for(int ipoly = 0; ipoly < num_poly; ipoly++)
+            {
+              string nptsstr = "poly_" + convertIntGG(ipoly) + "_num_pts";
+              int num_pts;
+              pp.get(nptsstr.c_str(), num_pts);
+              Vector<RealVect> polygon(num_pts);
+              for(int ipt = 0; ipt < num_pts; ipt++)
+              {
+                RealVect point(RealVect::Zero);
+                string    pointstr = "poly_" + convertIntGG(ipoly) + "_point_" + convertIntGG(ipt);
+                pp.getarr(pointstr.c_str(), ParmParse::ppDouble, point.dataPtr(), 0, SpaceDim);
+                //now scale by the size of the domain
+                point *= scale;
+                polygon[ipt] = point;
+              }
+      
+              pout() << "scaled poly" << ipoly << " = " << endl;
+              for(int ipt = 0; ipt < num_pts; ipt++)
+              {
+                pout() << polygon[ipt] << " ";
+              }
+              pout() << endl;
+              polygons[ipoly] = polygon;
+            }
+
+  
+            // Make the vector of (convex) polygons (vectors of points) into a union
+            // of convex polygons, each made from the intersection of a set of half
+            // planes/spaces - all represented by implicit functions.
+            UnionIF* crossSection = makeCrossSection(polygons);
+            //SmoothUnion* crossSection = makeSmoothCrossSection(polygons, fineDx[0]);
+
+            BaseIF* retval;
+            // In 2D use "as is"
+
+            // Complement if necessary
+            ComplementIF insideOut(*crossSection,!insideRegular);
+            retval = insideOut.newImplicitFunction();
+          
+            GeometryShop workshop(*retval,0, fineDx);
+
+            // This generates the new EBIS
+            EBIndexSpace* ebisPtr = Chombo_EBIS::instance();
+            ebMaxSize = 1024;
+            ebisPtr->define(finestDomain, origin, fineDx[0], workshop, ebMaxSize, ebMaxCoarsen);
+          }
       else
         {
           //bogus which_geom
@@ -928,6 +996,7 @@ godunovGeometry(Box& a_coarsestDomain,
         }
 
     }
+
   else
     {
       std::string ebis_file;
