@@ -2010,36 +2010,11 @@ tagCells(IntVectSet& a_tags)
   if(tagOnEnergy)
     densityIndex = CENG;
 
-  Interval intervDensity(densityIndex, densityIndex);
+  
   EBCellFactory factory(m_eblg.getEBISL());
-  int nCons = m_ebPatchGodunov->numConserved();
-  LevelData<EBCellFAB> consTemp(m_eblg.getDBL(), nCons, IntVect::Unit, factory);
-  Interval consInterv(0, nCons-1);
-  m_stateNew.copyTo(consInterv, consTemp, consInterv);
-  if (m_hasCoarser)
-    {
-      const EBAMRCNS* coarCNS = getCoarserLevel();
-      int refRatCrse = coarCNS->refRatio();
-      int nghost = 1;
-      EBPWLFillPatch patcher(m_eblg.getDBL(),
-                             coarCNS->m_eblg.getDBL(),
-                             m_eblg.getEBISL(),
-                             coarCNS->m_eblg.getEBISL(),
-                             coarCNS->m_eblg.getDomain().domainBox(),
-                             refRatCrse, m_nComp, nghost);
-
-      Real coarTimeOld = 0.0;
-      Real coarTimeNew = 1.0;
-      Real fineTime    = 0.0;
-      patcher.interpolate(consTemp,
-                          coarCNS->m_stateOld,
-                          coarCNS->m_stateNew,
-                          coarTimeOld,
-                          coarTimeNew,
-                          fineTime,
-                          intervDensity);
-    }
-  consTemp.exchange(intervDensity);
+  LevelData<EBCellFAB> gradRho(m_eblg.getDBL(), SpaceDim, IntVect::Zero, factory);
+  //get undivided difference of density (or energy)
+  getGradientOfScalar(gradRho, densityIndex, false);
 
   // coefficient interpolation requires more work if this is not true
   s_noEBCF = true;
@@ -2058,101 +2033,15 @@ tagCells(IntVectSet& a_tags)
       pout() << "tagging cells at inflow" << endl;
     }
 
-  // Compute undivided gradient
   for (DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
     {
       const Box& b = m_eblg.getDBL().get(dit());
       const EBISBox& ebisBox = m_eblg.getEBISL()[dit()];
-      EBCellFAB gradFab(ebisBox, b, SpaceDim);
-      const EBCellFAB& stateFab = consTemp[dit()];
-      BaseFab<Real>& regGradFab = gradFab.getSingleValuedFAB();
-      const BaseFab<Real>& regStateFab = stateFab.getSingleValuedFAB();
-
-      for (int idir = 0; idir < SpaceDim; ++idir)
-        {
-          const Box bCenter = b & grow(m_eblg.getDomain(),-BASISV(idir));
-          const Box bLo     = b & adjCellLo(bCenter,idir);
-          const int hasLo = ! bLo.isEmpty();
-          const Box bHi     = b & adjCellHi(bCenter,idir);
-          const int hasHi = ! bHi.isEmpty();
-
-          FORT_GETRELATIVEGRAD(CHF_FRA1(regGradFab,idir),
-                               CHF_CONST_FRA1(regStateFab,densityIndex),
-                               CHF_CONST_INT(idir),
-                               CHF_BOX(bLo),
-                               CHF_CONST_INT(hasLo),
-                               CHF_BOX(bHi),
-                               CHF_CONST_INT(hasHi),
-                               CHF_BOX(bCenter));
-
-          //do one-sided diffs where necessary at irregular cells.
-          IntVectSet ivsIrreg = ebisBox.getIrregIVS(b);
-          for(VoFIterator vofit(ivsIrreg, ebisBox.getEBGraph());
-              vofit.ok(); ++vofit)
-            {
-              const VolIndex& vof = vofit();
-              const IntVect&  iv = vof.gridIndex();
-              //one-sided diffs on domain bndry
-              bool onLeftDomain = iv[idir] == m_eblg.getDomain().domainBox().smallEnd(idir);
-              bool onRighDomain = iv[idir] == m_eblg.getDomain().domainBox().bigEnd(idir);
-              bool hasFacesLeft = (ebisBox.numFaces(vof, idir, Side::Lo) > 0) && !onLeftDomain;
-              bool hasFacesRigh = (ebisBox.numFaces(vof, idir, Side::Hi) > 0) && !onRighDomain;
-
-              Real valCent = stateFab(vof, densityIndex);
-              Real dpl = 0.;
-              Real dpr = 0.;
-              Real dpc = 0.;
-
-              //compute one-sided diffs where you have them
-              if(hasFacesLeft)
-                {
-                  Vector<FaceIndex> facesLeft =
-                    ebisBox.getFaces(vof, idir, Side::Lo);
-                  Real valLeft = 0.0;
-                  for(int iface = 0; iface <facesLeft.size(); iface++)
-                    {
-                      VolIndex vofLeft = facesLeft[iface].getVoF(Side::Lo);
-                      valLeft += stateFab(vofLeft, densityIndex);
-                    }
-                  valLeft /= Real(facesLeft.size());
-                  dpl = valCent - valLeft;
-                }
-              if(hasFacesRigh)
-                {
-                  Vector<FaceIndex> facesRigh =
-                    ebisBox.getFaces(vof, idir, Side::Hi);
-                  Real valRigh = 0.0;
-                  for(int iface = 0; iface <facesRigh.size(); iface++)
-                    {
-                      VolIndex vofRigh = facesRigh[iface].getVoF(Side::Hi);
-                      valRigh += stateFab(vofRigh, densityIndex);
-                    }
-                  valRigh /= Real(facesRigh.size());
-                  dpr = valRigh - valCent;
-                }
-              if(hasFacesLeft && hasFacesRigh)
-                {
-                  dpc = 0.5*(dpl+dpr);
-                }
-              else if(!hasFacesLeft && !hasFacesRigh)
-                {
-                  dpc = 0.0;
-                }
-              else if(hasFacesLeft && !hasFacesRigh)
-                {
-                  dpc = dpl;
-                }
-              else if(hasFacesRigh && !hasFacesLeft)
-                {
-                  dpc = dpr;
-                }
-
-              gradFab(vof, idir) = dpc/valCent;
-            }
-        }
+      const EBCellFAB& gradFab = gradRho[dit()];
 
       EBCellFAB gradMagFab(ebisBox, b, 1);
-      BaseFab<Real>& regGradMagFab = gradMagFab.getSingleValuedFAB();
+      BaseFab<Real>&    regGradMagFab = gradMagFab.getSingleValuedFAB();
+      const BaseFab<Real>& regGradFab    =    gradFab.getSingleValuedFAB();
       FORT_MAGNITUDE(CHF_FRA1(regGradMagFab,0),
                      CHF_CONST_FRA(regGradFab),
                      CHF_BOX(b));
@@ -2174,7 +2063,6 @@ tagCells(IntVectSet& a_tags)
         }
 
       // Tag where gradient exceeds threshold
-
       IntVectSet ivsTot(b);
       for(VoFIterator vofit(ivsTot, ebisBox.getEBGraph());
           vofit.ok(); ++vofit)
@@ -2222,6 +2110,146 @@ tagCells(IntVectSet& a_tags)
   a_tags = localTags;
 }
 //---------------------------------------------------------------------------------------
+
+void 
+EBAMRCNS::
+getGradientOfScalar(LevelData<EBCellFAB>& a_gradDensity,
+                    const int           & a_densityIndex,
+                    bool                  a_divideByDx) const
+{
+  Interval intervDensity(a_densityIndex, a_densityIndex);
+  int nCons = m_ebPatchGodunov->numConserved();
+  EBCellFactory factory(m_eblg.getEBISL());
+  LevelData<EBCellFAB> consTemp(m_eblg.getDBL(), nCons, IntVect::Unit, factory);
+  Interval consInterv(0, nCons-1);
+  m_stateNew.copyTo(consInterv, consTemp, consInterv);
+  if (m_hasCoarser)
+  {
+    const EBAMRCNS* coarCNS = getCoarserLevel();
+    int refRatCrse = coarCNS->refRatio();
+    int nghost = 1;
+    EBPWLFillPatch patcher(m_eblg.getDBL(),
+                           coarCNS->m_eblg.getDBL(),
+                           m_eblg.getEBISL(),
+                           coarCNS->m_eblg.getEBISL(),
+                           coarCNS->m_eblg.getDomain().domainBox(),
+                           refRatCrse, m_nComp, nghost);
+
+    Real coarTimeOld = 0.0;
+    Real coarTimeNew = 1.0;
+    Real fineTime    = 0.0;
+    patcher.interpolate(consTemp,
+                        coarCNS->m_stateOld,
+                        coarCNS->m_stateNew,
+                        coarTimeOld,
+                        coarTimeNew,
+                        fineTime,
+                        intervDensity);
+  }
+  consTemp.exchange(intervDensity);
+
+
+  // gradient
+  for (DataIterator dit = m_eblg.getDBL().dataIterator(); dit.ok(); ++dit)
+  {
+    const Box& b = m_eblg.getDBL().get(dit());
+    const EBISBox& ebisBox = m_eblg.getEBISL()[dit()];
+    EBCellFAB&  gradFab = a_gradDensity[dit()];
+
+    const EBCellFAB& stateFab = consTemp[dit()];
+    BaseFab<Real>& regGradFab = gradFab.getSingleValuedFAB();
+    const BaseFab<Real>& regStateFab = stateFab.getSingleValuedFAB();
+
+    for (int idir = 0; idir < SpaceDim; ++idir)
+    {
+      const Box bCenter = b & grow(m_eblg.getDomain(),-BASISV(idir));
+      const Box bLo     = b & adjCellLo(bCenter,idir);
+      const int hasLo = ! bLo.isEmpty();
+      const Box bHi     = b & adjCellHi(bCenter,idir);
+      const int hasHi = ! bHi.isEmpty();
+
+      FORT_GETRELATIVEGRAD(CHF_FRA1(regGradFab,idir),
+                           CHF_CONST_FRA1(regStateFab, a_densityIndex),
+                           CHF_CONST_INT(idir),
+                           CHF_BOX(bLo),
+                           CHF_CONST_INT(hasLo),
+                           CHF_BOX(bHi),
+                           CHF_CONST_INT(hasHi),
+                           CHF_BOX(bCenter));
+
+      //do one-sided diffs where necessary at irregular cells.
+      IntVectSet ivsIrreg = ebisBox.getIrregIVS(b);
+      for(VoFIterator vofit(ivsIrreg, ebisBox.getEBGraph());
+          vofit.ok(); ++vofit)
+      {
+        const VolIndex& vof = vofit();
+        const IntVect&  iv = vof.gridIndex();
+        //one-sided diffs on domain bndry
+        bool onLeftDomain = iv[idir] == m_eblg.getDomain().domainBox().smallEnd(idir);
+        bool onRighDomain = iv[idir] == m_eblg.getDomain().domainBox().bigEnd(idir);
+        bool hasFacesLeft = (ebisBox.numFaces(vof, idir, Side::Lo) > 0) && !onLeftDomain;
+        bool hasFacesRigh = (ebisBox.numFaces(vof, idir, Side::Hi) > 0) && !onRighDomain;
+
+        Real valCent = stateFab(vof, a_densityIndex);
+        Real dpl = 0.;
+        Real dpr = 0.;
+        Real dpc = 0.;
+
+        //compute one-sided diffs where you have them
+        if(hasFacesLeft)
+        {
+          Vector<FaceIndex> facesLeft =
+            ebisBox.getFaces(vof, idir, Side::Lo);
+          Real valLeft = 0.0;
+          for(int iface = 0; iface <facesLeft.size(); iface++)
+          {
+            VolIndex vofLeft = facesLeft[iface].getVoF(Side::Lo);
+            valLeft += stateFab(vofLeft, a_densityIndex);
+          }
+          valLeft /= Real(facesLeft.size());
+          dpl = valCent - valLeft;
+        }
+        if(hasFacesRigh)
+        {
+          Vector<FaceIndex> facesRigh =
+            ebisBox.getFaces(vof, idir, Side::Hi);
+          Real valRigh = 0.0;
+          for(int iface = 0; iface <facesRigh.size(); iface++)
+          {
+            VolIndex vofRigh = facesRigh[iface].getVoF(Side::Hi);
+            valRigh += stateFab(vofRigh, a_densityIndex);
+          }
+          valRigh /= Real(facesRigh.size());
+          dpr = valRigh - valCent;
+        }
+        if(hasFacesLeft && hasFacesRigh)
+        {
+          dpc = 0.5*(dpl+dpr);
+        }
+        else if(!hasFacesLeft && !hasFacesRigh)
+        {
+          dpc = 0.0;
+        }
+        else if(hasFacesLeft && !hasFacesRigh)
+        {
+          dpc = dpl;
+        }
+        else if(hasFacesRigh && !hasFacesLeft)
+        {
+          dpc = dpr;
+        }
+
+        gradFab(vof, idir) = dpc/valCent;
+      }
+    }
+    if(a_divideByDx)
+    {
+      gradFab *= (1.0/m_dx[0]);
+    }
+  }
+
+  EBLevelDataOps::setCoveredVal(a_gradDensity, 0.0);
+}
 
 //---------------------------------------------------------------------------------------
 void
@@ -3135,13 +3163,13 @@ writePlotHeaderOld(HDF5Handle& a_handle) const
   int nCons = m_ebPatchGodunov->numConserved();
   int nPrim = m_ebPatchGodunov->numPrimitives() ;
   int consAndPrim = nCons + nPrim;
-
-  int indexVolFrac = consAndPrim;
+  int gradIndex  = consAndPrim;
+  int indexVolFrac = gradIndex + SpaceDim;
   int indexAreaFrac = indexVolFrac+1;
   int indexNormal = indexAreaFrac+ 2*SpaceDim;
   int indexDist = indexNormal+SpaceDim;
   int nCompTotal = indexDist+1;
-  CH_assert(nCompTotal == consAndPrim + 3*SpaceDim+2);
+  CH_assert(nCompTotal == consAndPrim + 4*SpaceDim+2);
 
   Vector<string> names(nCompTotal);
 
@@ -3153,6 +3181,12 @@ writePlotHeaderOld(HDF5Handle& a_handle) const
     {
       names[nCons + i] = m_primNames[i];
     }
+
+  names[gradIndex] = string("grad_rho_0");
+  names[gradIndex+1] = string("grad_rho_1");
+#if CH_SPACEDIM==3
+  names[gradIndex+2] = string("grad_rho_2");
+#endif
 
   string volFracName("fraction-0");
   Vector<string> normName(3);
@@ -3233,12 +3267,13 @@ void EBAMRCNS::writePlotLevelOld(HDF5Handle& a_handle) const
   int nCons = m_ebPatchGodunov->numConserved();
   int nPrim = m_ebPatchGodunov->numPrimitives() ;
   int consAndPrim = nCons + nPrim;
-  int indexVolFrac = consAndPrim;
+  int gradDensity = consAndPrim;
+  int indexVolFrac = gradDensity + SpaceDim;
   int indexAreaFrac = indexVolFrac+1;
   int indexNormal = indexAreaFrac+ 2*SpaceDim;
   int indexDist = indexNormal+SpaceDim;
   int nCompTotal = indexDist+1;
-  CH_assert(nCompTotal == consAndPrim + 3*SpaceDim+2);
+  CH_assert(nCompTotal == consAndPrim + 4*SpaceDim+2);
 
   Real coveredVal = -1.2345678e-9;
   Vector<Real> coveredValuesCons(nCons, coveredVal);
@@ -3247,6 +3282,11 @@ void EBAMRCNS::writePlotLevelOld(HDF5Handle& a_handle) const
   Vector<Real> coveredValues;
   coveredValues.append(coveredValuesCons);
   coveredValues.append(coveredValuesPrim);
+
+  EBCellFactory factory(m_eblg.getEBISL());
+  LevelData<EBCellFAB> gradRho(m_eblg.getDBL(), SpaceDim, IntVect::Zero, factory);
+
+  getGradientOfScalar(gradRho, CRHO, true);
 
   LevelData<FArrayBox> fabData(m_eblg.getDBL(), nCompTotal, IntVect::Zero);
 
@@ -3258,6 +3298,7 @@ void EBAMRCNS::writePlotLevelOld(HDF5Handle& a_handle) const
       const EBISBox& ebisbox = m_eblg.getEBISL()[dit()];
       const Box& grid = m_eblg.getDBL().get(dit());
       const EBCellFAB& consfab = m_stateNew[dit()];
+      const EBCellFAB& gradrho = gradRho[dit()];
       EBCellFAB primfab(ebisbox, grid, nPrim);
       //cfivs, time and timestep fake and not used here
       Real faket = 1.0;
@@ -3277,7 +3318,7 @@ void EBAMRCNS::writePlotLevelOld(HDF5Handle& a_handle) const
       // copy regular data
       currentFab.copy(consfab.getSingleValuedFAB(),0,0,nCons);
       currentFab.copy(primfab.getSingleValuedFAB(),0,nCons,nPrim);
-
+      currentFab.copy(gradrho.getSingleValuedFAB(),0,consAndPrim, SpaceDim);
       // set default volume fraction
       currentFab.setVal(1.0,indexVolFrac);
 

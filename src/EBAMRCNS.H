@@ -325,6 +325,10 @@ public:
   virtual void readCheckpointLevel   (HDF5Handle& a_handle);
 #endif
 
+  void getGradientOfScalar(LevelData<EBCellFAB>  &     a_gradDensity,
+                           const int             &     a_densityIndex,
+                           bool a_dividebydx) const;
+
 protected:
   void getProcMap(Vector<int>& a_proc_map, 
                   Vector<Box>& a_m_level_grids) const;
