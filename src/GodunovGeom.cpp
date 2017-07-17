@@ -1277,11 +1277,14 @@ fillSolverBCs(EBAMRCNSParams& a_params, const int& a_iprob)
       else if(a_iprob == 2)
         {
           Real stickyStart = 0;
+          Real stickyEnd = 0;
           pp.get("no_slip_start", stickyStart);
+          pp.get("no_slip_end", stickyEnd);
           int flow_dir = SpaceDim-1;
           pout() << "No slip, no flow velocity EBBC after a fixed point, Neumann before that" << endl;
           pout() << "dirichlet starts at point " << stickyStart << " in the " << flow_dir << " direction" << endl;
-          InflowOutflowViscousTensorEBBCFactory* inoutbc = new InflowOutflowViscousTensorEBBCFactory(stickyStart, flow_dir);
+          pout() << "dirichlet ends   at point " << stickyEnd << " in the " << flow_dir << " direction" << endl;
+          InflowOutflowViscousTensorEBBCFactory* inoutbc = new InflowOutflowViscousTensorEBBCFactory(stickyStart, stickyEnd, flow_dir);
           //v        NeumannViscousTensorEBBCFactory* inoutbc = new NeumannViscousTensorEBBCFactory();
           //          inoutbc->setValue(0.);
 

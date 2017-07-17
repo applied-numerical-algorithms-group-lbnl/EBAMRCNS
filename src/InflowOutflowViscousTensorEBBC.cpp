@@ -30,6 +30,7 @@ InflowOutflowViscousTensorEBBC()
 
 InflowOutflowViscousTensorEBBC::
 InflowOutflowViscousTensorEBBC(const Real& a_dirichletStart,
+                               const Real& a_dirichletEnd,
                                const int & a_flowDir,
                                const ProblemDomain& a_domain,
                                const EBISLayout&    a_layout,
@@ -37,6 +38,7 @@ InflowOutflowViscousTensorEBBC(const Real& a_dirichletStart,
   DirichletViscousTensorEBBC(a_domain, a_layout, a_dx, &IntVect::Zero, &IntVect::Zero)
 {
   m_dirichletStart = a_dirichletStart;
+  m_dirichletEnd   = a_dirichletEnd;
   m_flowDir = a_flowDir;
 
   //this is to set the dirichlet bits correctly for when I use them
@@ -79,7 +81,7 @@ define(const LayoutData<IntVectSet>& a_cfivs,
           RealVect point  = EBArith::getVofLocation(vof, m_dx, RealVect::Zero);
           point += bdCent;
 
-          bool sticky = (point[m_flowDir] > m_dirichletStart);
+          bool sticky = (point[m_flowDir] > m_dirichletStart) && (point[m_flowDir] < m_dirichletEnd);
           if(!sticky)
             {
               for (int ivar = 0; ivar < SpaceDim; ivar++)

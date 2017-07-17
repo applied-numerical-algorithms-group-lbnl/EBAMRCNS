@@ -1,6 +1,6 @@
 variable_transport_coeffs = true
 inflow_temperature = 300.
-interior_temperature = 1500.
+interior_temperature = 300.
 interior_pressure = 1.0e5
 inflow_pressure = 1.0e5
 inflow_mach = 0.8
@@ -10,8 +10,8 @@ inflow_mach = 0.8
 
 #rough approximation to air properties
 reference_temperature     = 300.
-mu_viscosity         = 4.77e-5
-lambda_viscosity     = -6.36e-5
+mu_viscosity         = 4.77e-3
+lambda_viscosity     = -6.36e-3
 thermal_conductivity = 4.054e-2
 gamma = 1.4
 load_balance_type = 2
@@ -27,7 +27,7 @@ initial_cfl = 0.01
 verbosity = 3
 #max_step = 0
 #max_step = 20
-max_step = 1500
+max_step = 5000
 #max_step = 0
 #max_step = 77
 #max_step = 200
@@ -47,7 +47,7 @@ outflow_bc = true
 
 use_subcycling = true
 # Grid stuff
-max_level = 3
+max_level = 2
 
 #coarsest grid size
 n_cell =  128 128 128
@@ -60,7 +60,7 @@ max_grid_size = 32
 fill_ratio = 0.75
 
 ###file output stuff
-checkpoint_interval = 500
+checkpoint_interval = 50
 plot_interval = 50
 #plot_interval = 40
 plot_prefix  = plt
@@ -70,7 +70,8 @@ chk_prefix = chk
 use_fourth_order_slopes = 1
 use_flattening = 1
 use_art_visc   = 1
-no_slip_start = 0.1
+no_slip_start = 0.01
+no_slip_end = 0.04
 #########eb specific stuff#############
 
 ##redistribution radius
@@ -86,7 +87,7 @@ ebvto_do_lazy_relax = true
  amrmultigrid.tolerance = 1.0e-15
  amrmultigrid.max_iter = 100
  amrmultigrid.verbosity = 3
- slip_boundaries = false
+ slip_boundaries = true
  tag_hi_and_lo = true	
  tag_all_irregular = true
  use_air_coefficients = false
@@ -108,7 +109,6 @@ shock_mach = 2.78
 #shock_mach = 7.1
 shock_center = 6.0e-4
 shock_normal = 0
-start_dirichlet = 7.0e-4
 
 which_geom = 27
 #which_geom = 0

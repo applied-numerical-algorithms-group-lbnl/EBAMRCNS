@@ -35,6 +35,7 @@ public:
   InflowOutflowViscousTensorEBBC();
 
   InflowOutflowViscousTensorEBBC(const Real & a_dirichletStart,
+                                 const Real & a_dirichletEnd,
                                  const int&   a_flowDir,
                                  const ProblemDomain& a_domain,
                                  const EBISLayout&    a_layout,
@@ -67,6 +68,7 @@ public:
 protected:
 
   Real m_dirichletStart;
+  Real m_dirichletEnd;
   int  m_flowDir;
 
 };
@@ -81,9 +83,11 @@ public:
   /**
    */
   InflowOutflowViscousTensorEBBCFactory(const Real & a_dirichletStart,
+                                        const Real & a_dirichletEnd,
                                         const int&   a_flowDir)
   {
     m_dirichletStart = a_dirichletStart;
+    m_dirichletEnd   = a_dirichletEnd;
     m_flowDir        = a_flowDir;
   }
 
@@ -105,13 +109,14 @@ public:
 
   {
     CH_TIME("InflowOutflowViscousTensorEBBC::create");
-    InflowOutflowViscousTensorEBBC* fresh = new InflowOutflowViscousTensorEBBC(m_dirichletStart, m_flowDir,
+    InflowOutflowViscousTensorEBBC* fresh = new InflowOutflowViscousTensorEBBC(m_dirichletStart, m_dirichletEnd, m_flowDir,
                                                                                a_domain,a_layout,a_dx);
     return fresh;
   }
 private:
 
   Real m_dirichletStart;
+  Real m_dirichletEnd;
   int  m_flowDir;
 
 };
