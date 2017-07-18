@@ -70,6 +70,7 @@ chk_prefix = chk
 use_fourth_order_slopes = 1
 use_flattening = 1
 use_art_visc   = 1
+
 no_slip_start = 0.01
 no_slip_end = 0.04
 #########eb specific stuff#############
